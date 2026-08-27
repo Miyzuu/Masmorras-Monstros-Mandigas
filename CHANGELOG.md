@@ -1,5 +1,23 @@
 # Histórico de versões
 
+## V.0.1.3 — 2026-08-27
+
+### Título do commit
+
+`V.0.1.3 — Vida e combate básico contra o Capanga`
+
+### Descrição
+
+- adiciona 100 HP ao Cangaceiro e 60 HP ao Capanga, com barras de vida na interface;
+- substitui a vitória simulada por seleção de **Disparo** ou **Peixeira** e clique no alvo;
+- configura o Rifle com dano 25, alcance ortogonal 7, 90% de acerto e 25% de crítico causando 40;
+- configura a Peixeira com alcance 1, acerto garantido e dano 20;
+- diferencia paredes, que bloqueiam tiros, de rochas, que bloqueiam apenas o movimento;
+- faz o Capanga avançar até 3 casas e atacar adjacente causando 15 de dano;
+- encerra o turno após um ataque válido, processa a resposta inimiga e restaura o movimento na rodada seguinte;
+- reinicia o encontro com vida cheia após derrota e mantém o retorno real após vitória;
+- adiciona testes determinísticos das regras básicas de combate.
+
 ## V.0.1.2 — 2026-08-27
 
 ### Título do commit

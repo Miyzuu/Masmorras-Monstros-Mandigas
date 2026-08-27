@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG tático por turnos em Godot 4,
 ambientado numa fantasia histórico-folclórica brasileira.
 
-**Versão atual:** `V.0.1.2`
+**Versão atual:** `V.0.1.3`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -16,34 +16,37 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - câmera seguindo o personagem e visão geral alternada pela tecla **M**;
 - Capanga parado no início do caminho, ativado por contato físico;
 - fade de 0,5 segundo entre exploração e arena;
-- retorno ao mesmo ponto com remoção do Capanga após a vitória simulada;
-- cena tática anterior preservada como protótipo de combate;
+- retorno ao mesmo ponto com remoção do Capanga após a vitória real;
+- Cangaceiro com 100 HP e Capanga com 60 HP;
+- barra de vida do herói no rodapé e barra inimiga acima do alvo;
+- Disparo com dano 25, alcance ortogonal 7, 90% de acerto e crítico de 40;
+- Peixeira com alcance 1, acerto garantido e dano 20;
+- paredes bloqueando tiros e rochas bloqueando apenas movimento;
+- Capanga avançando até 3 casas e atacando adjacente por 15 de dano;
 - grade de 10×10 casas;
 - tiles lógicos de 32×32 pixels;
 - movimento de até 4 casas por turno;
 - quatro direções ortogonais, sem diagonais;
 - busca de rota que respeita obstáculos;
 - prévia visual das casas alcançáveis e do caminho;
-- encerramento e reinício do turno;
+- seleção de ataque por botão e clique no inimigo;
+- derrota reiniciando o encontro com vida cheia;
 - arte geométrica temporária, sem assets definitivos.
-
-Nenhum valor de vida, dano ou atributo ainda não aprovado foi usado.
 
 ## Como executar
 
 1. Abra o Godot 4.
 2. Importe o arquivo `project.godot` desta pasta.
-3. Execute a cena principal com **F6** ou o projeto com **F5**.
+3. Execute o projeto com **F5** para testar o fluxo completo.
 
 ## Controles
 
 - **Clique esquerdo:** definir ou substituir o destino na exploração.
 - **M:** alternar entre câmera próxima e visão geral do mapa.
-- **Vencer encontro:** botão temporário na arena para validar o retorno.
-- Na cena tática anterior, **Enter** encerra o turno e **R** reinicia o teste.
-
-> O executável do Godot não estava disponível no terminal durante a criação;
-> por isso, a cena precisa ser aberta no editor para a primeira validação real.
+- **Clique em casa verde:** mover na arena.
+- **Disparo/Peixeira + clique no Capanga:** executar um ataque.
+- **Enter:** encerrar o turno sem atacar.
+- **R:** reiniciar o encontro.
 
 ## Versionamento
 

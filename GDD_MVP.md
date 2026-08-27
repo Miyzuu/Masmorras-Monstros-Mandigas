@@ -75,7 +75,8 @@ máximo de 4 em cada atributo durante a criação.
 - Grade quadrada de 10×10 casas.
 - Base gráfica de 32×32 pixels por tile.
 - Movimento somente nas quatro direções ortogonais, sem diagonais.
-- Obstáculos bloqueiam movimento e linha de visão.
+- Obstáculos bloqueiam movimento; somente paredes bloqueiam linha de visão.
+- Disparos atravessam objetos que não sejam paredes.
 - Cada unidade age uma vez por rodada.
 - A ordem é fixa em cada rodada, do maior para o menor valor de Velocidade.
 - Em seu turno, o Cangaceiro pode mover até 4 casas e executar 1 ação.
@@ -89,13 +90,23 @@ máximo de 4 em cada atributo durante a criação.
 - Exige linha de visão.
 - 90% de chance fixa de acerto.
 - 25% de chance básica de crítico.
-- Crítico comum causa 150% do dano-base.
+- Crítico comum causa 150% do dano-base, arredondado para 40 no balanceamento
+  atual.
 
 ### Golpe de Peixeira
 
 - Ataque básico corpo a corpo.
 - Alcance de 1 casa.
 - 100% de chance de acerto.
+
+### Valores do primeiro protótipo de combate
+
+- Cangaceiro: 100 HP.
+- Capanga Encouraçado: 60 HP.
+- Disparo: 25 de dano; crítico causa 40.
+- Peixeira: 20 de dano.
+- Ataque do Capanga: 15 de dano.
+- O ataque válido encerra o turno do Cangaceiro.
 
 ### Lapada Seca
 
@@ -114,8 +125,9 @@ máximo de 4 em cada atributo durante a criação.
 Os inimigos comuns diferem por atributos, ataque básico e comportamento. Eles
 não possuem habilidades especiais no MVP.
 
-- **Capanga Encouraçado:** humano resistente, corpo a corpo; avança em direção
-  ao herói.
+- **Capanga Encouraçado:** humano corpo a corpo; avança até 3 casas em direção
+  ao herói e ataca se terminar adjacente. A resistência especial da armadura
+  ainda não é aplicada no primeiro protótipo.
 - **Lobo-guará corrompido:** criatura veloz, corpo a corpo; persegue o herói. A
   corrupção sobrenatural justifica sua presença na Caatinga.
 - **Rasga-Mortalha:** criatura folclórica de ataque à distância; tenta manter
@@ -166,9 +178,8 @@ não possuem habilidades especiais no MVP.
 Estes itens não alteram o escopo, mas precisam ser decididos antes ou durante o
 protótipo:
 
-- Valores-base de vida, dano, Defesa e Velocidade.
-- Fórmulas exatas dos cinco atributos.
-- Atributos, movimento, alcance e dano de cada inimigo.
+- Fórmulas exatas dos cinco atributos e sua relação com os valores-base atuais.
+- Atributos, movimento, alcance e dano dos demais inimigos.
 - Dano da investida e vida da Cabra-Cabriola.
 - Quantidades de ouro, bônus e regra de arredondamento da perda de 25%.
 - Consumo ou reinício da carga da Lapada Seca depois do uso.
