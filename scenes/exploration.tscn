@@ -67,3 +67,13 @@ theme_override_font_sizes/font_size = 13
 text = "M  —  VISÃO GERAL\nCLIQUE  —  NOVO DESTINO"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="Fade" type="ColorRect" parent="FadeLayer"]
+offset_right = 768.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+modulate = Color(1, 1, 1, 0)

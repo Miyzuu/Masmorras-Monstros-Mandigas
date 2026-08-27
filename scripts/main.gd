@@ -7,10 +7,14 @@ const BOARD_SIZE := Vector2i(10, 10)
 const TILE_SIZE := 32
 const BOARD_ORIGIN := Vector2(32.0, 96.0)
 const HERO_START := Vector2i(1, 8)
+const CAPANGA_CELL := Vector2i(8, 1)
 const MOVEMENT_PER_TURN := 4
+const FADE_DURATION := 0.5
+const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
 
-const END_TURN_RECT := Rect2(416.0, 320.0, 288.0, 48.0)
-const RESET_RECT := Rect2(416.0, 384.0, 288.0, 48.0)
+const END_TURN_RECT := Rect2(416.0, 300.0, 288.0, 40.0)
+const RESET_RECT := Rect2(416.0, 348.0, 288.0, 40.0)
+const WIN_RECT := Rect2(416.0, 396.0, 288.0, 40.0)
 
 const COLOR_BACKGROUND := Color("17120d")
 const COLOR_PANEL := Color("281d14")
@@ -24,6 +28,9 @@ const COLOR_ROCK := Color("5e594f")
 const COLOR_ROCK_LIGHT := Color("858073")
 const COLOR_HERO_COAT := Color("94452e")
 const COLOR_HERO_HAT := Color("d1a15b")
+const COLOR_ENEMY_COAT := Color("4f3327")
+const COLOR_ENEMY_ARMOR := Color("6f6654")
+const COLOR_ENEMY_HAT := Color("33231b")
 const COLOR_TEXT := Color("f2dfbd")
 const COLOR_TEXT_DIM := Color("c2a880")
 const COLOR_BUTTON := Color("74482c")
@@ -53,15 +60,24 @@ var preview_path: Array[Vector2i] = []
 var notice := "Clique em uma casa verde para mover."
 var mouse_position := Vector2.ZERO
 var game_version := "V.0.0.0"
+var encounter_transitioning := false
+
+@onready var fade: ColorRect = $FadeLayer/Fade
 
 
 func _ready() -> void:
 	game_version = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
+	fade.modulate.a = 1.0
+	var fade_tween := create_tween()
+	fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
 	_rebuild_reachable()
 	queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if encounter_transitioning:
+		return
+
 	if event is InputEventMouseMotion:
 		mouse_position = event.position
 		_update_hover(event.position)
@@ -77,6 +93,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_end_turn()
 		elif RESET_RECT.has_point(event.position):
 			_reset_prototype()
+		elif WIN_RECT.has_point(event.position):
+			_complete_debug_encounter()
 		else:
 			_try_move_to(_screen_to_cell(event.position))
 		queue_redraw()
@@ -123,6 +141,24 @@ func _reset_prototype() -> void:
 	notice = "Protótipo reiniciado."
 	_rebuild_reachable()
 	_update_hover(mouse_position)
+
+
+func _complete_debug_encounter() -> void:
+	if GameState.active_encounter_id.is_empty():
+		notice = "Entre nesta arena pelo contato com o Capanga."
+		return
+
+	encounter_transitioning = true
+	GameState.complete_active_encounter()
+	notice = "Vitória simulada — retornando à exploração."
+
+	var fade_tween := create_tween()
+	fade_tween.tween_property(fade, "modulate:a", 1.0, FADE_DURATION)
+	fade_tween.tween_callback(_return_to_exploration)
+
+
+func _return_to_exploration() -> void:
+	get_tree().change_scene_to_file(EXPLORATION_SCENE)
 
 
 func _rebuild_reachable() -> void:
@@ -218,6 +254,7 @@ func _draw_board() -> void:
 				_draw_rock(cell_rect)
 
 	_draw_hero(_cell_rect(hero_cell))
+	_draw_capanga(_cell_rect(CAPANGA_CELL))
 
 
 func _draw_rock(cell_rect: Rect2) -> void:
@@ -235,13 +272,21 @@ func _draw_hero(cell_rect: Rect2) -> void:
 	draw_rect(Rect2(cell_rect.position + Vector2(9.0, 3.0), Vector2(14.0, 6.0)), COLOR_HERO_HAT, true)
 
 
+func _draw_capanga(cell_rect: Rect2) -> void:
+	var body_rect := Rect2(cell_rect.position + Vector2(6.0, 8.0), Vector2(20.0, 19.0))
+	draw_rect(body_rect, COLOR_ENEMY_COAT, true)
+	draw_rect(Rect2(cell_rect.position + Vector2(4.0, 13.0), Vector2(24.0, 9.0)), COLOR_ENEMY_ARMOR, true)
+	draw_rect(Rect2(cell_rect.position + Vector2(5.0, 6.0), Vector2(22.0, 5.0)), COLOR_ENEMY_HAT, true)
+	draw_rect(Rect2(cell_rect.position + Vector2(9.0, 2.0), Vector2(14.0, 6.0)), COLOR_ENEMY_HAT, true)
+
+
 func _draw_side_panel() -> void:
 	var font := ThemeDB.fallback_font
 	var panel_rect := Rect2(384.0, 96.0, 352.0, 352.0)
 	draw_rect(panel_rect, COLOR_PANEL, true)
 	draw_rect(panel_rect, COLOR_PANEL_BORDER, false, 2.0)
 
-	draw_string(font, Vector2(416.0, 132.0), "TURNO DO CANGACEIRO", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, COLOR_TEXT)
+	draw_string(font, Vector2(416.0, 132.0), "ENCONTRO: CAPANGA", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, COLOR_TEXT)
 	draw_string(font, Vector2(416.0, 168.0), "Rodada: %d" % round_number, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, COLOR_TEXT)
 	draw_string(
 		font,
@@ -258,6 +303,7 @@ func _draw_side_panel() -> void:
 
 	_draw_button(END_TURN_RECT, "ENCERRAR TURNO  [ENTER]")
 	_draw_button(RESET_RECT, "REINICIAR  [R]")
+	_draw_button(WIN_RECT, "VENCER ENCONTRO  [TESTE]")
 
 
 func _draw_button(rect: Rect2, label: String) -> void:
@@ -267,7 +313,7 @@ func _draw_button(rect: Rect2, label: String) -> void:
 	draw_rect(rect, COLOR_PANEL_BORDER, false, 2.0)
 	draw_string(
 		font,
-		Vector2(rect.position.x, rect.position.y + 30.0),
+		Vector2(rect.position.x, rect.position.y + 26.0),
 		label,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		rect.size.x,

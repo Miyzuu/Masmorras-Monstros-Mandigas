@@ -46,7 +46,7 @@ somente os três tipos fixos definidos neste documento.
   inteiro.
 - Inimigos permanecem parados no mapa.
 - O contato físico com um inimigo inicia o combate.
-- A entrada na arena tática usa um fade curto.
+- A entrada na arena tática usa um fade de 0,5 segundo.
 - Após a vitória, o jogador retorna ao mesmo ponto e o inimigo desaparece.
 - Os três encontros aparecem em ordem fixa ao longo do caminho linear.
 

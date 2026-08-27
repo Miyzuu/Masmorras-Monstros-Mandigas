@@ -18,7 +18,7 @@ func _run() -> void:
 	root.add_child(exploration)
 	await process_frame
 
-	var target_cell := Vector2i(5, 9)
+	var target_cell := Vector2i(3, 10)
 	var target_world: Vector2 = exploration.call("_cell_to_world", target_cell)
 	exploration.call("_set_destination", target_world)
 

@@ -4,3 +4,12 @@
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="Fade" type="ColorRect" parent="FadeLayer"]
+offset_right = 768.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

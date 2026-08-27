@@ -7,6 +7,9 @@ const PLAYER_SPEED := 140.0
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
+const FADE_DURATION := 0.5
+const CONTACT_DISTANCE := 23.0
+const COMBAT_SCENE := "res://scenes/main.tscn"
 
 const COLOR_VOID := Color("17120d")
 const COLOR_GROUND_A := Color("a97945")
@@ -21,12 +24,18 @@ const COLOR_CACTUS := Color("42643d")
 const COLOR_CACTUS_LIGHT := Color("668656")
 const COLOR_PLAYER_COAT := Color("94452e")
 const COLOR_PLAYER_HAT := Color("d1a15b")
+const COLOR_ENEMY_COAT := Color("4f3327")
+const COLOR_ENEMY_ARMOR := Color("6f6654")
+const COLOR_ENEMY_HAT := Color("33231b")
 const COLOR_MAGIC := Color("44d6b3")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
 
 const PLAYER_START := Vector2i(1, 10)
+const CAPANGA_ID := "capanga_01"
+const CAPANGA_CELL := Vector2i(5, 10)
 const ROAD_OBSTACLES = [
-	Vector2i(4, 10),
+	Vector2i(5, 9),
+	Vector2i(5, 11),
 	Vector2i(6, 8),
 	Vector2i(9, 5),
 	Vector2i(12, 3),
@@ -36,6 +45,7 @@ const ROAD_OBSTACLES = [
 @onready var camera: Camera2D = $Camera2D
 @onready var status_label: Label = $Interface/TopPanel/Status
 @onready var version_label: Label = $Interface/Version
+@onready var fade: ColorRect = $FadeLayer/Fade
 
 var astar := AStarGrid2D.new()
 var movement_path := PackedVector2Array()
@@ -45,20 +55,36 @@ var has_destination := false
 var overview_enabled := false
 var camera_transitioning := false
 var camera_tween: Tween
+var capanga_active := true
+var encounter_transitioning := false
 
 
 func _ready() -> void:
 	_setup_pathfinding()
-	player_anchor.position = _cell_to_world(PLAYER_START)
+	var start_position := _cell_to_world(PLAYER_START)
+	var returned_from_combat: bool = GameState.returning_from_combat
+	player_anchor.position = GameState.consume_return_position(start_position)
+	capanga_active = not GameState.is_encounter_defeated(CAPANGA_ID)
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
-	_update_status("Clique no caminho para caminhar.")
+
+	if returned_from_combat:
+		fade.modulate.a = 1.0
+		var return_tween := create_tween()
+		return_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
+		_update_status("Capanga vencido — caminho liberado.")
+		GameState.acknowledge_return()
+	else:
+		fade.modulate.a = 0.0
+		_update_status("Clique no caminho para caminhar.")
+
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
 	_move_player(delta)
+	_check_enemy_contact()
 
 	if not overview_enabled and not camera_transitioning:
 		var follow_weight := 1.0 - exp(-CAMERA_FOLLOW_SPEED * delta)
@@ -66,6 +92,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if encounter_transitioning:
+		return
+
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_M:
 			_toggle_overview()
@@ -156,6 +185,33 @@ func _move_player(delta: float) -> void:
 			_update_status("Destino alcançado.")
 
 	queue_redraw()
+
+
+func _check_enemy_contact() -> void:
+	if not capanga_active or encounter_transitioning:
+		return
+
+	var capanga_position := _cell_to_world(CAPANGA_CELL)
+	if player_anchor.position.distance_to(capanga_position) <= CONTACT_DISTANCE:
+		_begin_encounter()
+
+
+func _begin_encounter() -> void:
+	encounter_transitioning = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	GameState.begin_encounter(CAPANGA_ID, player_anchor.position)
+	_update_status("Contato com o Capanga — iniciando combate...")
+
+	var fade_tween := create_tween()
+	fade_tween.tween_property(fade, "modulate:a", 1.0, FADE_DURATION)
+	fade_tween.tween_callback(_open_combat_scene)
+	queue_redraw()
+
+
+func _open_combat_scene() -> void:
+	get_tree().change_scene_to_file(COMBAT_SCENE)
 
 
 func _toggle_overview() -> void:
@@ -255,6 +311,7 @@ func _draw() -> void:
 	_draw_tiles()
 	_draw_route_preview()
 	_draw_destination()
+	_draw_capanga()
 	_draw_player()
 
 
@@ -324,6 +381,18 @@ func _draw_destination() -> void:
 		return
 	draw_circle(destination_marker, 9.0, Color(0.27, 0.84, 0.70, 0.16))
 	draw_arc(destination_marker, 9.0, 0.0, TAU, 24, COLOR_MAGIC, 2.0, true)
+
+
+func _draw_capanga() -> void:
+	if not capanga_active:
+		return
+
+	var position := _cell_to_world(CAPANGA_CELL)
+	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
+	draw_rect(Rect2(position + Vector2(-8.0, -18.0), Vector2(16.0, 19.0)), COLOR_ENEMY_COAT, true)
+	draw_rect(Rect2(position + Vector2(-10.0, -14.0), Vector2(20.0, 9.0)), COLOR_ENEMY_ARMOR, true)
+	draw_rect(Rect2(position + Vector2(-11.0, -21.0), Vector2(22.0, 5.0)), COLOR_ENEMY_HAT, true)
+	draw_rect(Rect2(position + Vector2(-7.0, -26.0), Vector2(14.0, 6.0)), COLOR_ENEMY_HAT, true)
 
 
 func _draw_player() -> void:

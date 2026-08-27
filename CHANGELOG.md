@@ -1,5 +1,21 @@
 # Histórico de versões
 
+## V.0.1.2 — 2026-08-27
+
+### Título do commit
+
+`V.0.1.2 — Primeiro encontro e transição para combate`
+
+### Descrição
+
+- posiciona um Capanga parado no início do caminho de exploração;
+- inicia o encontro por contato físico com o personagem;
+- adiciona fade de 0,5 segundo na ida e na volta da arena;
+- exibe o Capanga como alvo temporário na arena tática;
+- adiciona o botão temporário **Vencer encontro**;
+- retorna ao mesmo ponto e remove o Capanga após a vitória simulada;
+- preserva o estado do encontro entre as duas cenas e adiciona teste do fluxo.
+
 ## V.0.1.1 — 2026-08-27
 
 ### Título do commit

@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG tático por turnos em Godot 4,
 ambientado numa fantasia histórico-folclórica brasileira.
 
-**Versão atual:** `V.0.1.1`
+**Versão atual:** `V.0.1.2`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -14,6 +14,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - novo clique substitui imediatamente o destino anterior;
 - busca de caminho que contorna terreno bloqueado;
 - câmera seguindo o personagem e visão geral alternada pela tecla **M**;
+- Capanga parado no início do caminho, ativado por contato físico;
+- fade de 0,5 segundo entre exploração e arena;
+- retorno ao mesmo ponto com remoção do Capanga após a vitória simulada;
 - cena tática anterior preservada como protótipo de combate;
 - grade de 10×10 casas;
 - tiles lógicos de 32×32 pixels;
@@ -36,6 +39,7 @@ Nenhum valor de vida, dano ou atributo ainda não aprovado foi usado.
 
 - **Clique esquerdo:** definir ou substituir o destino na exploração.
 - **M:** alternar entre câmera próxima e visão geral do mapa.
+- **Vencer encontro:** botão temporário na arena para validar o retorno.
 - Na cena tática anterior, **Enter** encerra o turno e **R** reinicia o teste.
 
 > O executável do Godot não estava disponível no terminal durante a criação;
