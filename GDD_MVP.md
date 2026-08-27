@@ -10,14 +10,15 @@
 
 ## 1. Conceito
 
-RPG tático por turnos, em visão 2D de cima, ambientado numa fantasia
-histórico-folclórica brasileira. Nesta primeira versão, o jogador controla um
-único Cangaceiro que atravessa três encontros para proteger uma vila e caçar a
-Cabra-Cabriola.
+RPG com exploração isométrica 2D em tempo real e combates táticos por turnos,
+ambientado numa fantasia histórico-folclórica brasileira. Nesta primeira
+versão, o jogador controla um único Cangaceiro que atravessa três encontros
+para proteger uma vila e caçar a Cabra-Cabriola.
 
 ## 2. Estrutura da partida
 
 - Criação do personagem.
+- Um mapa pequeno e linear de exploração em tempo real.
 - Três encontros táticos encadeados.
 - Uma tela narrativa curta antes de cada encontro.
 - Uma tela narrativa final.
@@ -33,7 +34,23 @@ Cabra-Cabriola.
 A quantidade, os tipos e as posições são sorteados dentro dessas faixas, usando
 somente os três tipos fixos definidos neste documento.
 
-## 3. Criação do personagem
+## 3. Exploração
+
+- Um único mapa linear de 16×12 tiles isométricos.
+- Cada tile visual mede 64×32 pixels.
+- Movimento contínuo a 140 pixels por segundo, sem teleporte entre tiles.
+- O jogador clica num ponto caminhável para definir o destino.
+- Um novo clique substitui imediatamente o destino anterior.
+- A câmera acompanha o personagem durante a exploração.
+- A tecla **M** alterna entre a câmera próxima e uma visão afastada do mapa
+  inteiro.
+- Inimigos permanecem parados no mapa.
+- O contato físico com um inimigo inicia o combate.
+- A entrada na arena tática usa um fade curto.
+- Após a vitória, o jogador retorna ao mesmo ponto e o inimigo desaparece.
+- Os três encontros aparecem em ordem fixa ao longo do caminho linear.
+
+## 4. Criação do personagem
 
 ### Identidade e aparência
 
@@ -53,7 +70,7 @@ somente os três tipos fixos definidos neste documento.
 Todos começam em 1. O jogador distribui 5 pontos adicionais, respeitando o
 máximo de 4 em cada atributo durante a criação.
 
-## 4. Campo e turnos
+## 5. Arena, campo e turnos
 
 - Grade quadrada de 10×10 casas.
 - Base gráfica de 32×32 pixels por tile.
@@ -63,7 +80,7 @@ máximo de 4 em cada atributo durante a criação.
 - A ordem é fixa em cada rodada, do maior para o menor valor de Velocidade.
 - Em seu turno, o Cangaceiro pode mover até 4 casas e executar 1 ação.
 
-## 5. Ações do Cangaceiro
+## 6. Ações do Cangaceiro
 
 ### Disparo
 
@@ -92,7 +109,7 @@ máximo de 4 em cada atributo durante a criação.
 - Buffs e efeitos provenientes de itens, feitiços, magias ou poções ficam fora
   do MVP.
 
-## 6. Inimigos comuns
+## 7. Inimigos comuns
 
 Os inimigos comuns diferem por atributos, ataque básico e comportamento. Eles
 não possuem habilidades especiais no MVP.
@@ -104,7 +121,7 @@ não possuem habilidades especiais no MVP.
 - **Rasga-Mortalha:** criatura folclórica de ataque à distância; tenta manter
   distância do herói.
 
-## 7. Chefe: Cabra-Cabriola
+## 8. Chefe: Cabra-Cabriola
 
 - Possui ataque básico e uma investida em linha reta.
 - Usa a investida a cada 3 turnos próprios.
@@ -112,7 +129,7 @@ não possuem habilidades especiais no MVP.
 - O aparo é acionado por clique do mouse ou barra de espaço.
 - Um aparo bem-sucedido apenas anula o dano da investida.
 
-## 8. Vida, derrota e checkpoint
+## 9. Vida, derrota e checkpoint
 
 - Não há recuperação automática de vida após vencer um encontro.
 - Ao ser derrotado, o jogador reinicia o encontro atual com vida cheia.
@@ -120,20 +137,21 @@ não possuem habilidades especiais no MVP.
 - Há checkpoint automático entre os encontros.
 - O checkpoint guarda personagem, vida, ouro e carga acumulada da Lapada Seca.
 
-## 9. Ouro e pontuação
+## 10. Ouro e pontuação
 
 - Cada inimigo eliminado concede ouro automaticamente.
 - Concluir um encontro concede um bônus adicional de ouro.
 - O ouro não pode ser gasto no MVP.
 - O total restante ao concluir a caçada é a pontuação final.
 
-## 10. Direção visual
+## 11. Direção visual
 
-- Pixel art em visão 2D de cima.
+- Pixel art isométrica 2D na exploração.
+- Pixel art em visão 2D de cima na arena tática.
 - Paleta predominantemente terrosa para o Sertão e a Caatinga.
 - Cores vibrantes reservadas aos elementos mágicos e sobrenaturais.
 
-## 11. Fora do MVP
+## 12. Fora do MVP
 
 - Outras classes, regiões e campanhas.
 - Mapa-múndi, exploração livre, navegação e embarcações.
@@ -143,7 +161,7 @@ não possuem habilidades especiais no MVP.
 - Sistema completo de diálogos.
 - Versões para celular, PWA e Windows.
 
-## 12. Pontos ainda não balanceados
+## 13. Pontos ainda não balanceados
 
 Estes itens não alteram o escopo, mas precisam ser decididos antes ou durante o
 protótipo:
