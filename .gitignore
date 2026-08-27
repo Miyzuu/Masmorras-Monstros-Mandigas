@@ -1,0 +1,22 @@
+# Godot 4: cache e arquivos gerados localmente
+.godot/
+
+# Compatibilidade com projetos Godot antigos
+.import/
+export.cfg
+export_presets.cfg
+
+# Traduções importadas
+*.translation
+
+# Godot .NET / Mono
+.mono/
+data_*/
+mono_crash.*.json
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
