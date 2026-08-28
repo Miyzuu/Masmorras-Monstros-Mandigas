@@ -23,6 +23,13 @@ func complete_active_encounter() -> void:
 	returning_from_combat = true
 
 
+func mark_encounter_defeated(encounter_id: String) -> void:
+	if encounter_id.is_empty():
+		return
+
+	defeated_encounters[encounter_id] = true
+
+
 func is_encounter_defeated(encounter_id: String) -> bool:
 	return bool(defeated_encounters.get(encounter_id, false))
 

@@ -7,6 +7,8 @@ script = ExtResource("1_exploration")
 
 [node name="PlayerAnchor" type="Node2D" parent="."]
 
+[node name="CapangaAnchor" type="Node2D" parent="."]
+
 [node name="Camera2D" type="Camera2D" parent="."]
 enabled = true
 
@@ -46,7 +48,7 @@ offset_bottom = 44.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 14
-text = "V.0.1.1"
+text = "V.0.1.4"
 horizontal_alignment = 2
 
 [node name="HintPanel" type="ColorRect" parent="Interface"]
@@ -64,9 +66,87 @@ offset_right = 260.0
 offset_bottom = 49.0
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 13
-text = "M  —  VISÃO GERAL\nCLIQUE  —  NOVO DESTINO"
+text = "M — VISÃO GERAL  •  Q — ARMA\nESPAÇO — APARO  •  CLIQUE — ANDAR"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="CombatHUD" type="ColorRect" parent="Interface"]
+offset_left = 16.0
+offset_top = 438.0
+offset_right = 456.0
+offset_bottom = 496.0
+mouse_filter = 2
+color = Color(0.098, 0.071, 0.047, 0.94)
+
+[node name="HealthBack" type="ColorRect" parent="Interface/CombatHUD"]
+offset_left = 12.0
+offset_top = 9.0
+offset_right = 252.0
+offset_bottom = 29.0
+mouse_filter = 2
+color = Color(0.231, 0.129, 0.106, 1)
+
+[node name="HealthFill" type="ColorRect" parent="Interface/CombatHUD/HealthBack"]
+offset_right = 240.0
+offset_bottom = 20.0
+mouse_filter = 2
+color = Color(0.725, 0.278, 0.196, 1)
+
+[node name="HealthLabel" type="Label" parent="Interface/CombatHUD/HealthBack"]
+offset_right = 240.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
+theme_override_font_sizes/font_size = 13
+text = "VIDA  100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="WeaponLabel" type="Label" parent="Interface/CombatHUD"]
+offset_left = 12.0
+offset_top = 33.0
+offset_right = 424.0
+offset_bottom = 53.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
+theme_override_font_sizes/font_size = 13
+text = "RIFLE  •  BALAS 5 / 5  •  Q PARA TROCAR"
+
+[node name="DamageBorder" type="Control" parent="Interface"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+modulate = Color(1, 1, 1, 0)
+
+[node name="Top" type="ColorRect" parent="Interface/DamageBorder"]
+offset_right = 768.0
+offset_bottom = 8.0
+mouse_filter = 2
+color = Color(0.85, 0.05, 0.02, 1)
+
+[node name="Bottom" type="ColorRect" parent="Interface/DamageBorder"]
+offset_top = 504.0
+offset_right = 768.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0.85, 0.05, 0.02, 1)
+
+[node name="Left" type="ColorRect" parent="Interface/DamageBorder"]
+offset_right = 8.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0.85, 0.05, 0.02, 1)
+
+[node name="Right" type="ColorRect" parent="Interface/DamageBorder"]
+offset_left = 760.0
+offset_right = 768.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0.85, 0.05, 0.02, 1)
 
 [node name="FadeLayer" type="CanvasLayer" parent="."]
 layer = 100

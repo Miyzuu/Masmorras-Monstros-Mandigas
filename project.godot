@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Pindorama Fantástica — Protótipo"
-config/version="V.0.1.3"
+config/version="V.0.1.4"
 run/main_scene="res://scenes/exploration.tscn"
 config/features=PackedStringArray("4.7")
 

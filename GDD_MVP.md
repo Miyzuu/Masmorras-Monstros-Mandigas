@@ -1,6 +1,6 @@
 # Pindorama Fantástica — GDD do MVP
 
-**Status:** escopo mínimo aprovado e congelado
+**Status:** escopo revisado; implementação dividida em versões pequenas
 
 **Plataforma inicial:** navegador em computador
 
@@ -10,29 +10,22 @@
 
 ## 1. Conceito
 
-RPG com exploração isométrica 2D em tempo real e combates táticos por turnos,
-ambientado numa fantasia histórico-folclórica brasileira. Nesta primeira
-versão, o jogador controla um único Cangaceiro que atravessa três encontros
-para proteger uma vila e caçar a Cabra-Cabriola.
+RPG com exploração isométrica 2D, combate em tempo real contra mobs comuns e
+combates táticos por turnos exclusivos para chefes. O jogador controla um
+único Cangaceiro que protege uma vila e entra em uma masmorra para caçar a
+Cabra-Cabriola.
 
 ## 2. Estrutura da partida
 
 - Criação do personagem.
 - Um mapa pequeno e linear de exploração em tempo real.
-- Três encontros táticos encadeados.
-- Uma tela narrativa curta antes de cada encontro.
+- Mobs comuns enfrentados diretamente no mapa, sem troca para a arena tática.
+- Uma entrada separada para a masmorra, com confirmação **Sim/Não**.
+- Primeira masmorra com 2 andares e 2 salas por andar.
+- Caminho linear: mobs, escada, mobs e sala do chefe.
+- Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.
-- Vitória em cada encontro ao eliminar todos os inimigos.
-- Ouro acumulado como pontuação final, sem função de compra no MVP.
-
-### Quantidade de inimigos
-
-1. Primeiro encontro: 2 a 3 inimigos comuns.
-2. Segundo encontro: 3 a 4 inimigos comuns.
-3. Terceiro encontro: Cabra-Cabriola e 1 a 2 inimigos comuns.
-
-A quantidade, os tipos e as posições são sorteados dentro dessas faixas, usando
-somente os três tipos fixos definidos neste documento.
+- Ouro acumulado como pontuação final, sem função de compra na primeira etapa.
 
 ## 3. Exploração
 
@@ -44,11 +37,15 @@ somente os três tipos fixos definidos neste documento.
 - A câmera acompanha o personagem durante a exploração.
 - A tecla **M** alterna entre a câmera próxima e uma visão afastada do mapa
   inteiro.
-- Inimigos permanecem parados no mapa.
-- O contato físico com um inimigo inicia o combate.
-- A entrada na arena tática usa um fade de 0,5 segundo.
-- Após a vitória, o jogador retorna ao mesmo ponto e o inimigo desaparece.
-- Os três encontros aparecem em ordem fixa ao longo do caminho linear.
+- Mobs comuns patrulham, detectam e perseguem o personagem no próprio mapa.
+- O Cangaceiro ataca automaticamente enquanto continua andando.
+- **Q** alterna entre Rifle e Peixeira, com recarga de 0,5 segundo para a troca.
+- O Rifle começa com 5 balas e cada disparo consome uma, inclusive ao errar.
+- Sem munição, o Rifle é bloqueado e o jogador precisa usar **Q**.
+- Ao ser derrotado no mapa comum, o herói retorna ao início com 40% da vida e
+  preserva a munição restante.
+- Ao tocar a entrada da masmorra, o jogo mostra **Sim/Não**; Enter ou Espaço
+  confirmam e Esc cancela.
 
 ## 4. Criação do personagem
 
@@ -70,8 +67,9 @@ somente os três tipos fixos definidos neste documento.
 Todos começam em 1. O jogador distribui 5 pontos adicionais, respeitando o
 máximo de 4 em cada atributo durante a criação.
 
-## 5. Arena, campo e turnos
+## 5. Arena tática dos chefes
 
+- O modo por turnos é usado somente contra chefes de masmorra.
 - Grade quadrada de 10×10 casas.
 - Base gráfica de 32×32 pixels por tile.
 - Movimento somente nas quatro direções ortogonais, sem diagonais.
@@ -86,26 +84,30 @@ máximo de 4 em cada atributo durante a criação.
 ### Disparo
 
 - Ataque básico com rifle.
-- Alcance máximo de 7 casas.
+- Alcance máximo de 7 casas na arena tática e 5 tiles no combate em tempo real.
 - Exige linha de visão.
 - 90% de chance fixa de acerto.
 - 25% de chance básica de crítico.
 - Crítico comum causa 150% do dano-base, arredondado para 40 no balanceamento
   atual.
+- No combate em tempo real, ocorre automaticamente a cada 1,2 segundo.
+- Cada disparo consome uma das 5 balas iniciais; não há recarga gratuita.
 
 ### Golpe de Peixeira
 
 - Ataque básico corpo a corpo.
 - Alcance de 1 casa.
 - 100% de chance de acerto.
+- No combate em tempo real, ocorre automaticamente a cada 0,8 segundo.
+- Possui 25% de crítico, causando 30 de dano.
 
 ### Valores do primeiro protótipo de combate
 
 - Cangaceiro: 100 HP.
-- Capanga Encouraçado: 60 HP.
+- Capanga Encouraçado: 150 HP no combate comum em tempo real.
 - Disparo: 25 de dano; crítico causa 40.
 - Peixeira: 20 de dano.
-- Ataque do Capanga: 15 de dano.
+- Ataques básicos do Capanga: 15 de dano; ataque pesado: 30.
 - O ataque válido encerra o turno do Cangaceiro.
 
 ### Lapada Seca
@@ -122,29 +124,43 @@ máximo de 4 em cada atributo durante a criação.
 
 ## 7. Inimigos comuns
 
-Os inimigos comuns diferem por atributos, ataque básico e comportamento. Eles
-não possuem habilidades especiais no MVP.
+Os inimigos comuns são enfrentados em tempo real e diferem por atributos,
+ataque básico e comportamento.
 
-- **Capanga Encouraçado:** humano corpo a corpo; avança até 3 casas em direção
-  ao herói e ataca se terminar adjacente. A resistência especial da armadura
-  ainda não é aplicada no primeiro protótipo.
+- **Capanga Encouraçado:** humano corpo a corpo com 150 HP. Patrulha entre dois
+  pontos a 70 px/s, detecta em 6 tiles ou ao receber dano e persegue a 150 px/s.
+  Desiste acima de 10 tiles, retorna à patrulha e regenera 5 HP/s. Ataca a cada
+  1,5 segundo quando está a 1 tile: usa 3 golpes básicos e depois 1 pesado.
+  A resistência especial da armadura ainda não é aplicada.
 - **Lobo-guará corrompido:** criatura veloz, corpo a corpo; persegue o herói. A
   corrupção sobrenatural justifica sua presença na Caatinga.
 - **Rasga-Mortalha:** criatura folclórica de ataque à distância; tenta manter
   distância do herói.
+
+### Aparo contra mobs
+
+- Somente o quarto ataque pesado pode ser aparado.
+- Um **!** vermelho e fixo aparece acima do herói por 0,7 segundo.
+- Espaço durante a janela anula o dano e mostra **HÁ** em branco.
+- Espaço fora da janela cancela o próximo ataque automático e causa stun de
+  0,7 segundo, bloqueando movimento, ataques e troca de arma.
 
 ## 8. Chefe: Cabra-Cabriola
 
 - Possui ataque básico e uma investida em linha reta.
 - Usa a investida a cada 3 turnos próprios.
 - Durante a investida, abre uma janela de 0,7 segundo para aparo em tempo real.
-- O aparo é acionado por clique do mouse ou barra de espaço.
+- O aparo é acionado pela barra de Espaço.
 - Um aparo bem-sucedido apenas anula o dano da investida.
 
 ## 9. Vida, derrota e checkpoint
 
 - Não há recuperação automática de vida após vencer um encontro.
-- Ao ser derrotado, o jogador reinicia o encontro atual com vida cheia.
+- Ao morrer no mapa comum, o herói retorna ao início com 40% da vida e mantém
+  a munição; o Capanga preserva a vida atual e regenera somente na patrulha.
+- Ao morrer na masmorra, o jogador escolhe **Sair** ou **Voltar do início**.
+- Ambas restauram a vida e preservam a munição restante; voltar reinicia toda
+  a masmorra e restaura seus mobs.
 - A derrota remove 25% do ouro acumulado, representando o saque sofrido.
 - Há checkpoint automático entre os encontros.
 - O checkpoint guarda personagem, vida, ouro e carga acumulada da Lapada Seca.

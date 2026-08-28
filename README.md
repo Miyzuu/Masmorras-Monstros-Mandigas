@@ -1,9 +1,9 @@
 # Masmorras-Monstros-Mandigas
 
-Protótipo de **Pindorama Fantástica**, um RPG tático por turnos em Godot 4,
-ambientado numa fantasia histórico-folclórica brasileira.
+Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
+combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.1.3`
+**Versão atual:** `V.0.1.4`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -14,23 +14,21 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - novo clique substitui imediatamente o destino anterior;
 - busca de caminho que contorna terreno bloqueado;
 - câmera seguindo o personagem e visão geral alternada pela tecla **M**;
-- Capanga parado no início do caminho, ativado por contato físico;
-- fade de 0,5 segundo entre exploração e arena;
-- retorno ao mesmo ponto com remoção do Capanga após a vitória real;
-- Cangaceiro com 100 HP e Capanga com 60 HP;
+- Capanga patrulhando mais adiante, detectando e perseguindo o herói;
+- combate contra o Capanga diretamente no mapa, sem troca de cena;
+- Cangaceiro com 100 HP e Capanga com 150 HP;
 - barra de vida do herói no rodapé e barra inimiga acima do alvo;
-- Disparo com dano 25, alcance ortogonal 7, 90% de acerto e crítico de 40;
-- Peixeira com alcance 1, acerto garantido e dano 20;
-- paredes bloqueando tiros e rochas bloqueando apenas movimento;
-- Capanga avançando até 3 casas e atacando adjacente por 15 de dano;
-- grade de 10×10 casas;
-- tiles lógicos de 32×32 pixels;
-- movimento de até 4 casas por turno;
-- quatro direções ortogonais, sem diagonais;
-- busca de rota que respeita obstáculos;
-- prévia visual das casas alcançáveis e do caminho;
-- seleção de ataque por botão e clique no inimigo;
-- derrota reiniciando o encontro com vida cheia;
+- ataques automáticos enquanto o personagem continua andando;
+- troca entre Rifle e Peixeira com **Q** e recarga de 0,5 segundo;
+- Rifle com 5 balas, alcance 5 tiles, dano 25 e crítico de 40;
+- Peixeira com alcance 1 tile, dano 20 e crítico de 30;
+- números de dano animados e críticos maiores, vermelhos e em negrito;
+- Capanga com patrulha, perseguição, retorno e regeneração de 5 HP/s;
+- três ataques básicos de 15 seguidos por um pesado de 30;
+- alerta **!**, aparo com Espaço e retorno visual **HÁ**;
+- falha de aparo causando stun e perda do próximo ataque;
+- derrota retornando ao início com 40% de vida e munição preservada;
+- arena tática da versão anterior preservada para futuros chefes;
 - arte geométrica temporária, sem assets definitivos.
 
 ## Como executar
@@ -43,10 +41,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 - **Clique esquerdo:** definir ou substituir o destino na exploração.
 - **M:** alternar entre câmera próxima e visão geral do mapa.
-- **Clique em casa verde:** mover na arena.
-- **Disparo/Peixeira + clique no Capanga:** executar um ataque.
-- **Enter:** encerrar o turno sem atacar.
-- **R:** reiniciar o encontro.
+- **Q:** alternar entre Rifle e Peixeira.
+- **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
+- Os ataques básicos são automáticos quando o Capanga entra no alcance da arma.
 
 ## Versionamento
 

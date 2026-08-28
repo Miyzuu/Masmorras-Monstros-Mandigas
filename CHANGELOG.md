@@ -1,5 +1,26 @@
 # Histórico de versões
 
+## V.0.1.4 — 2026-08-27
+
+### Título do commit
+
+`V.0.1.4 — Combate em tempo real contra o Capanga`
+
+### Descrição
+
+- substitui a transição do Capanga comum para a arena por combate direto no mapa isométrico;
+- aumenta o Capanga para 150 HP, reposiciona-o e adiciona patrulha, detecção, perseguição, retorno e regeneração gradual;
+- permite atacar automaticamente enquanto caminha e alternar Rifle/Peixeira com **Q**;
+- limita o Rifle a 5 balas, alcance de 5 tiles e ataques a cada 1,2 segundo;
+- configura a Peixeira com alcance de 1 tile e ataques a cada 0,8 segundo;
+- adiciona críticos de 25%, números animados e destaque maior, vermelho e em negrito;
+- implementa três golpes básicos do Capanga seguidos por um pesado com alerta **!**;
+- adiciona aparo com Espaço, retorno **HÁ**, falha com ataque perdido e stun de 0,7 segundo;
+- pisca as bordas em vermelho ao sofrer dano e mostra barras de vida e munição;
+- respawna o herói com 40% de vida, preserva munição e mantém a vida atual do Capanga;
+- preserva a arena tática separada para os futuros combates contra chefes;
+- adiciona testes determinísticos do combate em tempo real.
+
 ## V.0.1.3 — 2026-08-27
 
 ### Título do commit

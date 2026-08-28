@@ -1,15 +1,58 @@
 extends Node2D
 
+enum Weapon {
+	RIFLE,
+	KNIFE,
+}
+
+enum EnemyState {
+	PATROL,
+	CHASE,
+	RETURN,
+}
+
 const MAP_SIZE := Vector2i(16, 12)
 const TILE_SIZE := Vector2(64.0, 32.0)
 const HALF_TILE := TILE_SIZE * 0.5
 const PLAYER_SPEED := 140.0
+const PLAYER_MAX_HP := 100
+const PLAYER_RESPAWN_HP := 40
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
-const CONTACT_DISTANCE := 23.0
-const COMBAT_SCENE := "res://scenes/main.tscn"
+
+const RIFLE_STARTING_AMMO := 5
+const RIFLE_RANGE := 5
+const RIFLE_INTERVAL := 1.2
+const RIFLE_DAMAGE := 25
+const RIFLE_CRITICAL_DAMAGE := 40
+const RIFLE_HIT_CHANCE := 0.90
+const KNIFE_RANGE := 1
+const KNIFE_INTERVAL := 0.8
+const KNIFE_DAMAGE := 20
+const KNIFE_CRITICAL_DAMAGE := 30
+const PLAYER_CRITICAL_CHANCE := 0.25
+const WEAPON_SWITCH_COOLDOWN := 0.5
+
+const CAPANGA_MAX_HP := 150.0
+const CAPANGA_PATROL_SPEED := 70.0
+const CAPANGA_CHASE_SPEED := 150.0
+const CAPANGA_DETECTION_RANGE := 6
+const CAPANGA_DISENGAGE_RANGE := 10
+const CAPANGA_ATTACK_RANGE := 1
+const CAPANGA_ATTACK_INTERVAL := 1.5
+const CAPANGA_BASIC_DAMAGE := 15
+const CAPANGA_HEAVY_DAMAGE := 30
+const CAPANGA_HEAVY_WARNING := 0.7
+const CAPANGA_REGEN_PER_SECOND := 5.0
+const CAPANGA_REPATH_INTERVAL := 0.2
+const CAPANGA_PATROL_PAUSE := 0.6
+
+const FAILED_PARRY_STUN := 0.7
+const DAMAGE_NUMBER_DURATION := 0.8
+const PARRY_TEXT_DURATION := 0.5
+const DAMAGE_BORDER_DURATION := 0.15
 
 const COLOR_VOID := Color("17120d")
 const COLOR_GROUND_A := Color("a97945")
@@ -29,10 +72,20 @@ const COLOR_ENEMY_ARMOR := Color("6f6654")
 const COLOR_ENEMY_HAT := Color("33231b")
 const COLOR_MAGIC := Color("44d6b3")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
+const COLOR_TEXT := Color("f2dfbd")
+const COLOR_NORMAL_DAMAGE := Color("f2dfbd")
+const COLOR_CRITICAL_DAMAGE := Color("df3328")
+const COLOR_PLAYER_DAMAGE := Color("ef6a52")
+const COLOR_HEALTH_BACKGROUND := Color("3b211b")
+const COLOR_ENEMY_HEALTH := Color("d15a3f")
+const COLOR_ALERT := Color("ed3128")
 
 const PLAYER_START := Vector2i(1, 10)
 const CAPANGA_ID := "capanga_01"
-const CAPANGA_CELL := Vector2i(5, 10)
+const CAPANGA_PATROL_CELLS := [
+	Vector2i(8, 6),
+	Vector2i(11, 4),
+]
 const ROAD_OBSTACLES = [
 	Vector2i(5, 9),
 	Vector2i(5, 11),
@@ -42,9 +95,14 @@ const ROAD_OBSTACLES = [
 ]
 
 @onready var player_anchor: Node2D = $PlayerAnchor
+@onready var capanga_anchor: Node2D = $CapangaAnchor
 @onready var camera: Camera2D = $Camera2D
 @onready var status_label: Label = $Interface/TopPanel/Status
 @onready var version_label: Label = $Interface/Version
+@onready var health_fill: ColorRect = $Interface/CombatHUD/HealthBack/HealthFill
+@onready var health_label: Label = $Interface/CombatHUD/HealthBack/HealthLabel
+@onready var weapon_label: Label = $Interface/CombatHUD/WeaponLabel
+@onready var damage_border: Control = $Interface/DamageBorder
 @onready var fade: ColorRect = $FadeLayer/Fade
 
 var astar := AStarGrid2D.new()
@@ -55,8 +113,31 @@ var has_destination := false
 var overview_enabled := false
 var camera_transitioning := false
 var camera_tween: Tween
+
+var player_hp := PLAYER_MAX_HP
+var rifle_ammo := RIFLE_STARTING_AMMO
+var current_weapon := Weapon.RIFLE
+var player_attack_cooldown := 0.0
+var weapon_switch_cooldown := 0.0
+var stun_remaining := 0.0
+var skip_next_player_attack := false
+
 var capanga_active := true
-var encounter_transitioning := false
+var capanga_hp := CAPANGA_MAX_HP
+var capanga_state := EnemyState.PATROL
+var capanga_patrol_target_index := 1
+var capanga_return_target_index := 0
+var capanga_path := PackedVector2Array()
+var capanga_path_index := 0
+var capanga_repath_remaining := 0.0
+var capanga_patrol_pause_remaining := 0.0
+var capanga_attack_cooldown := CAPANGA_ATTACK_INTERVAL
+var capanga_basic_attack_count := 0
+var heavy_warning_active := false
+var heavy_warning_remaining := 0.0
+
+var damage_border_remaining := 0.0
+var combat_popups: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -64,6 +145,7 @@ func _ready() -> void:
 	var start_position := _cell_to_world(PLAYER_START)
 	var returned_from_combat: bool = GameState.returning_from_combat
 	player_anchor.position = GameState.consume_return_position(start_position)
+	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
 	capanga_active = not GameState.is_encounter_defeated(CAPANGA_ID)
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
@@ -73,38 +155,351 @@ func _ready() -> void:
 		fade.modulate.a = 1.0
 		var return_tween := create_tween()
 		return_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
-		_update_status("Capanga vencido — caminho liberado.")
 		GameState.acknowledge_return()
 	else:
 		fade.modulate.a = 0.0
-		_update_status("Clique no caminho para caminhar.")
 
+	if capanga_active:
+		_update_status("Clique para caminhar — o Capanga patrulha mais adiante.")
+	else:
+		_update_status("Capanga derrotado — caminho liberado.")
+	_update_hud()
+	_update_damage_border()
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
-	_move_player(delta)
-	_check_enemy_contact()
+	_advance_realtime(delta)
 
 	if not overview_enabled and not camera_transitioning:
 		var follow_weight := 1.0 - exp(-CAMERA_FOLLOW_SPEED * delta)
 		camera.position = camera.position.lerp(player_anchor.position, follow_weight)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if encounter_transitioning:
-		return
+func _advance_realtime(
+	delta: float,
+	hit_roll: float = -1.0,
+	critical_roll: float = -1.0
+) -> void:
+	_advance_timers(delta)
+	if stun_remaining <= 0.0:
+		_move_player(delta)
+	_advance_capanga_ai(delta)
+	_attempt_auto_attack(hit_roll, critical_roll)
+	_advance_capanga_attack(delta)
+	_update_hud()
+	queue_redraw()
 
+
+func _advance_timers(delta: float) -> void:
+	player_attack_cooldown = maxf(0.0, player_attack_cooldown - delta)
+	weapon_switch_cooldown = maxf(0.0, weapon_switch_cooldown - delta)
+	stun_remaining = maxf(0.0, stun_remaining - delta)
+	damage_border_remaining = maxf(0.0, damage_border_remaining - delta)
+	_update_damage_border()
+
+	for index in range(combat_popups.size() - 1, -1, -1):
+		var popup := combat_popups[index]
+		popup["elapsed"] = float(popup["elapsed"]) + delta
+		if float(popup["elapsed"]) >= float(popup["duration"]):
+			combat_popups.remove_at(index)
+
+
+func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_M:
 			_toggle_overview()
 			get_viewport().set_input_as_handled()
 			return
+		if event.keycode == KEY_Q:
+			_toggle_weapon()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_SPACE:
+			_attempt_parry()
+			get_viewport().set_input_as_handled()
+			return
 
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			_set_destination(get_global_mouse_position())
+			if stun_remaining > 0.0:
+				_update_status("Atordoado — aguarde 0,7 s.")
+			else:
+				_set_destination(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
+
+
+func _toggle_weapon() -> bool:
+	if stun_remaining > 0.0:
+		_update_status("Atordoado — não é possível trocar de arma.")
+		return false
+	if weapon_switch_cooldown > 0.0:
+		_update_status("Q em recarga por %.1f s." % weapon_switch_cooldown)
+		return false
+
+	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
+	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
+	if current_weapon == Weapon.RIFLE:
+		_update_status("Rifle equipado — ataques automáticos em até 5 tiles.")
+	else:
+		_update_status("Peixeira equipada — ataques automáticos em 1 tile.")
+	_update_hud()
+	return true
+
+
+func _attempt_parry() -> bool:
+	if stun_remaining > 0.0:
+		return false
+	if heavy_warning_active:
+		heavy_warning_active = false
+		heavy_warning_remaining = 0.0
+		capanga_basic_attack_count = 0
+		capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+		_spawn_popup("HÁ", player_anchor.position, Color.WHITE, 22, true, PARRY_TEXT_DURATION)
+		_update_status("HÁ — ataque pesado aparado.")
+		queue_redraw()
+		return true
+
+	stun_remaining = FAILED_PARRY_STUN
+	skip_next_player_attack = true
+	_update_status("Aparo falhou — stun de 0,7 s e próximo ataque perdido.")
+	return false
+
+
+func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -> bool:
+	if not capanga_active or stun_remaining > 0.0 or player_attack_cooldown > 0.0:
+		return false
+
+	var attack_range := RIFLE_RANGE if current_weapon == Weapon.RIFLE else KNIFE_RANGE
+	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > attack_range:
+		return false
+	if current_weapon == Weapon.RIFLE and rifle_ammo <= 0:
+		if status_label.text != "SEM MUNIÇÃO — pressione Q para usar a Peixeira.":
+			_update_status("SEM MUNIÇÃO — pressione Q para usar a Peixeira.")
+		return false
+
+	var attack_interval := RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
+	player_attack_cooldown = attack_interval
+	if current_weapon == Weapon.RIFLE:
+		rifle_ammo -= 1
+
+	if skip_next_player_attack:
+		skip_next_player_attack = false
+		_spawn_popup("ERROU", capanga_anchor.position, COLOR_NORMAL_DAMAGE, 14, false)
+		_update_status("Aparo mal executado — ataque perdido.")
+		return true
+
+	var resolved_hit_roll := randf() if hit_roll < 0.0 else hit_roll
+	if current_weapon == Weapon.RIFLE and resolved_hit_roll >= RIFLE_HIT_CHANCE:
+		_spawn_popup("ERROU", capanga_anchor.position, COLOR_NORMAL_DAMAGE, 14, false)
+		_update_status("Disparo errou — %d bala(s) restante(s)." % rifle_ammo)
+		return true
+
+	var resolved_critical_roll := randf() if critical_roll < 0.0 else critical_roll
+	var critical := resolved_critical_roll < PLAYER_CRITICAL_CHANCE
+	var damage := 0
+	if current_weapon == Weapon.RIFLE:
+		damage = RIFLE_CRITICAL_DAMAGE if critical else RIFLE_DAMAGE
+	else:
+		damage = KNIFE_CRITICAL_DAMAGE if critical else KNIFE_DAMAGE
+
+	_damage_capanga(damage, critical)
+	return true
+
+
+func _damage_capanga(amount: int, critical: bool) -> void:
+	capanga_hp = maxf(0.0, capanga_hp - float(amount))
+	_spawn_popup(
+		str(amount),
+		capanga_anchor.position,
+		COLOR_CRITICAL_DAMAGE if critical else COLOR_NORMAL_DAMAGE,
+		22 if critical else 15,
+		critical
+	)
+	if capanga_hp <= 0.0:
+		_defeat_capanga()
+		return
+
+	_set_capanga_state(EnemyState.CHASE)
+	var result := "CRÍTICO: %d" % amount if critical else "Dano causado: %d" % amount
+	if current_weapon == Weapon.RIFLE:
+		result += " — %d bala(s)." % rifle_ammo
+	_update_status(result)
+
+
+func _defeat_capanga() -> void:
+	capanga_active = false
+	capanga_path.clear()
+	heavy_warning_active = false
+	GameState.mark_encounter_defeated(CAPANGA_ID)
+	_update_status("Capanga derrotado — caminho liberado.")
+
+
+func _damage_player(amount: int) -> bool:
+	player_hp = maxi(0, player_hp - amount)
+	damage_border_remaining = DAMAGE_BORDER_DURATION
+	_spawn_popup(str(amount), player_anchor.position, COLOR_PLAYER_DAMAGE, 16, true)
+	_update_damage_border()
+	if player_hp <= 0:
+		_handle_player_defeat()
+		return true
+	return false
+
+
+func _handle_player_defeat() -> void:
+	player_hp = PLAYER_RESPAWN_HP
+	player_anchor.position = _cell_to_world(PLAYER_START)
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	stun_remaining = 0.0
+	skip_next_player_attack = false
+	player_attack_cooldown = 0.0
+	heavy_warning_active = false
+	heavy_warning_remaining = 0.0
+	capanga_basic_attack_count = 0
+	capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+	if capanga_active:
+		capanga_return_target_index = _nearest_patrol_index()
+		_set_capanga_state(EnemyState.RETURN)
+	_update_status("Derrota — retorno com 40% de vida e munição preservada.")
+
+
+func _advance_capanga_ai(delta: float) -> void:
+	if not capanga_active or heavy_warning_active:
+		return
+
+	var distance := _tile_distance_between_positions(capanga_anchor.position, player_anchor.position)
+	match capanga_state:
+		EnemyState.PATROL:
+			capanga_hp = minf(CAPANGA_MAX_HP, capanga_hp + CAPANGA_REGEN_PER_SECOND * delta)
+			if distance <= CAPANGA_DETECTION_RANGE:
+				_set_capanga_state(EnemyState.CHASE)
+				return
+			_advance_patrol(delta)
+		EnemyState.CHASE:
+			if distance > CAPANGA_DISENGAGE_RANGE:
+				capanga_return_target_index = _nearest_patrol_index()
+				_set_capanga_state(EnemyState.RETURN)
+				return
+			if distance > CAPANGA_ATTACK_RANGE:
+				_move_capanga_toward(
+					_world_to_cell(player_anchor.position),
+					CAPANGA_CHASE_SPEED,
+					delta
+				)
+		EnemyState.RETURN:
+			var return_cell: Vector2i = CAPANGA_PATROL_CELLS[capanga_return_target_index]
+			_move_capanga_toward(return_cell, CAPANGA_PATROL_SPEED, delta)
+			if capanga_anchor.position.distance_to(_cell_to_world(return_cell)) <= 1.0:
+				capanga_anchor.position = _cell_to_world(return_cell)
+				capanga_patrol_target_index = 1 - capanga_return_target_index
+				_set_capanga_state(EnemyState.PATROL)
+
+
+func _advance_patrol(delta: float) -> void:
+	if capanga_patrol_pause_remaining > 0.0:
+		capanga_patrol_pause_remaining = maxf(0.0, capanga_patrol_pause_remaining - delta)
+		return
+
+	var target_cell: Vector2i = CAPANGA_PATROL_CELLS[capanga_patrol_target_index]
+	_move_capanga_toward(target_cell, CAPANGA_PATROL_SPEED, delta)
+	if capanga_anchor.position.distance_to(_cell_to_world(target_cell)) <= 1.0:
+		capanga_anchor.position = _cell_to_world(target_cell)
+		capanga_patrol_target_index = 1 - capanga_patrol_target_index
+		capanga_patrol_pause_remaining = CAPANGA_PATROL_PAUSE
+		capanga_path.clear()
+
+
+func _move_capanga_toward(target_cell: Vector2i, speed: float, delta: float) -> void:
+	capanga_repath_remaining = maxf(0.0, capanga_repath_remaining - delta)
+	if capanga_repath_remaining <= 0.0 or capanga_path_index >= capanga_path.size():
+		_rebuild_capanga_path(target_cell)
+		capanga_repath_remaining = CAPANGA_REPATH_INTERVAL
+	if capanga_path_index >= capanga_path.size():
+		return
+
+	var waypoint := capanga_path[capanga_path_index]
+	capanga_anchor.position = capanga_anchor.position.move_toward(waypoint, speed * delta)
+	if capanga_anchor.position.distance_to(waypoint) <= 0.5:
+		capanga_anchor.position = waypoint
+		capanga_path_index += 1
+
+
+func _rebuild_capanga_path(target_cell: Vector2i) -> void:
+	capanga_path.clear()
+	capanga_path_index = 0
+	var start_cell := _nearest_walkable_cell(capanga_anchor.position)
+	if not astar.is_in_boundsv(target_cell) or astar.is_point_solid(target_cell):
+		return
+	if start_cell == target_cell:
+		capanga_path.append(_cell_to_world(target_cell))
+		return
+	var id_path := astar.get_id_path(start_cell, target_cell)
+	for index in range(1, id_path.size()):
+		capanga_path.append(_cell_to_world(id_path[index]))
+
+
+func _set_capanga_state(new_state: int) -> void:
+	if capanga_state == new_state:
+		return
+	capanga_state = new_state
+	capanga_path.clear()
+	capanga_path_index = 0
+	capanga_repath_remaining = 0.0
+	if new_state != EnemyState.CHASE:
+		capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+
+
+func _advance_capanga_attack(delta: float) -> void:
+	if not capanga_active:
+		return
+
+	if heavy_warning_active:
+		heavy_warning_remaining = maxf(0.0, heavy_warning_remaining - delta)
+		if heavy_warning_remaining <= 0.0:
+			heavy_warning_active = false
+			if _capanga_can_attack_player():
+				var defeated := _damage_player(CAPANGA_HEAVY_DAMAGE)
+				if not defeated:
+					_update_status("Ataque pesado: 30 de dano.")
+			else:
+				_update_status("O ataque pesado não alcançou o Cangaceiro.")
+			capanga_basic_attack_count = 0
+			capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+		return
+
+	if capanga_state != EnemyState.CHASE or not _capanga_can_attack_player():
+		capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+		return
+
+	capanga_attack_cooldown = maxf(0.0, capanga_attack_cooldown - delta)
+	if capanga_attack_cooldown > 0.0:
+		return
+
+	if capanga_basic_attack_count < 3:
+		var defeated := _damage_player(CAPANGA_BASIC_DAMAGE)
+		if not defeated:
+			capanga_basic_attack_count += 1
+			capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+			_update_status("Capanga atacou: 15 de dano.")
+	else:
+		heavy_warning_active = true
+		heavy_warning_remaining = CAPANGA_HEAVY_WARNING
+		_update_status("Ataque pesado chegando — pressione Espaço!")
+
+
+func _capanga_can_attack_player() -> bool:
+	return _tile_distance_between_positions(
+		capanga_anchor.position,
+		player_anchor.position
+	) <= CAPANGA_ATTACK_RANGE
+
+
+func _nearest_patrol_index() -> int:
+	var distance_a := capanga_anchor.position.distance_to(_cell_to_world(CAPANGA_PATROL_CELLS[0]))
+	var distance_b := capanga_anchor.position.distance_to(_cell_to_world(CAPANGA_PATROL_CELLS[1]))
+	return 0 if distance_a <= distance_b else 1
 
 
 func _setup_pathfinding() -> void:
@@ -140,11 +535,14 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 		_update_status("Esse terreno está bloqueado.")
 		return
 
-	var start_cell := _world_to_cell(player_anchor.position)
-	if not astar.is_in_boundsv(start_cell) or astar.is_point_solid(start_cell):
-		start_cell = _nearest_walkable_cell(player_anchor.position)
-
+	var start_cell := _nearest_walkable_cell(player_anchor.position)
+	var capanga_cell := _world_to_cell(capanga_anchor.position)
+	var block_capanga := capanga_active and astar.is_in_boundsv(capanga_cell)
+	if block_capanga:
+		astar.set_point_solid(capanga_cell, true)
 	var id_path := astar.get_id_path(start_cell, target_cell)
+	if block_capanga:
+		astar.set_point_solid(capanga_cell, false)
 	if id_path.is_empty():
 		_update_status("Não há caminho até esse ponto.")
 		return
@@ -163,8 +561,7 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 	path_index = 0
 	destination_marker = final_position
 	has_destination = true
-	_update_status("Caminhando a 140 px/s — novo clique troca o destino.")
-	queue_redraw()
+	_update_status("Caminhando — ataques automáticos não interrompem o movimento.")
 
 
 func _move_player(delta: float) -> void:
@@ -173,51 +570,19 @@ func _move_player(delta: float) -> void:
 
 	var waypoint := movement_path[path_index]
 	player_anchor.position = player_anchor.position.move_toward(waypoint, PLAYER_SPEED * delta)
-
 	if player_anchor.position.distance_to(waypoint) <= 0.5:
 		player_anchor.position = waypoint
 		path_index += 1
-
 		if path_index >= movement_path.size():
 			movement_path.clear()
 			path_index = 0
 			has_destination = false
 			_update_status("Destino alcançado.")
 
-	queue_redraw()
-
-
-func _check_enemy_contact() -> void:
-	if not capanga_active or encounter_transitioning:
-		return
-
-	var capanga_position := _cell_to_world(CAPANGA_CELL)
-	if player_anchor.position.distance_to(capanga_position) <= CONTACT_DISTANCE:
-		_begin_encounter()
-
-
-func _begin_encounter() -> void:
-	encounter_transitioning = true
-	movement_path.clear()
-	path_index = 0
-	has_destination = false
-	GameState.begin_encounter(CAPANGA_ID, player_anchor.position)
-	_update_status("Contato com o Capanga — iniciando combate...")
-
-	var fade_tween := create_tween()
-	fade_tween.tween_property(fade, "modulate:a", 1.0, FADE_DURATION)
-	fade_tween.tween_callback(_open_combat_scene)
-	queue_redraw()
-
-
-func _open_combat_scene() -> void:
-	get_tree().change_scene_to_file(COMBAT_SCENE)
-
 
 func _toggle_overview() -> void:
 	overview_enabled = not overview_enabled
 	camera_transitioning = true
-
 	if camera_tween != null and camera_tween.is_valid():
 		camera_tween.kill()
 
@@ -235,7 +600,6 @@ func _toggle_overview() -> void:
 	camera_tween.tween_property(camera, "position", target_position, CAMERA_TRANSITION_TIME)
 	camera_tween.tween_property(camera, "zoom", target_zoom, CAMERA_TRANSITION_TIME)
 	camera_tween.finished.connect(_on_camera_transition_finished)
-
 	_update_status("Visão geral ativada." if overview_enabled else "Câmera acompanhando o Cangaceiro.")
 
 
@@ -254,7 +618,6 @@ func _nearest_walkable_cell(world_position: Vector2) -> Vector2i:
 				var candidate := Vector2i(x, y)
 				if astar.is_in_boundsv(candidate) and not astar.is_point_solid(candidate):
 					return candidate
-
 	return PLAYER_START
 
 
@@ -280,6 +643,12 @@ func _world_to_cell(world_position: Vector2) -> Vector2i:
 	return Vector2i(roundi(grid_x), roundi(grid_y))
 
 
+func _tile_distance_between_positions(first: Vector2, second: Vector2) -> int:
+	var first_cell := _world_to_cell(first)
+	var second_cell := _world_to_cell(second)
+	return absi(first_cell.x - second_cell.x) + absi(first_cell.y - second_cell.y)
+
+
 func _map_bounds() -> Rect2:
 	var corners: Array[Vector2] = [
 		_cell_to_world(Vector2i(0, 0)),
@@ -289,20 +658,58 @@ func _map_bounds() -> Rect2:
 	]
 	var minimum: Vector2 = corners[0]
 	var maximum: Vector2 = corners[0]
-
 	for corner in corners:
 		minimum.x = minf(minimum.x, corner.x)
 		minimum.y = minf(minimum.y, corner.y)
 		maximum.x = maxf(maximum.x, corner.x)
 		maximum.y = maxf(maximum.y, corner.y)
-
 	minimum -= HALF_TILE
 	maximum += HALF_TILE
 	return Rect2(minimum, maximum - minimum)
 
 
+func _spawn_popup(
+	text: String,
+	world_position: Vector2,
+	color: Color,
+	font_size: int,
+	bold: bool,
+	duration: float = DAMAGE_NUMBER_DURATION
+) -> void:
+	combat_popups.append({
+		"text": text,
+		"position": world_position,
+		"color": color,
+		"font_size": font_size,
+		"bold": bold,
+		"duration": duration,
+		"elapsed": 0.0,
+	})
+
+
 func _update_status(message: String) -> void:
 	status_label.text = message
+
+
+func _update_hud() -> void:
+	var ratio := float(player_hp) / float(PLAYER_MAX_HP)
+	health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
+	health_label.text = "VIDA  %d / %d" % [player_hp, PLAYER_MAX_HP]
+	if current_weapon == Weapon.RIFLE:
+		weapon_label.text = "RIFLE  •  BALAS %d / %d  •  Q PARA TROCAR" % [rifle_ammo, RIFLE_STARTING_AMMO]
+	else:
+		weapon_label.text = "PEIXEIRA  •  Q PARA TROCAR"
+	if stun_remaining > 0.0:
+		weapon_label.text += "  •  ATORDOADO"
+
+
+func _update_damage_border() -> void:
+	if damage_border == null:
+		return
+	var alpha := 0.0
+	if damage_border_remaining > 0.0:
+		alpha = clampf(damage_border_remaining / DAMAGE_BORDER_DURATION, 0.0, 1.0)
+	damage_border.modulate.a = alpha
 
 
 func _draw() -> void:
@@ -313,6 +720,7 @@ func _draw() -> void:
 	_draw_destination()
 	_draw_capanga()
 	_draw_player()
+	_draw_combat_popups()
 
 
 func _draw_tiles() -> void:
@@ -322,14 +730,11 @@ func _draw_tiles() -> void:
 			var center := _cell_to_world(cell)
 			var is_road_cell := _is_road(cell)
 			var color: Color
-
 			if is_road_cell:
 				color = COLOR_PATH_A if (x + y) % 2 == 0 else COLOR_PATH_B
 			else:
 				color = COLOR_GROUND_A if (x + y) % 2 == 0 else COLOR_GROUND_B
-
 			_draw_diamond(center, color)
-
 			if not is_road_cell:
 				_draw_cliff_mark(center)
 			elif ROAD_OBSTACLES.has(cell):
@@ -367,11 +772,9 @@ func _draw_road_obstacle(center: Vector2, rock: bool) -> void:
 func _draw_route_preview() -> void:
 	if path_index >= movement_path.size():
 		return
-
 	var route_points := PackedVector2Array([player_anchor.position])
 	for index in range(path_index, movement_path.size()):
 		route_points.append(movement_path[index])
-
 	if route_points.size() >= 2:
 		draw_polyline(route_points, COLOR_ROUTE, 2.0, true)
 
@@ -386,13 +789,18 @@ func _draw_destination() -> void:
 func _draw_capanga() -> void:
 	if not capanga_active:
 		return
-
-	var position := _cell_to_world(CAPANGA_CELL)
+	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
 	draw_rect(Rect2(position + Vector2(-8.0, -18.0), Vector2(16.0, 19.0)), COLOR_ENEMY_COAT, true)
 	draw_rect(Rect2(position + Vector2(-10.0, -14.0), Vector2(20.0, 9.0)), COLOR_ENEMY_ARMOR, true)
 	draw_rect(Rect2(position + Vector2(-11.0, -21.0), Vector2(22.0, 5.0)), COLOR_ENEMY_HAT, true)
 	draw_rect(Rect2(position + Vector2(-7.0, -26.0), Vector2(14.0, 6.0)), COLOR_ENEMY_HAT, true)
+
+	var health_rect := Rect2(position + Vector2(-18.0, -34.0), Vector2(36.0, 5.0))
+	draw_rect(health_rect, COLOR_HEALTH_BACKGROUND, true)
+	var health_width := health_rect.size.x * capanga_hp / CAPANGA_MAX_HP
+	draw_rect(Rect2(health_rect.position, Vector2(health_width, health_rect.size.y)), COLOR_ENEMY_HEALTH, true)
+	draw_rect(health_rect, COLOR_VOID, false, 1.0)
 
 
 func _draw_player() -> void:
@@ -401,3 +809,22 @@ func _draw_player() -> void:
 	draw_rect(Rect2(position + Vector2(-7.0, -17.0), Vector2(14.0, 18.0)), COLOR_PLAYER_COAT, true)
 	draw_rect(Rect2(position + Vector2(-11.0, -20.0), Vector2(22.0, 5.0)), COLOR_PLAYER_HAT, true)
 	draw_rect(Rect2(position + Vector2(-7.0, -25.0), Vector2(14.0, 6.0)), COLOR_PLAYER_HAT, true)
+	if heavy_warning_active:
+		var font := ThemeDB.fallback_font
+		draw_string(font, position + Vector2(-20.0, -38.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)
+
+
+func _draw_combat_popups() -> void:
+	var font := ThemeDB.fallback_font
+	for popup in combat_popups:
+		var duration := float(popup["duration"])
+		var progress := clampf(float(popup["elapsed"]) / duration, 0.0, 1.0)
+		var popup_position: Vector2 = popup["position"] + Vector2(-40.0, -34.0 - progress * 24.0)
+		var popup_color: Color = popup["color"]
+		popup_color.a = 1.0 - progress
+		var popup_text := str(popup["text"])
+		var popup_size := int(popup["font_size"])
+		if bool(popup["bold"]):
+			for offset in [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0)]:
+				draw_string(font, popup_position + offset, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)
+		draw_string(font, popup_position, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)
