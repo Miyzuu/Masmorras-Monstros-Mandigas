@@ -21,6 +21,7 @@ const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
+const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
 
 const RIFLE_STARTING_AMMO := 5
 const RIFLE_RANGE := 5
@@ -79,9 +80,15 @@ const COLOR_PLAYER_DAMAGE := Color("ef6a52")
 const COLOR_HEALTH_BACKGROUND := Color("3b211b")
 const COLOR_ENEMY_HEALTH := Color("d15a3f")
 const COLOR_ALERT := Color("ed3128")
+const COLOR_DOOR_FRAME := Color("3f3028")
+const COLOR_DOOR_LOCKED := Color("5e493c")
+const COLOR_DOOR_OPEN := Color("31977f")
+const COLOR_LOCK := Color("d7b56d")
 
 const PLAYER_START := Vector2i(1, 10)
 const CAPANGA_ID := "capanga_01"
+const DUNGEON_DOOR_CELL := Vector2i(15, 3)
+const DUNGEON_ENTRY_CELL := Vector2i(14, 3)
 const CAPANGA_PATROL_CELLS := [
 	Vector2i(8, 6),
 	Vector2i(11, 4),
@@ -103,6 +110,9 @@ const ROAD_OBSTACLES = [
 @onready var health_label: Label = $Interface/CombatHUD/HealthBack/HealthLabel
 @onready var weapon_label: Label = $Interface/CombatHUD/WeaponLabel
 @onready var damage_border: Control = $Interface/DamageBorder
+@onready var dungeon_prompt: Control = $DialogLayer/DungeonPrompt
+@onready var dungeon_yes_button: Button = $DialogLayer/DungeonPrompt/Dialog/YesButton
+@onready var dungeon_no_button: Button = $DialogLayer/DungeonPrompt/Dialog/NoButton
 @onready var fade: ColorRect = $FadeLayer/Fade
 
 var astar := AStarGrid2D.new()
@@ -113,6 +123,7 @@ var has_destination := false
 var overview_enabled := false
 var camera_transitioning := false
 var camera_tween: Tween
+var fade_tween: Tween
 
 var player_hp := PLAYER_MAX_HP
 var rifle_ammo := RIFLE_STARTING_AMMO
@@ -138,23 +149,38 @@ var heavy_warning_remaining := 0.0
 
 var damage_border_remaining := 0.0
 var combat_popups: Array[Dictionary] = []
+var dungeon_prompt_visible := false
+var door_contact_latched := false
+var scene_transitioning := false
 
 
 func _ready() -> void:
 	_setup_pathfinding()
 	var start_position := _cell_to_world(PLAYER_START)
 	var returned_from_combat: bool = GameState.returning_from_combat
+	var returned_from_dungeon: bool = GameState.returning_from_dungeon
+	var returned_to_exploration := returned_from_combat or returned_from_dungeon
+	player_hp = clampi(GameState.player_hp, 0, PLAYER_MAX_HP)
+	rifle_ammo = maxi(0, GameState.rifle_ammo)
+	current_weapon = Weapon.KNIFE if GameState.current_weapon == Weapon.KNIFE else Weapon.RIFLE
 	player_anchor.position = GameState.consume_return_position(start_position)
 	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
 	capanga_active = not GameState.is_encounter_defeated(CAPANGA_ID)
+	door_contact_latched = returned_from_dungeon
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
+	dungeon_prompt.visible = false
+	dungeon_yes_button.pressed.connect(_confirm_dungeon_entry)
+	dungeon_no_button.pressed.connect(_cancel_dungeon_entry)
 
-	if returned_from_combat:
+	if returned_to_exploration:
+		scene_transitioning = true
+		fade.mouse_filter = Control.MOUSE_FILTER_STOP
 		fade.modulate.a = 1.0
-		var return_tween := create_tween()
-		return_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
+		fade_tween = create_tween()
+		fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
+		fade_tween.finished.connect(_finish_entry_fade, CONNECT_ONE_SHOT)
 		GameState.acknowledge_return()
 	else:
 		fade.modulate.a = 0.0
@@ -162,13 +188,16 @@ func _ready() -> void:
 	if capanga_active:
 		_update_status("Clique para caminhar — o Capanga patrulha mais adiante.")
 	else:
-		_update_status("Capanga derrotado — caminho liberado.")
+		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
 	_update_hud()
 	_update_damage_border()
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
+	if dungeon_prompt_visible or scene_transitioning:
+		return
+
 	_advance_realtime(delta)
 
 	if not overview_enabled and not camera_transitioning:
@@ -184,6 +213,10 @@ func _advance_realtime(
 	_advance_timers(delta)
 	if stun_remaining <= 0.0:
 		_move_player(delta)
+	if _check_dungeon_door_contact():
+		_update_hud()
+		queue_redraw()
+		return
 	_advance_capanga_ai(delta)
 	_attempt_auto_attack(hit_roll, critical_roll)
 	_advance_capanga_attack(delta)
@@ -206,6 +239,19 @@ func _advance_timers(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if scene_transitioning:
+		get_viewport().set_input_as_handled()
+		return
+
+	if dungeon_prompt_visible:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if _handle_dungeon_prompt_key(event.keycode):
+				get_viewport().set_input_as_handled()
+				return
+		if event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_M:
 			_toggle_overview()
@@ -227,6 +273,98 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_set_destination(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
+
+
+func _handle_dungeon_prompt_key(keycode: int) -> bool:
+	if keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE:
+		_confirm_dungeon_entry()
+		return true
+	if keycode == KEY_ESCAPE:
+		_cancel_dungeon_entry()
+		return true
+	return false
+
+
+func _check_dungeon_door_contact() -> bool:
+	var touching_entry := _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL
+	if not touching_entry:
+		door_contact_latched = false
+		return false
+	if door_contact_latched:
+		return false
+
+	door_contact_latched = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	if not _is_dungeon_door_unlocked():
+		_update_status("Porta trancada — derrote o Capanga para entrar.")
+		return false
+
+	_open_dungeon_prompt()
+	return true
+
+
+func _is_dungeon_door_unlocked() -> bool:
+	return GameState.is_encounter_defeated(CAPANGA_ID)
+
+
+func _open_dungeon_prompt() -> void:
+	if dungeon_prompt_visible or scene_transitioning:
+		return
+	dungeon_prompt_visible = true
+	dungeon_prompt.visible = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	_update_status("Entrar na masmorra?")
+	dungeon_yes_button.grab_focus()
+
+
+func _cancel_dungeon_entry() -> void:
+	if not dungeon_prompt_visible or scene_transitioning:
+		return
+	dungeon_prompt_visible = false
+	dungeon_prompt.visible = false
+	_update_status("Entrada cancelada — afaste-se da porta para tentar novamente.")
+
+
+func _prepare_dungeon_entry() -> void:
+	GameState.begin_dungeon(
+		_cell_to_world(DUNGEON_ENTRY_CELL),
+		player_hp,
+		rifle_ammo,
+		current_weapon
+	)
+
+
+func _confirm_dungeon_entry() -> void:
+	if not dungeon_prompt_visible or scene_transitioning or not _is_dungeon_door_unlocked():
+		return
+	dungeon_prompt_visible = false
+	dungeon_prompt.visible = false
+	scene_transitioning = true
+	_prepare_dungeon_entry()
+	_start_scene_transition(DUNGEON_SCENE)
+
+
+func _start_scene_transition(scene_path: String) -> void:
+	if fade_tween != null and fade_tween.is_valid():
+		fade_tween.kill()
+	fade.mouse_filter = Control.MOUSE_FILTER_STOP
+	fade_tween = create_tween()
+	fade_tween.tween_property(fade, "modulate:a", 1.0, FADE_DURATION)
+	fade_tween.finished.connect(_change_scene.bind(scene_path), CONNECT_ONE_SHOT)
+
+
+func _finish_entry_fade() -> void:
+	scene_transitioning = false
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _change_scene(scene_path: String) -> void:
+	if is_inside_tree():
+		get_tree().change_scene_to_file(scene_path)
 
 
 func _toggle_weapon() -> bool:
@@ -332,7 +470,9 @@ func _defeat_capanga() -> void:
 	capanga_path.clear()
 	heavy_warning_active = false
 	GameState.mark_encounter_defeated(CAPANGA_ID)
-	_update_status("Capanga derrotado — caminho liberado.")
+	if _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL:
+		door_contact_latched = false
+	_update_status("Capanga derrotado — a porta da masmorra foi liberada.")
 
 
 func _damage_player(amount: int) -> bool:
@@ -516,6 +656,7 @@ func _setup_pathfinding() -> void:
 
 	for obstacle in ROAD_OBSTACLES:
 		astar.set_point_solid(obstacle)
+	astar.set_point_solid(DUNGEON_DOOR_CELL)
 
 
 func _is_road(cell: Vector2i) -> bool:
@@ -528,6 +669,8 @@ func _is_road(cell: Vector2i) -> bool:
 
 func _set_destination(clicked_world_position: Vector2) -> void:
 	var target_cell := _world_to_cell(clicked_world_position)
+	if target_cell == DUNGEON_DOOR_CELL or _is_dungeon_door_click(clicked_world_position):
+		target_cell = DUNGEON_ENTRY_CELL
 	if not astar.is_in_boundsv(target_cell):
 		_update_status("Destino fora do mapa.")
 		return
@@ -562,6 +705,11 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 	destination_marker = final_position
 	has_destination = true
 	_update_status("Caminhando — ataques automáticos não interrompem o movimento.")
+
+
+func _is_dungeon_door_click(world_position: Vector2) -> bool:
+	var door_position := _cell_to_world(DUNGEON_DOOR_CELL)
+	return Rect2(door_position + Vector2(-24.0, -46.0), Vector2(48.0, 50.0)).has_point(world_position)
 
 
 func _move_player(delta: float) -> void:
@@ -716,6 +864,7 @@ func _draw() -> void:
 	var bounds := _map_bounds().grow(256.0)
 	draw_rect(bounds, COLOR_VOID, true)
 	_draw_tiles()
+	_draw_dungeon_door()
 	_draw_route_preview()
 	_draw_destination()
 	_draw_capanga()
@@ -767,6 +916,21 @@ func _draw_road_obstacle(center: Vector2, rock: bool) -> void:
 		draw_rect(Rect2(center + Vector2(-3.0, -15.0), Vector2(6.0, 19.0)), COLOR_CACTUS, true)
 		draw_rect(Rect2(center + Vector2(-8.0, -9.0), Vector2(6.0, 4.0)), COLOR_CACTUS, true)
 		draw_rect(Rect2(center + Vector2(3.0, -5.0), Vector2(6.0, 4.0)), COLOR_CACTUS_LIGHT, true)
+
+
+func _draw_dungeon_door() -> void:
+	var position := _cell_to_world(DUNGEON_DOOR_CELL)
+	var unlocked := _is_dungeon_door_unlocked()
+	var door_color := COLOR_DOOR_OPEN if unlocked else COLOR_DOOR_LOCKED
+	draw_rect(Rect2(position + Vector2(-19.0, -38.0), Vector2(38.0, 39.0)), COLOR_DOOR_FRAME, true)
+	draw_rect(Rect2(position + Vector2(-14.0, -31.0), Vector2(28.0, 32.0)), door_color, true)
+	draw_line(position + Vector2(-14.0, -31.0), position + Vector2(0.0, -42.0), COLOR_DOOR_FRAME, 5.0)
+	draw_line(position + Vector2(0.0, -42.0), position + Vector2(14.0, -31.0), COLOR_DOOR_FRAME, 5.0)
+	if unlocked:
+		draw_circle(position + Vector2(8.0, -15.0), 2.0, COLOR_TEXT)
+	else:
+		draw_rect(Rect2(position + Vector2(-5.0, -18.0), Vector2(10.0, 9.0)), COLOR_LOCK, true)
+		draw_arc(position + Vector2(0.0, -18.0), 5.0, PI, TAU, 12, COLOR_LOCK, 2.0)
 
 
 func _draw_route_preview() -> void:

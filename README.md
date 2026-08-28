@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.1.4`
+**Versão atual:** `V.0.1.5`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -28,6 +28,12 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - alerta **!**, aparo com Espaço e retorno visual **HÁ**;
 - falha de aparo causando stun e perda do próximo ataque;
 - derrota retornando ao início com 40% de vida e munição preservada;
+- porta no fim do caminho, liberada somente após derrotar o Capanga;
+- confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
+- mapa separado de masmorra com sala de pedra 16×12, saída inicial e escada
+  bloqueada;
+- saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
+  recarregar e devolvendo o herói diante da entrada externa;
 - arena tática da versão anterior preservada para futuros chefes;
 - arte geométrica temporária, sem assets definitivos.
 
@@ -43,6 +49,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - **M:** alternar entre câmera próxima e visão geral do mapa.
 - **Q:** alternar entre Rifle e Peixeira.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
+- **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
+- **Esc:** cancelar uma caixa aberta; dentro da masmorra, abrir o aviso de saída.
+- **Porta da masmorra:** toque nela após derrotar o Capanga para entrar.
 - Os ataques básicos são automáticos quando o Capanga entra no alcance da arma.
 
 ## Versionamento

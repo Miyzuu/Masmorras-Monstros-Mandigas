@@ -1,5 +1,22 @@
 # Histórico de versões
 
+## V.0.1.5 — 2026-08-28
+
+### Título do commit
+
+`V.0.1.5 — Entrada e mapa inicial da masmorra`
+
+### Descrição
+
+- adiciona uma porta no fim do caminho externo, bloqueada até a derrota do Capanga;
+- permite confirmar a entrada por botão, Enter ou Espaço e cancelar por botão ou Esc;
+- cria uma sala de pedra isométrica separada de 16×12, vazia e com escada bloqueada;
+- preserva vida, munição e arma equipada durante as trocas de mapa;
+- permite sair pela porta inicial ou por Esc após confirmação, sem cura ou recarga;
+- reinicia somente o progresso interno e retorna o herói diante da porta externa;
+- adiciona fades de 0,5 segundo e teste automatizado do fluxo completo;
+- mantém inimigos, salas adicionais e chefe fora desta primeira etapa da masmorra.
+
 ## V.0.1.4 — 2026-08-27
 
 ### Título do commit

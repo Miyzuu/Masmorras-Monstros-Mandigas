@@ -21,7 +21,8 @@ Cabra-Cabriola.
 - Um mapa pequeno e linear de exploração em tempo real.
 - Mobs comuns enfrentados diretamente no mapa, sem troca para a arena tática.
 - Uma entrada separada para a masmorra, com confirmação **Sim/Não**.
-- Primeira masmorra com 2 andares e 2 salas por andar.
+- Objetivo futuro da primeira masmorra: 2 andares e 2 salas por andar.
+- Primeira etapa implementada: uma sala de pedra vazia com escada bloqueada.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
 - Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.
@@ -29,7 +30,8 @@ Cabra-Cabriola.
 
 ## 3. Exploração
 
-- Um único mapa linear de 16×12 tiles isométricos.
+- Um mapa externo linear de 16×12 tiles isométricos.
+- Uma sala inicial separada de masmorra, também com 16×12 tiles.
 - Cada tile visual mede 64×32 pixels.
 - Movimento contínuo a 140 pixels por segundo, sem teleporte entre tiles.
 - O jogador clica num ponto caminhável para definir o destino.
@@ -44,8 +46,10 @@ Cabra-Cabriola.
 - Sem munição, o Rifle é bloqueado e o jogador precisa usar **Q**.
 - Ao ser derrotado no mapa comum, o herói retorna ao início com 40% da vida e
   preserva a munição restante.
-- Ao tocar a entrada da masmorra, o jogo mostra **Sim/Não**; Enter ou Espaço
+- A porta no fim do caminho permanece trancada até o Capanga ser derrotado.
+- Ao tocar a porta liberada, o jogo mostra **Sim/Não**; Enter ou Espaço
   confirmam e Esc cancela.
+- Entrada e saída usam fade de 0,5 segundo.
 
 ## 4. Criação do personagem
 
@@ -161,6 +165,9 @@ ataque básico e comportamento.
 - Ao morrer na masmorra, o jogador escolhe **Sair** ou **Voltar do início**.
 - Ambas restauram a vida e preservam a munição restante; voltar reinicia toda
   a masmorra e restaura seus mobs.
+- A saída voluntária pela porta inicial ou por **Esc** pede confirmação, apaga
+  todo o progresso interno e retorna o herói diante da porta externa.
+- A saída voluntária preserva a vida e a munição atuais, sem cura ou recarga.
 - A derrota remove 25% do ouro acumulado, representando o saque sofrido.
 - Há checkpoint automático entre os encontros.
 - O checkpoint guarda personagem, vida, ouro e carga acumulada da Lapada Seca.

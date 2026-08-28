@@ -1,0 +1,187 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/dungeon.gd" id="1_dungeon"]
+
+[node name="Dungeon" type="Node2D"]
+script = ExtResource("1_dungeon")
+
+[node name="PlayerAnchor" type="Node2D" parent="."]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = true
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="TopPanel" type="ColorRect" parent="Interface"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 452.0
+offset_bottom = 106.0
+mouse_filter = 2
+color = Color(0.075, 0.073, 0.079, 0.95)
+
+[node name="Title" type="Label" parent="Interface/TopPanel"]
+offset_left = 18.0
+offset_top = 12.0
+offset_right = 418.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
+theme_override_font_sizes/font_size = 18
+text = "MASMORRA — SALA INICIAL"
+
+[node name="Status" type="Label" parent="Interface/TopPanel"]
+offset_left = 18.0
+offset_top = 47.0
+offset_right = 418.0
+offset_bottom = 76.0
+theme_override_colors/font_color = Color(0.72, 0.67, 0.6, 1)
+theme_override_font_sizes/font_size = 13
+text = "Sala vazia — a escada permanece bloqueada."
+
+[node name="Version" type="Label" parent="Interface"]
+offset_left = 672.0
+offset_top = 18.0
+offset_right = 752.0
+offset_bottom = 44.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
+theme_override_font_sizes/font_size = 14
+text = "V.0.1.5"
+horizontal_alignment = 2
+
+[node name="HintPanel" type="ColorRect" parent="Interface"]
+offset_left = 480.0
+offset_top = 438.0
+offset_right = 752.0
+offset_bottom = 496.0
+mouse_filter = 2
+color = Color(0.075, 0.073, 0.079, 0.94)
+
+[node name="Hint" type="Label" parent="Interface/HintPanel"]
+offset_left = 12.0
+offset_top = 9.0
+offset_right = 260.0
+offset_bottom = 49.0
+theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
+theme_override_font_sizes/font_size = 13
+text = "M — VISÃO GERAL  •  ESC — SAIR\nCLIQUE — ANDAR"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatusHUD" type="ColorRect" parent="Interface"]
+offset_left = 16.0
+offset_top = 438.0
+offset_right = 456.0
+offset_bottom = 496.0
+mouse_filter = 2
+color = Color(0.075, 0.073, 0.079, 0.94)
+
+[node name="HealthBack" type="ColorRect" parent="Interface/StatusHUD"]
+offset_left = 12.0
+offset_top = 9.0
+offset_right = 252.0
+offset_bottom = 29.0
+mouse_filter = 2
+color = Color(0.18, 0.12, 0.12, 1)
+
+[node name="HealthFill" type="ColorRect" parent="Interface/StatusHUD/HealthBack"]
+offset_right = 240.0
+offset_bottom = 20.0
+mouse_filter = 2
+color = Color(0.725, 0.278, 0.196, 1)
+
+[node name="HealthLabel" type="Label" parent="Interface/StatusHUD/HealthBack"]
+offset_right = 240.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
+theme_override_font_sizes/font_size = 13
+text = "VIDA  100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="WeaponLabel" type="Label" parent="Interface/StatusHUD"]
+offset_left = 12.0
+offset_top = 33.0
+offset_right = 424.0
+offset_bottom = 53.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
+theme_override_font_sizes/font_size = 13
+text = "RIFLE  •  BALAS 5  •  SEM INIMIGOS"
+
+[node name="DialogLayer" type="CanvasLayer" parent="."]
+layer = 50
+
+[node name="ExitPrompt" type="Control" parent="DialogLayer"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Overlay" type="ColorRect" parent="DialogLayer/ExitPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.01, 0.01, 0.014, 0.78)
+
+[node name="Dialog" type="ColorRect" parent="DialogLayer/ExitPrompt"]
+offset_left = 154.0
+offset_top = 136.0
+offset_right = 614.0
+offset_bottom = 376.0
+mouse_filter = 0
+color = Color(0.105, 0.098, 0.105, 0.99)
+
+[node name="Title" type="Label" parent="DialogLayer/ExitPrompt/Dialog"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 436.0
+offset_bottom = 58.0
+theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
+theme_override_font_sizes/font_size = 21
+text = "SAIR E PERDER O PROGRESSO?"
+horizontal_alignment = 1
+
+[node name="Message" type="Label" parent="DialogLayer/ExitPrompt/Dialog"]
+offset_left = 30.0
+offset_top = 72.0
+offset_right = 430.0
+offset_bottom = 132.0
+theme_override_colors/font_color = Color(0.76, 0.7, 0.63, 1)
+theme_override_font_sizes/font_size = 14
+text = "Salas e inimigos serão reiniciados.\nVida e munição atuais serão preservadas."
+horizontal_alignment = 1
+
+[node name="YesButton" type="Button" parent="DialogLayer/ExitPrompt/Dialog"]
+offset_left = 28.0
+offset_top = 160.0
+offset_right = 238.0
+offset_bottom = 208.0
+theme_override_font_sizes/font_size = 14
+text = "SIM  [ENTER/ESPAÇO]"
+
+[node name="NoButton" type="Button" parent="DialogLayer/ExitPrompt/Dialog"]
+offset_left = 252.0
+offset_top = 160.0
+offset_right = 432.0
+offset_bottom = 208.0
+theme_override_font_sizes/font_size = 16
+text = "NÃO  [ESC]"
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="Fade" type="ColorRect" parent="FadeLayer"]
+offset_right = 768.0
+offset_bottom = 512.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
