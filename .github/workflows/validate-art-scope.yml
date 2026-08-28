@@ -1,0 +1,36 @@
+name: Validate art scope
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-art-scope:
+    if: startsWith(github.head_ref, 'art/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject changes outside assets/art
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed_files="$(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA")"
+          printf '%s\n' "$changed_files"
+
+          outside_scope="$(printf '%s\n' "$changed_files" | grep -vE '^assets/art/' || true)"
+          if [[ -n "$outside_scope" ]]; then
+            echo "Art branches may only change files inside assets/art/."
+            echo "Files outside the allowed scope:"
+            printf '%s\n' "$outside_scope"
+            exit 1
+          fi
