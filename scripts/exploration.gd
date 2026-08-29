@@ -22,11 +22,21 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
-const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/prototypes/personagens_se_48px_16c.png")
+const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_se_idle4_walk6_64px_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
-const PLAYER_SPRITE_REGION := Rect2(0.0, 0.0, 64.0, 64.0)
-const CAPANGA_SPRITE_REGION := Rect2(64.0, 0.0, 64.0, 64.0)
+const CHARACTER_ATLAS_COLUMNS := 10
+const CHARACTER_ATLAS_ROWS := 2
+const PLAYER_ATLAS_ROW := 0
+const CAPANGA_ATLAS_ROW := 1
+const ANIMATION_IDLE := 0
+const ANIMATION_WALK := 1
+const IDLE_FIRST_COLUMN := 0
+const IDLE_FRAME_COUNT := 4
+const IDLE_FPS := 4.0
+const WALK_FIRST_COLUMN := 4
+const WALK_FRAME_COUNT := 6
+const WALK_FPS := 10.0
 
 const RIFLE_STARTING_AMMO := 5
 const RIFLE_RANGE := 5
@@ -120,6 +130,12 @@ var movement_path := PackedVector2Array()
 var path_index := 0
 var destination_marker := Vector2.ZERO
 var has_destination := false
+var player_animation_state := ANIMATION_IDLE
+var player_animation_frame := 0
+var player_animation_elapsed := 0.0
+var capanga_animation_state := ANIMATION_IDLE
+var capanga_animation_frame := 0
+var capanga_animation_elapsed := 0.0
 var overview_enabled := false
 var camera_transitioning := false
 var camera_tween: Tween
@@ -211,13 +227,17 @@ func _advance_realtime(
 	critical_roll: float = -1.0
 ) -> void:
 	_advance_timers(delta)
+	var player_previous_position := player_anchor.position
 	if stun_remaining <= 0.0:
 		_move_player(delta)
+	_update_player_animation(delta, player_previous_position)
 	if _check_dungeon_door_contact():
 		_update_hud()
 		queue_redraw()
 		return
+	var capanga_previous_position := capanga_anchor.position
 	_advance_capanga_ai(delta)
+	_update_capanga_animation(delta, capanga_previous_position)
 	_attempt_auto_attack(hit_roll, critical_roll)
 	_advance_capanga_attack(delta)
 	_update_hud()
@@ -236,6 +256,71 @@ func _advance_timers(delta: float) -> void:
 		popup["elapsed"] = float(popup["elapsed"]) + delta
 		if float(popup["elapsed"]) >= float(popup["duration"]):
 			combat_popups.remove_at(index)
+
+
+func _update_player_animation(delta: float, previous_position: Vector2) -> void:
+	var result := _next_character_animation(
+		player_animation_state,
+		player_animation_frame,
+		player_animation_elapsed,
+		not player_anchor.position.is_equal_approx(previous_position),
+		delta
+	)
+	player_animation_state = int(result["state"])
+	player_animation_frame = int(result["frame"])
+	player_animation_elapsed = float(result["elapsed"])
+
+
+func _update_capanga_animation(delta: float, previous_position: Vector2) -> void:
+	var result := _next_character_animation(
+		capanga_animation_state,
+		capanga_animation_frame,
+		capanga_animation_elapsed,
+		capanga_active and not capanga_anchor.position.is_equal_approx(previous_position),
+		delta
+	)
+	capanga_animation_state = int(result["state"])
+	capanga_animation_frame = int(result["frame"])
+	capanga_animation_elapsed = float(result["elapsed"])
+
+
+func _next_character_animation(
+	current_state: int,
+	current_frame: int,
+	current_elapsed: float,
+	moved: bool,
+	delta: float
+) -> Dictionary:
+	var target_state := ANIMATION_WALK if moved else ANIMATION_IDLE
+	if current_state != target_state:
+		return {
+			"state": target_state,
+			"frame": 0,
+			"elapsed": 0.0,
+		}
+
+	var frame_count := WALK_FRAME_COUNT if target_state == ANIMATION_WALK else IDLE_FRAME_COUNT
+	var frames_per_second := WALK_FPS if target_state == ANIMATION_WALK else IDLE_FPS
+	var frame_duration := 1.0 / frames_per_second
+	var next_elapsed := maxf(0.0, current_elapsed) + maxf(0.0, delta)
+	var frames_advanced := floori(next_elapsed / frame_duration)
+	if frames_advanced > 0:
+		next_elapsed = fmod(next_elapsed, frame_duration)
+
+	return {
+		"state": target_state,
+		"frame": (current_frame + frames_advanced) % frame_count,
+		"elapsed": next_elapsed,
+	}
+
+
+func _reset_character_animations_to_idle() -> void:
+	player_animation_state = ANIMATION_IDLE
+	player_animation_frame = 0
+	player_animation_elapsed = 0.0
+	capanga_animation_state = ANIMATION_IDLE
+	capanga_animation_frame = 0
+	capanga_animation_elapsed = 0.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -317,6 +402,7 @@ func _open_dungeon_prompt() -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	_reset_character_animations_to_idle()
 	_update_status("Entrar na masmorra?")
 	dungeon_yes_button.grab_focus()
 
@@ -499,6 +585,7 @@ func _handle_player_defeat() -> void:
 	heavy_warning_remaining = 0.0
 	capanga_basic_attack_count = 0
 	capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+	_reset_character_animations_to_idle()
 	if capanga_active:
 		capanga_return_target_index = _nearest_patrol_index()
 		_set_capanga_state(EnemyState.RETURN)
@@ -954,12 +1041,28 @@ func _character_draw_rect(position: Vector2) -> Rect2:
 	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
 
 
+func _character_sprite_region(row: int, animation_state: int, animation_frame: int) -> Rect2:
+	var first_column := WALK_FIRST_COLUMN if animation_state == ANIMATION_WALK else IDLE_FIRST_COLUMN
+	var frame_count := WALK_FRAME_COUNT if animation_state == ANIMATION_WALK else IDLE_FRAME_COUNT
+	var normalized_frame := posmod(animation_frame, frame_count)
+	return Rect2(
+		float(first_column + normalized_frame) * CHARACTER_FRAME_SIZE.x,
+		float(row) * CHARACTER_FRAME_SIZE.y,
+		CHARACTER_FRAME_SIZE.x,
+		CHARACTER_FRAME_SIZE.y
+	)
+
+
 func _draw_capanga() -> void:
 	if not capanga_active:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), CAPANGA_SPRITE_REGION)
+	draw_texture_rect_region(
+		CHARACTER_ATLAS,
+		_character_draw_rect(position),
+		_character_sprite_region(CAPANGA_ATLAS_ROW, capanga_animation_state, capanga_animation_frame)
+	)
 
 	var health_rect := Rect2(position + Vector2(-18.0, -58.0), Vector2(36.0, 5.0))
 	draw_rect(health_rect, COLOR_HEALTH_BACKGROUND, true)
@@ -971,7 +1074,11 @@ func _draw_capanga() -> void:
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), PLAYER_SPRITE_REGION)
+	draw_texture_rect_region(
+		CHARACTER_ATLAS,
+		_character_draw_rect(position),
+		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame)
+	)
 	if heavy_warning_active:
 		var font := ThemeDB.fallback_font
 		draw_string(font, position + Vector2(-20.0, -58.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)

@@ -15,10 +15,20 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
-const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/prototypes/personagens_se_48px_16c.png")
+const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_se_idle4_walk6_64px_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
-const PLAYER_SPRITE_REGION := Rect2(0.0, 0.0, 64.0, 64.0)
+const CHARACTER_ATLAS_COLUMNS := 10
+const CHARACTER_ATLAS_ROWS := 2
+const PLAYER_ATLAS_ROW := 0
+const ANIMATION_IDLE := 0
+const ANIMATION_WALK := 1
+const IDLE_FIRST_COLUMN := 0
+const IDLE_FRAME_COUNT := 4
+const IDLE_FPS := 4.0
+const WALK_FIRST_COLUMN := 4
+const WALK_FRAME_COUNT := 6
+const WALK_FPS := 10.0
 
 const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
@@ -57,6 +67,9 @@ var movement_path := PackedVector2Array()
 var path_index := 0
 var destination_marker := Vector2.ZERO
 var has_destination := false
+var player_animation_state := ANIMATION_IDLE
+var player_animation_frame := 0
+var player_animation_elapsed := 0.0
 var overview_enabled := false
 var camera_transitioning := false
 var camera_tween: Tween
@@ -99,7 +112,9 @@ func _physics_process(delta: float) -> void:
 	if exit_prompt_visible or scene_transitioning:
 		return
 
+	var player_previous_position := player_anchor.position
 	_move_player(delta)
+	_update_player_animation(delta, player_previous_position)
 	if _check_exit_door_contact():
 		queue_redraw()
 		return
@@ -108,6 +123,55 @@ func _physics_process(delta: float) -> void:
 		var follow_weight := 1.0 - exp(-CAMERA_FOLLOW_SPEED * delta)
 		camera.position = camera.position.lerp(player_anchor.position, follow_weight)
 	queue_redraw()
+
+
+func _update_player_animation(delta: float, previous_position: Vector2) -> void:
+	var result := _next_character_animation(
+		player_animation_state,
+		player_animation_frame,
+		player_animation_elapsed,
+		not player_anchor.position.is_equal_approx(previous_position),
+		delta
+	)
+	player_animation_state = int(result["state"])
+	player_animation_frame = int(result["frame"])
+	player_animation_elapsed = float(result["elapsed"])
+
+
+func _next_character_animation(
+	current_state: int,
+	current_frame: int,
+	current_elapsed: float,
+	moved: bool,
+	delta: float
+) -> Dictionary:
+	var target_state := ANIMATION_WALK if moved else ANIMATION_IDLE
+	if current_state != target_state:
+		return {
+			"state": target_state,
+			"frame": 0,
+			"elapsed": 0.0,
+		}
+
+	var frame_count := WALK_FRAME_COUNT if target_state == ANIMATION_WALK else IDLE_FRAME_COUNT
+	var frames_per_second := WALK_FPS if target_state == ANIMATION_WALK else IDLE_FPS
+	var frame_duration := 1.0 / frames_per_second
+	var next_elapsed := maxf(0.0, current_elapsed) + maxf(0.0, delta)
+	var frames_advanced := floori(next_elapsed / frame_duration)
+	if frames_advanced > 0:
+		next_elapsed = fmod(next_elapsed, frame_duration)
+
+	return {
+		"state": target_state,
+		"frame": (current_frame + frames_advanced) % frame_count,
+		"elapsed": next_elapsed,
+	}
+
+
+func _reset_player_animation_to_idle() -> void:
+	player_animation_state = ANIMATION_IDLE
+	player_animation_frame = 0
+	player_animation_elapsed = 0.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -172,6 +236,7 @@ func _request_dungeon_exit(source: String) -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	_reset_player_animation_to_idle()
 	_update_status("Sair apagará todo o progresso feito dentro da masmorra.")
 	exit_yes_button.grab_focus()
 
@@ -464,7 +529,23 @@ func _character_draw_rect(position: Vector2) -> Rect2:
 	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
 
 
+func _character_sprite_region(row: int, animation_state: int, animation_frame: int) -> Rect2:
+	var first_column := WALK_FIRST_COLUMN if animation_state == ANIMATION_WALK else IDLE_FIRST_COLUMN
+	var frame_count := WALK_FRAME_COUNT if animation_state == ANIMATION_WALK else IDLE_FRAME_COUNT
+	var normalized_frame := posmod(animation_frame, frame_count)
+	return Rect2(
+		float(first_column + normalized_frame) * CHARACTER_FRAME_SIZE.x,
+		float(row) * CHARACTER_FRAME_SIZE.y,
+		CHARACTER_FRAME_SIZE.x,
+		CHARACTER_FRAME_SIZE.y
+	)
+
+
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), PLAYER_SPRITE_REGION)
+	draw_texture_rect_region(
+		CHARACTER_ATLAS,
+		_character_draw_rect(position),
+		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame)
+	)

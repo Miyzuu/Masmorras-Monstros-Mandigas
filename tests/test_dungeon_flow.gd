@@ -116,13 +116,32 @@ func _run() -> void:
 		return
 	var dungeon_script_constants: Dictionary = dungeon.get_script().get_script_constant_map()
 	_expect(
-		dungeon_script_constants.get("PLAYER_SPRITE_REGION") == Rect2(0.0, 0.0, 64.0, 64.0),
-		"A masmorra deve usar a célula esquerda do atlas para o Cangaceiro."
+		int(dungeon_script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
+		and int(dungeon_script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 2,
+		"A masmorra deve respeitar o atlas de 10 colunas por 2 linhas."
+	)
+	_expect(
+		int(dungeon_script_constants.get("PLAYER_ATLAS_ROW", -1)) == 0,
+		"A masmorra deve usar a linha 0 do atlas para o Cangaceiro."
+	)
+	_expect(
+		dungeon.call("_character_sprite_region", 0, 0, 3) == Rect2(192.0, 0.0, 64.0, 64.0),
+		"A masmorra deve selecionar corretamente o quarto quadro idle."
+	)
+	_expect(
+		dungeon.call("_character_sprite_region", 0, 1, 5) == Rect2(576.0, 0.0, 64.0, 64.0),
+		"A masmorra deve selecionar corretamente o sexto quadro walk."
 	)
 	_expect(
 		dungeon.call("_character_draw_rect", Vector2.ZERO) == Rect2(-32.0, -60.0, 64.0, 64.0),
 		"O Cangaceiro deve manter o mesmo alinhamento visual dentro da masmorra."
 	)
+	var dungeon_walk_reset: Dictionary = dungeon.call("_next_character_animation", 0, 3, 0.20, true, 0.25)
+	_expect(int(dungeon_walk_reset["state"]) == 1, "Mover na masmorra deve trocar imediatamente para walk.")
+	_expect(int(dungeon_walk_reset["frame"]) == 0, "A troca para walk na masmorra deve reiniciar o ciclo.")
+	var dungeon_idle_reset: Dictionary = dungeon.call("_next_character_animation", 1, 5, 0.09, false, 0.10)
+	_expect(int(dungeon_idle_reset["state"]) == 0, "Parar na masmorra deve trocar imediatamente para idle.")
+	_expect(int(dungeon_idle_reset["frame"]) == 0, "A troca para idle na masmorra deve reiniciar o ciclo.")
 	_expect(bool(dungeon.get("scene_transitioning")), "O fade de entrada deve bloquear comandos.")
 	await create_timer(0.55).timeout
 	_expect(not bool(dungeon.get("scene_transitioning")), "O fade deve liberar comandos após 0,5 s.")

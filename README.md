@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.1.6`
+**Versão atual:** `V.0.1.7`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -35,9 +35,18 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
   recarregar e devolvendo o herói diante da entrada externa;
 - arena tática da versão anterior preservada para futuros chefes;
-- sprites estáticos Sudeste do Cangaceiro e do Capanga integrados à exploração;
-- Cangaceiro também integrado à sala inicial da masmorra;
-- animações de parado e caminhada ainda não implementadas.
+- atlas Sudeste de 640×128 com Cangaceiro e Capanga em células 64×64;
+- animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
+- caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
+- troca imediata entre espera e caminhada conforme o deslocamento real;
+- Cangaceiro e Capanga animados na exploração e Cangaceiro animado na masmorra;
+- reprodução determinística da arte, materiais de QA e testes automatizados;
+- direção Sudeste única e visual compartilhado entre Rifle e Peixeira nesta etapa;
+- correção pixel-perfect do zoom reservada para uma versão futura.
+
+## Próxima decisão
+
+Com a entrega visual da `V.0.1.7` concluída, a próxima decisão volta à Engine.
 
 ## Como executar
 

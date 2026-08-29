@@ -1,5 +1,24 @@
 # Histórico de versões
 
+## V.0.1.7 — 2026-08-29
+
+### Título do commit
+
+`V.0.1.7 — Espera e caminhada dos personagens`
+
+### Descrição
+
+- adiciona um atlas Sudeste de 640×128 com Cangaceiro e Capanga em células 64×64;
+- anima a espera dos dois personagens em 4 quadros a 4 FPS, com respiração e movimento de roupa e equipamento;
+- anima a caminhada em 6 quadros a 10 FPS, com contato, apoio e passagem alternados, mantendo a postura de combate;
+- limita a deriva do pé de apoio a 1 px por quadro e reforça joelhos, transferência de peso e movimento secundário;
+- troca imediatamente entre espera e caminhada conforme o deslocamento real de cada personagem;
+- integra as duas animações ao Cangaceiro e ao Capanga na exploração e ao Cangaceiro na masmorra;
+- inclui reprodução determinística do atlas, ampliações e GIFs de QA, além de testes automatizados da integração;
+- mantém como limitações aprovadas a direção Sudeste única e a ausência de variação visual entre Rifle e Peixeira;
+- reserva a correção pixel-perfect do zoom para uma versão futura;
+- conclui esta etapa visual e devolve a próxima decisão à Engine.
+
 ## V.0.1.6 — 2026-08-29
 
 ### Título do commit
