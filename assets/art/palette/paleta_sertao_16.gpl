@@ -1,0 +1,20 @@
+GIMP Palette
+Name: Sertao 16
+Columns: 4
+# Shared palette for characters, village, UI and VFX.
+  0   0   0  Contorno preto
+ 23  18  13  Quase preto
+ 51  35  27  Marrom profundo
+ 79  51  39  Couro escuro
+ 96  64  39  Linha marrom
+122  74  40  Madeira e sombra de pele
+155 105  61  Terra sombreada
+169 121  69  Terra e pele
+196 154  97  Areia e couro claro
+242 223 189  Creme e brilho
+148  69  46  Ferrugem escura
+209  90  63  Ferrugem clara
+ 66 100  61  Vegetacao escura
+102 134  86  Vegetacao clara
+ 93  85  71  Metal fosco
+ 68 214 179  Turquesa de interacao
