@@ -22,6 +22,11 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
+const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/prototypes/personagens_se_48px_16c.png")
+const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
+const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
+const PLAYER_SPRITE_REGION := Rect2(0.0, 0.0, 64.0, 64.0)
+const CAPANGA_SPRITE_REGION := Rect2(64.0, 0.0, 64.0, 64.0)
 
 const RIFLE_STARTING_AMMO := 5
 const RIFLE_RANGE := 5
@@ -66,11 +71,6 @@ const COLOR_ROCK := Color("5d5547")
 const COLOR_ROCK_LIGHT := Color("837966")
 const COLOR_CACTUS := Color("42643d")
 const COLOR_CACTUS_LIGHT := Color("668656")
-const COLOR_PLAYER_COAT := Color("94452e")
-const COLOR_PLAYER_HAT := Color("d1a15b")
-const COLOR_ENEMY_COAT := Color("4f3327")
-const COLOR_ENEMY_ARMOR := Color("6f6654")
-const COLOR_ENEMY_HAT := Color("33231b")
 const COLOR_MAGIC := Color("44d6b3")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
 const COLOR_TEXT := Color("f2dfbd")
@@ -950,17 +950,18 @@ func _draw_destination() -> void:
 	draw_arc(destination_marker, 9.0, 0.0, TAU, 24, COLOR_MAGIC, 2.0, true)
 
 
+func _character_draw_rect(position: Vector2) -> Rect2:
+	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
+
+
 func _draw_capanga() -> void:
 	if not capanga_active:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_rect(Rect2(position + Vector2(-8.0, -18.0), Vector2(16.0, 19.0)), COLOR_ENEMY_COAT, true)
-	draw_rect(Rect2(position + Vector2(-10.0, -14.0), Vector2(20.0, 9.0)), COLOR_ENEMY_ARMOR, true)
-	draw_rect(Rect2(position + Vector2(-11.0, -21.0), Vector2(22.0, 5.0)), COLOR_ENEMY_HAT, true)
-	draw_rect(Rect2(position + Vector2(-7.0, -26.0), Vector2(14.0, 6.0)), COLOR_ENEMY_HAT, true)
+	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), CAPANGA_SPRITE_REGION)
 
-	var health_rect := Rect2(position + Vector2(-18.0, -34.0), Vector2(36.0, 5.0))
+	var health_rect := Rect2(position + Vector2(-18.0, -58.0), Vector2(36.0, 5.0))
 	draw_rect(health_rect, COLOR_HEALTH_BACKGROUND, true)
 	var health_width := health_rect.size.x * capanga_hp / CAPANGA_MAX_HP
 	draw_rect(Rect2(health_rect.position, Vector2(health_width, health_rect.size.y)), COLOR_ENEMY_HEALTH, true)
@@ -970,12 +971,10 @@ func _draw_capanga() -> void:
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_rect(Rect2(position + Vector2(-7.0, -17.0), Vector2(14.0, 18.0)), COLOR_PLAYER_COAT, true)
-	draw_rect(Rect2(position + Vector2(-11.0, -20.0), Vector2(22.0, 5.0)), COLOR_PLAYER_HAT, true)
-	draw_rect(Rect2(position + Vector2(-7.0, -25.0), Vector2(14.0, 6.0)), COLOR_PLAYER_HAT, true)
+	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), PLAYER_SPRITE_REGION)
 	if heavy_warning_active:
 		var font := ThemeDB.fallback_font
-		draw_string(font, position + Vector2(-20.0, -38.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)
+		draw_string(font, position + Vector2(-20.0, -58.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)
 
 
 func _draw_combat_popups() -> void:
@@ -983,7 +982,7 @@ func _draw_combat_popups() -> void:
 	for popup in combat_popups:
 		var duration := float(popup["duration"])
 		var progress := clampf(float(popup["elapsed"]) / duration, 0.0, 1.0)
-		var popup_position: Vector2 = popup["position"] + Vector2(-40.0, -34.0 - progress * 24.0)
+		var popup_position: Vector2 = popup["position"] + Vector2(-40.0, -60.0 - progress * 24.0)
 		var popup_color: Color = popup["color"]
 		popup_color.a = 1.0 - progress
 		var popup_text := str(popup["text"])

@@ -114,6 +114,15 @@ func _run() -> void:
 		dungeon.queue_free()
 		_finish(game_state)
 		return
+	var dungeon_script_constants: Dictionary = dungeon.get_script().get_script_constant_map()
+	_expect(
+		dungeon_script_constants.get("PLAYER_SPRITE_REGION") == Rect2(0.0, 0.0, 64.0, 64.0),
+		"A masmorra deve usar a célula esquerda do atlas para o Cangaceiro."
+	)
+	_expect(
+		dungeon.call("_character_draw_rect", Vector2.ZERO) == Rect2(-32.0, -60.0, 64.0, 64.0),
+		"O Cangaceiro deve manter o mesmo alinhamento visual dentro da masmorra."
+	)
 	_expect(bool(dungeon.get("scene_transitioning")), "O fade de entrada deve bloquear comandos.")
 	await create_timer(0.55).timeout
 	_expect(not bool(dungeon.get("scene_transitioning")), "O fade deve liberar comandos após 0,5 s.")

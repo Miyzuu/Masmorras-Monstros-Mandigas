@@ -15,6 +15,10 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
+const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/prototypes/personagens_se_48px_16c.png")
+const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
+const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
+const PLAYER_SPRITE_REGION := Rect2(0.0, 0.0, 64.0, 64.0)
 
 const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
@@ -33,8 +37,6 @@ const COLOR_DOOR := Color("684a36")
 const COLOR_STAIRS := Color("292b31")
 const COLOR_STAIRS_EDGE := Color("a18f7b")
 const COLOR_SEAL := Color("ab3c77")
-const COLOR_PLAYER_COAT := Color("94452e")
-const COLOR_PLAYER_HAT := Color("d1a15b")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
 const COLOR_MAGIC := Color("44d6b3")
 
@@ -458,9 +460,11 @@ func _draw_destination() -> void:
 	draw_arc(destination_marker, 9.0, 0.0, TAU, 24, COLOR_MAGIC, 2.0, true)
 
 
+func _character_draw_rect(position: Vector2) -> Rect2:
+	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
+
+
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	draw_rect(Rect2(position + Vector2(-7.0, -17.0), Vector2(14.0, 18.0)), COLOR_PLAYER_COAT, true)
-	draw_rect(Rect2(position + Vector2(-11.0, -20.0), Vector2(22.0, 5.0)), COLOR_PLAYER_HAT, true)
-	draw_rect(Rect2(position + Vector2(-7.0, -25.0), Vector2(14.0, 6.0)), COLOR_PLAYER_HAT, true)
+	draw_texture_rect_region(CHARACTER_ATLAS, _character_draw_rect(position), PLAYER_SPRITE_REGION)

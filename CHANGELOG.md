@@ -1,5 +1,23 @@
 # Histórico de versões
 
+## V.0.1.6 — 2026-08-29
+
+### Título do commit
+
+`V.0.1.6 — Prova visual inicial dos personagens`
+
+### Descrição
+
+- adiciona a prova técnica do Cangaceiro e do Capanga em células 64×64, voltados para Sudeste;
+- define a paleta compartilhada Sertão 16 e registra suas regras de uso;
+- documenta procedência, prompts e limites conhecidos da arte gerada;
+- inclui ampliações e composição de QA sobre a cena atual do protótipo;
+- adiciona uma ferramenta local e reproduzível com Pillow 12.3.0 para gerar os derivados;
+- valida os seis PNGs, a reprodução exata dos quatro derivados e a importação no Godot;
+- substitui os desenhos geométricos pelo Cangaceiro e Capanga estáticos na exploração;
+- usa o mesmo Cangaceiro na masmorra sem alterar anchors, colisões ou regras de combate;
+- mantém as animações de parado e caminhada fora desta entrega.
+
 ## V.0.1.5 — 2026-08-28
 
 ### Título do commit
