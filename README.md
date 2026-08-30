@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.1.7`
+**Versão atual:** `V.0.1.8`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -28,6 +28,10 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - alerta **!**, aparo com Espaço e retorno visual **HÁ**;
 - falha de aparo causando stun e perda do próximo ataque;
 - derrota retornando ao início com 40% de vida e munição preservada;
+- `GameState` como fonte única para vida, munição, arma, ouro, encontros
+  derrotados e progresso da masmorra;
+- respawn de 40% e transições de mapa sincronizados imediatamente no estado
+  global;
 - porta no fim do caminho, liberada somente após derrotar o Capanga;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
 - mapa separado de masmorra com sala de pedra 16×12, saída inicial e escada
@@ -46,7 +50,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a entrega visual da `V.0.1.7` concluída, a próxima decisão volta à Engine.
+Com a centralização de estado da `V.0.1.8` concluída, a próxima decisão continua
+na Engine, usando esse contrato compartilhado como base.
 
 ## Como executar
 

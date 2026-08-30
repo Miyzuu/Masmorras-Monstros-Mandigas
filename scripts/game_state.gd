@@ -1,8 +1,13 @@
 extends Node
 
-const DEFAULT_PLAYER_HP := 100
+const PLAYER_MAX_HP := 100
+const PLAYER_RESPAWN_RATIO := 0.40
+const DEFAULT_PLAYER_HP := PLAYER_MAX_HP
 const DEFAULT_RIFLE_AMMO := 5
 const DEFAULT_WEAPON := 0
+const DEFAULT_GOLD_SCORE := 0
+const WEAPON_RIFLE := 0
+const WEAPON_KNIFE := 1
 
 var defeated_encounters: Dictionary = {}
 var active_encounter_id := ""
@@ -14,6 +19,7 @@ var returning_from_dungeon := false
 var player_hp := DEFAULT_PLAYER_HP
 var rifle_ammo := DEFAULT_RIFLE_AMMO
 var current_weapon := DEFAULT_WEAPON
+var gold_score := DEFAULT_GOLD_SCORE
 
 var dungeon_active := false
 var dungeon_progress: Dictionary = {}
@@ -44,9 +50,25 @@ func mark_encounter_defeated(encounter_id: String) -> void:
 
 
 func save_player_state(new_hp: int, new_rifle_ammo: int, new_weapon: int) -> void:
-	player_hp = maxi(0, new_hp)
+	set_player_hp(new_hp)
+	set_rifle_ammo(new_rifle_ammo)
+	set_current_weapon(new_weapon)
+
+
+func set_player_hp(new_hp: int) -> void:
+	player_hp = clampi(new_hp, 0, PLAYER_MAX_HP)
+
+
+func set_rifle_ammo(new_rifle_ammo: int) -> void:
 	rifle_ammo = maxi(0, new_rifle_ammo)
-	current_weapon = maxi(0, new_weapon)
+
+
+func set_current_weapon(new_weapon: int) -> void:
+	current_weapon = WEAPON_KNIFE if new_weapon == WEAPON_KNIFE else WEAPON_RIFLE
+
+
+func respawn_player() -> void:
+	set_player_hp(roundi(float(PLAYER_MAX_HP) * PLAYER_RESPAWN_RATIO))
 
 
 func begin_dungeon(
@@ -107,5 +129,6 @@ func reset_session() -> void:
 	player_hp = DEFAULT_PLAYER_HP
 	rifle_ammo = DEFAULT_RIFLE_AMMO
 	current_weapon = DEFAULT_WEAPON
+	gold_score = DEFAULT_GOLD_SCORE
 	dungeon_active = false
 	reset_dungeon_progress()

@@ -1,5 +1,22 @@
 # Histórico de versões
 
+## V.0.1.8 — 2026-08-30
+
+### Título do commit
+
+`V.0.1.8 — Estado global centralizado`
+
+### Descrição
+
+- torna `GameState` a fonte única de verdade para vida, munição, arma equipada, ouro, encontros derrotados e progresso da masmorra;
+- adiciona `gold_score` com valor inicial zero e reinício de sessão, sem antecipar valores de recompensa ou penalidade ainda indefinidos no GDD;
+- substitui as cópias locais de vida, munição e arma na exploração e na masmorra por propriedades compatíveis que delegam ao estado global;
+- centraliza a validação de vida entre 0 e 100, munição não negativa e armas Rifle/Peixeira;
+- registra imediatamente o respawn com 40% de vida, preservando munição, arma, ouro e progresso externo;
+- mantém os contratos existentes de transição entre mapas e de acesso usados pela suíte automatizada;
+- não altera regras de combate em tempo real, arena tática, animações, cenas ou arte;
+- preserva os cinco testes automatizados com seus marcadores de sucesso.
+
 ## V.0.1.7 — 2026-08-29
 
 ### Título do commit

@@ -75,9 +75,21 @@ var camera_transitioning := false
 var camera_tween: Tween
 var fade_tween: Tween
 
-var player_hp := PLAYER_MAX_HP
-var rifle_ammo := 5
-var current_weapon := Weapon.RIFLE
+var player_hp: int:
+	get:
+		return GameState.player_hp
+	set(value):
+		GameState.set_player_hp(value)
+var rifle_ammo: int:
+	get:
+		return GameState.rifle_ammo
+	set(value):
+		GameState.set_rifle_ammo(value)
+var current_weapon: int:
+	get:
+		return GameState.current_weapon
+	set(value):
+		GameState.set_current_weapon(value)
 
 var exit_prompt_visible := false
 var exit_contact_latched := false
@@ -87,9 +99,6 @@ var exit_request_source := ""
 
 func _ready() -> void:
 	_setup_pathfinding()
-	player_hp = clampi(GameState.player_hp, 0, PLAYER_MAX_HP)
-	rifle_ammo = maxi(0, GameState.rifle_ammo)
-	current_weapon = Weapon.KNIFE if GameState.current_weapon == Weapon.KNIFE else Weapon.RIFLE
 	player_anchor.position = _cell_to_world(PLAYER_START)
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM

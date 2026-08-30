@@ -16,7 +16,6 @@ const TILE_SIZE := Vector2(64.0, 32.0)
 const HALF_TILE := TILE_SIZE * 0.5
 const PLAYER_SPEED := 140.0
 const PLAYER_MAX_HP := 100
-const PLAYER_RESPAWN_HP := 40
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
@@ -141,9 +140,21 @@ var camera_transitioning := false
 var camera_tween: Tween
 var fade_tween: Tween
 
-var player_hp := PLAYER_MAX_HP
-var rifle_ammo := RIFLE_STARTING_AMMO
-var current_weapon := Weapon.RIFLE
+var player_hp: int:
+	get:
+		return GameState.player_hp
+	set(value):
+		GameState.set_player_hp(value)
+var rifle_ammo: int:
+	get:
+		return GameState.rifle_ammo
+	set(value):
+		GameState.set_rifle_ammo(value)
+var current_weapon: int:
+	get:
+		return GameState.current_weapon
+	set(value):
+		GameState.set_current_weapon(value)
 var player_attack_cooldown := 0.0
 var weapon_switch_cooldown := 0.0
 var stun_remaining := 0.0
@@ -176,9 +187,6 @@ func _ready() -> void:
 	var returned_from_combat: bool = GameState.returning_from_combat
 	var returned_from_dungeon: bool = GameState.returning_from_dungeon
 	var returned_to_exploration := returned_from_combat or returned_from_dungeon
-	player_hp = clampi(GameState.player_hp, 0, PLAYER_MAX_HP)
-	rifle_ammo = maxi(0, GameState.rifle_ammo)
-	current_weapon = Weapon.KNIFE if GameState.current_weapon == Weapon.KNIFE else Weapon.RIFLE
 	player_anchor.position = GameState.consume_return_position(start_position)
 	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
 	capanga_active = not GameState.is_encounter_defeated(CAPANGA_ID)
@@ -573,7 +581,7 @@ func _damage_player(amount: int) -> bool:
 
 
 func _handle_player_defeat() -> void:
-	player_hp = PLAYER_RESPAWN_HP
+	GameState.respawn_player()
 	player_anchor.position = _cell_to_world(PLAYER_START)
 	movement_path.clear()
 	path_index = 0
