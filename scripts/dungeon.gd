@@ -236,6 +236,7 @@ func _request_dungeon_exit(source: String) -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	_play_audio("ui_hover")
 	_reset_player_animation_to_idle()
 	_update_status("Sair apagará todo o progresso feito dentro da masmorra.")
 	exit_yes_button.grab_focus()
@@ -246,6 +247,7 @@ func _cancel_dungeon_exit() -> void:
 		return
 	exit_prompt_visible = false
 	exit_prompt.visible = false
+	_play_audio("ui_click")
 	_update_status("Saída cancelada — a exploração da sala continua.")
 
 
@@ -259,8 +261,19 @@ func _confirm_dungeon_exit() -> void:
 	exit_prompt_visible = false
 	exit_prompt.visible = false
 	scene_transitioning = true
+	_play_audio("door")
 	_prepare_dungeon_exit()
 	_start_scene_transition(EXPLORATION_SCENE)
+
+
+func _play_audio(sound_name: String) -> void:
+	if is_inside_tree() and get_tree().root.has_node("AudioManager"):
+		var mgr := get_tree().root.get_node("AudioManager")
+		match sound_name:
+			"ui_click": mgr.call("play_ui_click")
+			"ui_hover": mgr.call("play_ui_hover")
+			"door": mgr.call("play_door_open")
+			_: mgr.call("play_sfx", sound_name)
 
 
 func _start_scene_transition(scene_path: String) -> void:

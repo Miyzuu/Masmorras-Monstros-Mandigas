@@ -164,6 +164,8 @@ var heavy_warning_active := false
 var heavy_warning_remaining := 0.0
 
 var damage_border_remaining := 0.0
+var player_hit_flash_remaining := 0.0
+var capanga_hit_flash_remaining := 0.0
 var combat_popups: Array[Dictionary] = []
 var dungeon_prompt_visible := false
 var door_contact_latched := false
@@ -249,6 +251,8 @@ func _advance_timers(delta: float) -> void:
 	weapon_switch_cooldown = maxf(0.0, weapon_switch_cooldown - delta)
 	stun_remaining = maxf(0.0, stun_remaining - delta)
 	damage_border_remaining = maxf(0.0, damage_border_remaining - delta)
+	player_hit_flash_remaining = maxf(0.0, player_hit_flash_remaining - delta)
+	capanga_hit_flash_remaining = maxf(0.0, capanga_hit_flash_remaining - delta)
 	_update_damage_border()
 
 	for index in range(combat_popups.size() - 1, -1, -1):
@@ -463,6 +467,7 @@ func _toggle_weapon() -> bool:
 
 	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
 	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
+	_play_audio("ui_click")
 	if current_weapon == Weapon.RIFLE:
 		_update_status("Rifle equipado — ataques automáticos em até 5 tiles.")
 	else:
@@ -479,6 +484,8 @@ func _attempt_parry() -> bool:
 		heavy_warning_remaining = 0.0
 		capanga_basic_attack_count = 0
 		capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+		_play_audio("parry")
+		_trigger_screenshake(0.4)
 		_spawn_popup("HÁ", player_anchor.position, Color.WHITE, 22, true, PARRY_TEXT_DURATION)
 		_update_status("HÁ — ataque pesado aparado.")
 		queue_redraw()
@@ -506,6 +513,9 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	player_attack_cooldown = attack_interval
 	if current_weapon == Weapon.RIFLE:
 		rifle_ammo -= 1
+		_play_audio("shoot")
+	else:
+		_play_audio("knife")
 
 	if skip_next_player_attack:
 		skip_next_player_attack = false
@@ -533,6 +543,12 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 
 func _damage_capanga(amount: int, critical: bool) -> void:
 	capanga_hp = maxf(0.0, capanga_hp - float(amount))
+	capanga_hit_flash_remaining = 0.12
+	if critical:
+		_play_audio("critical")
+		_trigger_screenshake(0.5)
+	else:
+		_play_audio("hit")
 	_spawn_popup(
 		str(amount),
 		capanga_anchor.position,
@@ -564,6 +580,9 @@ func _defeat_capanga() -> void:
 func _damage_player(amount: int) -> bool:
 	player_hp = maxi(0, player_hp - amount)
 	damage_border_remaining = DAMAGE_BORDER_DURATION
+	player_hit_flash_remaining = 0.12
+	_play_audio("hit")
+	_trigger_screenshake(0.35)
 	_spawn_popup(str(amount), player_anchor.position, COLOR_PLAYER_DAMAGE, 16, true)
 	_update_damage_border()
 	if player_hp <= 0:
@@ -805,6 +824,7 @@ func _move_player(delta: float) -> void:
 
 	var waypoint := movement_path[path_index]
 	player_anchor.position = player_anchor.position.move_toward(waypoint, PLAYER_SPEED * delta)
+	_emit_step_dust()
 	if player_anchor.position.distance_to(waypoint) <= 0.5:
 		player_anchor.position = waypoint
 		path_index += 1
@@ -813,6 +833,34 @@ func _move_player(delta: float) -> void:
 			path_index = 0
 			has_destination = false
 			_update_status("Destino alcançado.")
+
+
+func _emit_step_dust() -> void:
+	if player_anchor != null:
+		var dust := player_anchor.get_node_or_null("DustParticles") as CPUParticles2D
+		if dust != null and not dust.emitting:
+			dust.restart()
+
+
+func _play_audio(sound_name: String) -> void:
+	if is_inside_tree() and get_tree().root.has_node("AudioManager"):
+		var mgr := get_tree().root.get_node("AudioManager")
+		match sound_name:
+			"shoot": mgr.call("play_shoot")
+			"knife": mgr.call("play_knife")
+			"step": mgr.call("play_step")
+			"parry": mgr.call("play_parry")
+			"hit": mgr.call("play_hit")
+			"critical": mgr.call("play_critical")
+			"ui_click": mgr.call("play_ui_click")
+			"ui_hover": mgr.call("play_ui_hover")
+			"door": mgr.call("play_door_open")
+			_: mgr.call("play_sfx", sound_name)
+
+
+func _trigger_screenshake(amount: float) -> void:
+	if is_inside_tree():
+		ScreenShake.shake_camera(get_tree(), amount)
 
 
 func _toggle_overview() -> void:
@@ -1058,10 +1106,15 @@ func _draw_capanga() -> void:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
+	var capanga_modulate := Color.WHITE
+	if capanga_hit_flash_remaining > 0.0:
+		var flash_ratio := clampf(capanga_hit_flash_remaining / 0.12, 0.0, 1.0)
+		capanga_modulate = Color.WHITE.lerp(Color(5.0, 5.0, 5.0, 1.0), flash_ratio)
 	draw_texture_rect_region(
 		CHARACTER_ATLAS,
 		_character_draw_rect(position),
-		_character_sprite_region(CAPANGA_ATLAS_ROW, capanga_animation_state, capanga_animation_frame)
+		_character_sprite_region(CAPANGA_ATLAS_ROW, capanga_animation_state, capanga_animation_frame),
+		capanga_modulate
 	)
 
 	var health_rect := Rect2(position + Vector2(-18.0, -58.0), Vector2(36.0, 5.0))
@@ -1074,10 +1127,15 @@ func _draw_capanga() -> void:
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
+	var player_modulate := Color.WHITE
+	if player_hit_flash_remaining > 0.0:
+		var flash_ratio := clampf(player_hit_flash_remaining / 0.12, 0.0, 1.0)
+		player_modulate = Color.WHITE.lerp(Color(5.0, 5.0, 5.0, 1.0), flash_ratio)
 	draw_texture_rect_region(
 		CHARACTER_ATLAS,
 		_character_draw_rect(position),
-		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame)
+		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame),
+		player_modulate
 	)
 	if heavy_warning_active:
 		var font := ThemeDB.fallback_font

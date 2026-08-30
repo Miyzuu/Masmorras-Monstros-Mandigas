@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3]
+
+[sub_resource type="Gradient" id="Gradient_dust"]
+offsets = PackedFloat32Array(0, 0.65, 1)
+colors = PackedColorArray(0.768, 0.604, 0.38, 0.85, 0.608, 0.412, 0.239, 0.6, 0.365, 0.333, 0.278, 0)
+
+[node name="DustParticles" type="CPUParticles2D"]
+emitting = false
+amount = 8
+lifetime = 0.35
+one_shot = true
+explosiveness = 0.75
+lifetime_randomness = 0.3
+direction = Vector2(0, -1)
+spread = 80.0
+gravity = Vector2(0, -8)
+initial_velocity_min = 12.0
+initial_velocity_max = 26.0
+scale_amount_min = 1.5
+scale_amount_max = 3.0
+color_ramp = SubResource("Gradient_dust")
