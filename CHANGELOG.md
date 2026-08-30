@@ -1,5 +1,30 @@
 # Histórico de versões
 
+## V.0.1.9 — 2026-08-30
+
+### Título do commit
+
+`V.0.1.9 — Feedback audiovisual e atlas corrigido`
+
+### Descrição
+
+- integra em segurança o feedback audiovisual de `origin/main`, preservando o
+  `GameState` da V.0.1.8 como fonte única para vida, munição, arma, ouro,
+  encontros e progresso da masmorra;
+- adiciona passos por distância com som e poeira na exploração e na masmorra;
+- conecta faíscas e fumaça aos disparos que consomem munição e aplica hit-flash
+  por shader ao Cangaceiro e ao Capanga;
+- incorpora áudio procedural, screen shake, barramentos de áudio e interface em
+  estilo xilogravura;
+- amplia o atlas para 640×256 com linhas distintas para Rifle, Capanga,
+  Peixeira e Cabra-Cabriola;
+- corrige o gerador que deslocava as pernas da Peixeira durante a caminhada e a
+  base da Cabra-Cabriola durante a espera;
+- atualiza o nome exibido do projeto para **Monstros, Masmorras e Mandingas**;
+- valida 15 imagens, os seis testes automatizados, importação no Godot e um
+  probe de passos, hit-flash e partículas em runtime;
+- mantém a feature Lapada Seca fora desta versão.
+
 ## V.0.1.8 — 2026-08-30
 
 ### Título do commit

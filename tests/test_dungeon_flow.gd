@@ -117,12 +117,12 @@ func _run() -> void:
 	var dungeon_script_constants: Dictionary = dungeon.get_script().get_script_constant_map()
 	_expect(
 		int(dungeon_script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
-		and int(dungeon_script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 2,
-		"A masmorra deve respeitar o atlas de 10 colunas por 2 linhas."
+		and int(dungeon_script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 4,
+		"A masmorra deve respeitar o atlas de 10 colunas por 4 linhas."
 	)
 	_expect(
-		int(dungeon_script_constants.get("PLAYER_ATLAS_ROW", -1)) == 0,
-		"A masmorra deve usar a linha 0 do atlas para o Cangaceiro."
+		int(dungeon_script_constants.get("PLAYER_RIFLE_ROW", -1)) == 0,
+		"A masmorra deve usar a linha 0 do atlas para o Cangaceiro (Rifle)."
 	)
 	_expect(
 		dungeon.call("_character_sprite_region", 0, 0, 3) == Rect2(192.0, 0.0, 64.0, 64.0),

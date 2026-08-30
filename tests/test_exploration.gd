@@ -17,19 +17,19 @@ func _run() -> void:
 	var exploration := packed_scene.instantiate()
 	root.add_child(exploration)
 	await process_frame
-	var character_atlas := load("res://assets/art/characters/animations/personagens_se_idle4_walk6_64px_16c.png") as Texture2D
+	var character_atlas := load("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png") as Texture2D
 	_expect(character_atlas != null, "O atlas dos personagens deve carregar.")
 	if character_atlas != null:
-		_expect(character_atlas.get_size() == Vector2(640.0, 128.0), "O atlas deve conter 10 colunas e 2 linhas de 64x64.")
+		_expect(character_atlas.get_size() == Vector2(640.0, 256.0), "O atlas deve conter 10 colunas e 4 linhas de 64x64.")
 	var script_constants: Dictionary = exploration.get_script().get_script_constant_map()
 	_expect(
 		int(script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
-		and int(script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 2,
-		"O contrato do atlas deve permanecer em 10 colunas por 2 linhas."
+		and int(script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 4,
+		"O contrato do atlas deve permanecer em 10 colunas por 4 linhas."
 	)
 	_expect(
-		int(script_constants.get("PLAYER_ATLAS_ROW", -1)) == 0,
-		"O Cangaceiro deve usar a linha 0 do atlas."
+		int(script_constants.get("PLAYER_RIFLE_ROW", -1)) == 0,
+		"O Cangaceiro (Rifle) deve usar a linha 0 do atlas."
 	)
 	_expect(
 		int(script_constants.get("CAPANGA_ATLAS_ROW", -1)) == 1,

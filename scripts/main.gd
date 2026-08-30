@@ -413,7 +413,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(32.0, 42.0),
-		"PINDORAMA FANTÁSTICA",
+		"MONSTROS, MASMORRAS E MANDINGAS",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,

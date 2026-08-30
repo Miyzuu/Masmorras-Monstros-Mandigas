@@ -21,13 +21,15 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
-const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_se_idle4_walk6_64px_16c.png")
+const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
 const CHARACTER_ATLAS_COLUMNS := 10
-const CHARACTER_ATLAS_ROWS := 2
-const PLAYER_ATLAS_ROW := 0
+const CHARACTER_ATLAS_ROWS := 4
+const PLAYER_RIFLE_ROW := 0
 const CAPANGA_ATLAS_ROW := 1
+const PLAYER_KNIFE_ROW := 2
+const CABRA_CABRIOLA_ROW := 3
 const ANIMATION_IDLE := 0
 const ANIMATION_WALK := 1
 const IDLE_FIRST_COLUMN := 0
@@ -886,9 +888,10 @@ func _restart_one_shot_particles(particles: CPUParticles2D) -> void:
 
 
 func _update_hit_flash_overlays() -> void:
+	var player_row := PLAYER_KNIFE_ROW if current_weapon == Weapon.KNIFE else PLAYER_RIFLE_ROW
 	_update_hit_flash_overlay(
 		player_hit_flash,
-		PLAYER_ATLAS_ROW,
+		player_row,
 		player_animation_state,
 		player_animation_frame,
 		player_hit_flash_remaining
@@ -1202,10 +1205,11 @@ func _draw_capanga() -> void:
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
+	var player_row := PLAYER_KNIFE_ROW if current_weapon == Weapon.KNIFE else PLAYER_RIFLE_ROW
 	draw_texture_rect_region(
 		CHARACTER_ATLAS,
 		_character_draw_rect(position),
-		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame),
+		_character_sprite_region(player_row, player_animation_state, player_animation_frame),
 		Color.WHITE
 	)
 	if heavy_warning_active:
