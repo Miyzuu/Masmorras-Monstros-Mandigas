@@ -1,9 +1,21 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/exploration.gd" id="1_exploration"]
 [ext_resource type="Script" path="res://scripts/screen_shake.gd" id="2_screenshake"]
 [ext_resource type="Theme" path="res://assets/ui/woodcut_theme.tres" id="3_theme"]
 [ext_resource type="PackedScene" path="res://scenes/vfx/dust_particles.tscn" id="4_dust"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="5_hit_flash"]
+[ext_resource type="PackedScene" path="res://scenes/vfx/rifle_muzzle_flash.tscn" id="6_muzzle_flash"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_player_hit_flash"]
+resource_local_to_scene = true
+shader = ExtResource("5_hit_flash")
+shader_parameter/flash_modifier = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_capanga_hit_flash"]
+resource_local_to_scene = true
+shader = ExtResource("5_hit_flash")
+shader_parameter/flash_modifier = 0.0
 
 [node name="Exploration" type="Node2D"]
 script = ExtResource("1_exploration")
@@ -12,7 +24,27 @@ script = ExtResource("1_exploration")
 
 [node name="DustParticles" parent="PlayerAnchor" instance=ExtResource("4_dust")]
 
+[node name="HitFlash" type="Sprite2D" parent="PlayerAnchor"]
+material = SubResource("ShaderMaterial_player_hit_flash")
+centered = false
+offset = Vector2(-32, -60)
+region_enabled = true
+visible = false
+z_index = 1
+
+[node name="RifleMuzzleFlash" parent="PlayerAnchor" instance=ExtResource("6_muzzle_flash")]
+position = Vector2(18, -40)
+z_index = 2
+
 [node name="CapangaAnchor" type="Node2D" parent="."]
+
+[node name="HitFlash" type="Sprite2D" parent="CapangaAnchor"]
+material = SubResource("ShaderMaterial_capanga_hit_flash")
+centered = false
+offset = Vector2(-32, -60)
+region_enabled = true
+visible = false
+z_index = 1
 
 [node name="Camera2D" type="Camera2D" parent="."]
 enabled = true
