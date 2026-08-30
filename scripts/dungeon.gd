@@ -29,6 +29,7 @@ const IDLE_FPS := 4.0
 const WALK_FIRST_COLUMN := 4
 const WALK_FRAME_COUNT := 6
 const WALK_FPS := 10.0
+const STEP_DISTANCE := 42.0
 
 const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
@@ -52,6 +53,7 @@ const COLOR_MAGIC := Color("44d6b3")
 
 @onready var player_anchor: Node2D = $PlayerAnchor
 @onready var camera: Camera2D = $Camera2D
+@onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
 @onready var status_label: Label = $Interface/TopPanel/Status
 @onready var version_label: Label = $Interface/Version
 @onready var health_fill: ColorRect = $Interface/StatusHUD/HealthBack/HealthFill
@@ -67,6 +69,7 @@ var movement_path := PackedVector2Array()
 var path_index := 0
 var destination_marker := Vector2.ZERO
 var has_destination := false
+var step_distance_accumulator := 0.0
 var player_animation_state := ANIMATION_IDLE
 var player_animation_frame := 0
 var player_animation_elapsed := 0.0
@@ -282,6 +285,7 @@ func _play_audio(sound_name: String) -> void:
 			"ui_click": mgr.call("play_ui_click")
 			"ui_hover": mgr.call("play_ui_hover")
 			"door": mgr.call("play_door_open")
+			"step": mgr.call("play_step")
 			_: mgr.call("play_sfx", sound_name)
 
 
@@ -369,7 +373,9 @@ func _move_player(delta: float) -> void:
 		return
 
 	var waypoint := movement_path[path_index]
+	var previous_position := player_anchor.position
 	player_anchor.position = player_anchor.position.move_toward(waypoint, PLAYER_SPEED * delta)
+	_emit_step_feedback(previous_position.distance_to(player_anchor.position))
 	if player_anchor.position.distance_to(waypoint) <= 0.5:
 		player_anchor.position = waypoint
 		path_index += 1
@@ -378,6 +384,24 @@ func _move_player(delta: float) -> void:
 			path_index = 0
 			has_destination = false
 			_update_status("Destino alcançado.")
+
+
+func _emit_step_feedback(distance: float) -> void:
+	if distance <= 0.0:
+		return
+	step_distance_accumulator += distance
+	while step_distance_accumulator >= STEP_DISTANCE:
+		step_distance_accumulator -= STEP_DISTANCE
+		_restart_one_shot_particles(dust_particles)
+		_play_audio("step")
+
+
+func _restart_one_shot_particles(particles: CPUParticles2D) -> void:
+	if particles == null:
+		return
+	particles.emitting = false
+	particles.restart()
+	particles.emitting = true
 
 
 func _toggle_overview() -> void:

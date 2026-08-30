@@ -68,6 +68,8 @@ const FAILED_PARRY_STUN := 0.7
 const DAMAGE_NUMBER_DURATION := 0.8
 const PARRY_TEXT_DURATION := 0.5
 const DAMAGE_BORDER_DURATION := 0.15
+const HIT_FLASH_DURATION := 0.12
+const STEP_DISTANCE := 42.0
 
 const COLOR_VOID := Color("17120d")
 const COLOR_GROUND_A := Color("a97945")
@@ -113,6 +115,10 @@ const ROAD_OBSTACLES = [
 @onready var player_anchor: Node2D = $PlayerAnchor
 @onready var capanga_anchor: Node2D = $CapangaAnchor
 @onready var camera: Camera2D = $Camera2D
+@onready var player_hit_flash: Sprite2D = $PlayerAnchor/HitFlash
+@onready var capanga_hit_flash: Sprite2D = $CapangaAnchor/HitFlash
+@onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
+@onready var rifle_muzzle_flash: Node2D = $PlayerAnchor/RifleMuzzleFlash
 @onready var status_label: Label = $Interface/TopPanel/Status
 @onready var version_label: Label = $Interface/Version
 @onready var health_fill: ColorRect = $Interface/CombatHUD/HealthBack/HealthFill
@@ -129,6 +135,7 @@ var movement_path := PackedVector2Array()
 var path_index := 0
 var destination_marker := Vector2.ZERO
 var has_destination := false
+var step_distance_accumulator := 0.0
 var player_animation_state := ANIMATION_IDLE
 var player_animation_frame := 0
 var player_animation_elapsed := 0.0
@@ -217,6 +224,7 @@ func _ready() -> void:
 		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
 	_update_hud()
 	_update_damage_border()
+	_update_hit_flash_overlays()
 	queue_redraw()
 
 
@@ -251,6 +259,7 @@ func _advance_realtime(
 	_attempt_auto_attack(hit_roll, critical_roll)
 	_advance_capanga_attack(delta)
 	_update_hud()
+	_update_hit_flash_overlays()
 	queue_redraw()
 
 
@@ -522,6 +531,7 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	if current_weapon == Weapon.RIFLE:
 		rifle_ammo -= 1
 		_play_audio("shoot")
+		_emit_rifle_muzzle_flash()
 	else:
 		_play_audio("knife")
 
@@ -551,7 +561,8 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 
 func _damage_capanga(amount: int, critical: bool) -> void:
 	capanga_hp = maxf(0.0, capanga_hp - float(amount))
-	capanga_hit_flash_remaining = 0.12
+	capanga_hit_flash_remaining = HIT_FLASH_DURATION
+	_update_hit_flash_overlays()
 	if critical:
 		_play_audio("critical")
 		_trigger_screenshake(0.5)
@@ -588,7 +599,8 @@ func _defeat_capanga() -> void:
 func _damage_player(amount: int) -> bool:
 	player_hp = maxi(0, player_hp - amount)
 	damage_border_remaining = DAMAGE_BORDER_DURATION
-	player_hit_flash_remaining = 0.12
+	player_hit_flash_remaining = HIT_FLASH_DURATION
+	_update_hit_flash_overlays()
 	_play_audio("hit")
 	_trigger_screenshake(0.35)
 	_spawn_popup(str(amount), player_anchor.position, COLOR_PLAYER_DAMAGE, 16, true)
@@ -831,8 +843,9 @@ func _move_player(delta: float) -> void:
 		return
 
 	var waypoint := movement_path[path_index]
+	var previous_position := player_anchor.position
 	player_anchor.position = player_anchor.position.move_toward(waypoint, PLAYER_SPEED * delta)
-	_emit_step_dust()
+	_emit_step_feedback(previous_position.distance_to(player_anchor.position))
 	if player_anchor.position.distance_to(waypoint) <= 0.5:
 		player_anchor.position = waypoint
 		path_index += 1
@@ -843,11 +856,69 @@ func _move_player(delta: float) -> void:
 			_update_status("Destino alcançado.")
 
 
+func _emit_step_feedback(distance: float) -> void:
+	if distance <= 0.0:
+		return
+	step_distance_accumulator += distance
+	while step_distance_accumulator >= STEP_DISTANCE:
+		step_distance_accumulator -= STEP_DISTANCE
+		_emit_step_dust()
+		_play_audio("step")
+
+
 func _emit_step_dust() -> void:
-	if player_anchor != null:
-		var dust := player_anchor.get_node_or_null("DustParticles") as CPUParticles2D
-		if dust != null and not dust.emitting:
-			dust.restart()
+	_restart_one_shot_particles(dust_particles)
+
+
+func _emit_rifle_muzzle_flash() -> void:
+	if rifle_muzzle_flash == null:
+		return
+	_restart_one_shot_particles(rifle_muzzle_flash.get_node_or_null("Sparks") as CPUParticles2D)
+	_restart_one_shot_particles(rifle_muzzle_flash.get_node_or_null("Smoke") as CPUParticles2D)
+
+
+func _restart_one_shot_particles(particles: CPUParticles2D) -> void:
+	if particles == null:
+		return
+	particles.emitting = false
+	particles.restart()
+	particles.emitting = true
+
+
+func _update_hit_flash_overlays() -> void:
+	_update_hit_flash_overlay(
+		player_hit_flash,
+		PLAYER_ATLAS_ROW,
+		player_animation_state,
+		player_animation_frame,
+		player_hit_flash_remaining
+	)
+	_update_hit_flash_overlay(
+		capanga_hit_flash,
+		CAPANGA_ATLAS_ROW,
+		capanga_animation_state,
+		capanga_animation_frame,
+		capanga_hit_flash_remaining
+	)
+
+
+func _update_hit_flash_overlay(
+	overlay: Sprite2D,
+	atlas_row: int,
+	animation_state: int,
+	animation_frame: int,
+	remaining: float
+) -> void:
+	if overlay == null:
+		return
+	overlay.texture = CHARACTER_ATLAS
+	overlay.region_enabled = true
+	overlay.region_rect = _character_sprite_region(atlas_row, animation_state, animation_frame)
+	var intensity := clampf(remaining / HIT_FLASH_DURATION, 0.0, 1.0)
+	overlay.visible = intensity > 0.0
+	var flash_material := overlay.material as ShaderMaterial
+	if flash_material != null:
+		flash_material.set_shader_parameter("flash_modifier", intensity)
 
 
 func _play_audio(sound_name: String) -> void:
@@ -1114,15 +1185,11 @@ func _draw_capanga() -> void:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
-	var capanga_modulate := Color.WHITE
-	if capanga_hit_flash_remaining > 0.0:
-		var flash_ratio := clampf(capanga_hit_flash_remaining / 0.12, 0.0, 1.0)
-		capanga_modulate = Color.WHITE.lerp(Color(5.0, 5.0, 5.0, 1.0), flash_ratio)
 	draw_texture_rect_region(
 		CHARACTER_ATLAS,
 		_character_draw_rect(position),
 		_character_sprite_region(CAPANGA_ATLAS_ROW, capanga_animation_state, capanga_animation_frame),
-		capanga_modulate
+		Color.WHITE
 	)
 
 	var health_rect := Rect2(position + Vector2(-18.0, -58.0), Vector2(36.0, 5.0))
@@ -1135,15 +1202,11 @@ func _draw_capanga() -> void:
 func _draw_player() -> void:
 	var position := player_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	var player_modulate := Color.WHITE
-	if player_hit_flash_remaining > 0.0:
-		var flash_ratio := clampf(player_hit_flash_remaining / 0.12, 0.0, 1.0)
-		player_modulate = Color.WHITE.lerp(Color(5.0, 5.0, 5.0, 1.0), flash_ratio)
 	draw_texture_rect_region(
 		CHARACTER_ATLAS,
 		_character_draw_rect(position),
 		_character_sprite_region(PLAYER_ATLAS_ROW, player_animation_state, player_animation_frame),
-		player_modulate
+		Color.WHITE
 	)
 	if heavy_warning_active:
 		var font := ThemeDB.fallback_font
