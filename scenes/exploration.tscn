@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/exploration.gd" id="1_exploration"]
 [ext_resource type="Script" path="res://scripts/screen_shake.gd" id="2_screenshake"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/vfx/dust_particles.tscn" id="4_dust"]
 [ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="5_hit_flash"]
 [ext_resource type="PackedScene" path="res://scenes/vfx/rifle_muzzle_flash.tscn" id="6_muzzle_flash"]
+[ext_resource type="Script" path="res://scripts/realtime_hud.gd" id="7_realtime_hud"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_player_hit_flash"]
 resource_local_to_scene = true
@@ -90,7 +91,7 @@ offset_right = 358.0
 offset_bottom = 74.0
 theme_override_colors/font_color = Color(0.761, 0.659, 0.502, 1)
 theme_override_font_sizes/font_size = 14
-text = "Clique ou use WASD para caminhar."
+text = "Botão direito ou WASD para caminhar."
 
 [node name="Version" type="Label" parent="Interface"]
 offset_left = 672.0
@@ -104,10 +105,10 @@ text = "V.0.1.7"
 horizontal_alignment = 2
 
 [node name="HintPanel" type="ColorRect" parent="Interface"]
-offset_left = 480.0
-offset_top = 438.0
+offset_left = 456.0
+offset_top = 54.0
 offset_right = 752.0
-offset_bottom = 496.0
+offset_bottom = 124.0
 mouse_filter = 2
 color = Color(0.098, 0.071, 0.047, 0.96)
 
@@ -130,12 +131,13 @@ offset_right = 260.0
 offset_bottom = 49.0
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 12
-text = "M — MAPA • Q — ARMA • E — LAPADA
-WASD/CLIQUE — ANDAR • ESPAÇO — APARO"
+text = "M MAPA • Q ARMA • E LAPADA
+WASD/MOUSE DIR. ANDAR • ESPAÇO APARO"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="CombatHUD" type="ColorRect" parent="Interface"]
+visible = false
 offset_left = 16.0
 offset_top = 438.0
 offset_right = 456.0
@@ -278,6 +280,16 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 13
 text = "RIFLE  •  BALAS 5 / 5  •  Q PARA TROCAR"
+
+[node name="RealtimeHUD" type="Control" parent="Interface"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("7_realtime_hud")
 
 [node name="DamageBorder" type="Control" parent="Interface"]
 layout_mode = 3

@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/dungeon.gd" id="1_dungeon"]
 [ext_resource type="Script" path="res://scripts/screen_shake.gd" id="2_screenshake"]
 [ext_resource type="Theme" path="res://assets/ui/woodcut_theme.tres" id="3_theme"]
 [ext_resource type="PackedScene" path="res://scenes/vfx/dust_particles.tscn" id="4_dust"]
+[ext_resource type="Script" path="res://scripts/realtime_hud.gd" id="5_realtime_hud"]
 
 [node name="Dungeon" type="Node2D"]
 script = ExtResource("1_dungeon")
@@ -56,7 +57,7 @@ offset_right = 418.0
 offset_bottom = 76.0
 theme_override_colors/font_color = Color(0.72, 0.67, 0.6, 1)
 theme_override_font_sizes/font_size = 13
-text = "Sala vazia — a escada permanece bloqueada."
+text = "Derrote o Capanga para liberar a escada."
 
 [node name="Version" type="Label" parent="Interface"]
 offset_left = 672.0
@@ -70,10 +71,10 @@ text = "V.0.1.7"
 horizontal_alignment = 2
 
 [node name="HintPanel" type="ColorRect" parent="Interface"]
-offset_left = 480.0
-offset_top = 438.0
+offset_left = 456.0
+offset_top = 54.0
 offset_right = 752.0
-offset_bottom = 496.0
+offset_bottom = 124.0
 mouse_filter = 2
 color = Color(0.075, 0.073, 0.079, 0.96)
 
@@ -96,12 +97,13 @@ offset_right = 260.0
 offset_bottom = 49.0
 theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
 theme_override_font_sizes/font_size = 13
-text = "M — VISÃO GERAL  •  ESC — SAIR
-CLIQUE — ANDAR"
+text = "M VISÃO • Q ARMA • E LAPADA
+WASD/MOUSE DIR. ANDAR • ESC SAIR"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="StatusHUD" type="ColorRect" parent="Interface"]
+visible = false
 offset_left = 16.0
 offset_top = 438.0
 offset_right = 456.0
@@ -166,6 +168,16 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.91, 0.865, 0.79, 1)
 theme_override_font_sizes/font_size = 13
 text = "RIFLE  •  BALAS 5  •  SEM INIMIGOS"
+
+[node name="RealtimeHUD" type="Control" parent="Interface"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_realtime_hud")
 
 [node name="DialogLayer" type="CanvasLayer" parent="."]
 layer = 50

@@ -41,6 +41,7 @@ const WALK_FRAME_COUNT := 6
 const WALK_FPS := 10.0
 
 const RIFLE_STARTING_AMMO := 5
+const RIFLE_RELOAD_DURATION := 1.5
 const RIFLE_RANGE := 5
 const RIFLE_INTERVAL := 1.2
 const RIFLE_DAMAGE := 25
@@ -73,7 +74,6 @@ const PARRY_TEXT_DURATION := 0.5
 const DAMAGE_BORDER_DURATION := 0.15
 const HIT_FLASH_DURATION := 0.12
 const STEP_DISTANCE := 42.0
-const LAPADA_AIM_DURATION := 1.0
 
 const COLOR_VOID := Color("17120d")
 const COLOR_GROUND_A := Color("a97945")
@@ -131,6 +131,7 @@ const ROAD_OBSTACLES = [
 @onready var lapada_pip1: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip1
 @onready var lapada_pip2: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip2
 @onready var lapada_pip3: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip3
+@onready var realtime_hud: RealtimeHUD = $Interface/RealtimeHUD
 @onready var damage_border: Control = $Interface/DamageBorder
 @onready var dungeon_prompt: Control = $DialogLayer/DungeonPrompt
 @onready var dungeon_yes_button: Button = $DialogLayer/DungeonPrompt/Dialog/YesButton
@@ -164,6 +165,11 @@ var rifle_ammo: int:
 		return GameState.rifle_ammo
 	set(value):
 		GameState.set_rifle_ammo(value)
+var rifle_reserve_ammo: int:
+	get:
+		return GameState.rifle_reserve_ammo
+	set(value):
+		GameState.set_rifle_reserve_ammo(value)
 var current_weapon: int:
 	get:
 		return GameState.current_weapon
@@ -171,6 +177,8 @@ var current_weapon: int:
 		GameState.set_current_weapon(value)
 var player_attack_cooldown := 0.0
 var weapon_switch_cooldown := 0.0
+var is_reloading := false
+var reload_remaining := 0.0
 var stun_remaining := 0.0
 var skip_next_player_attack := false
 
@@ -191,9 +199,6 @@ var heavy_warning_remaining := 0.0
 var damage_border_remaining := 0.0
 var player_hit_flash_remaining := 0.0
 var capanga_hit_flash_remaining := 0.0
-var is_aiming_lapada := false
-var lapada_aim_remaining := 0.0
-var lapada_aim_origin := Vector2.ZERO
 var combat_popups: Array[Dictionary] = []
 var dungeon_prompt_visible := false
 var door_contact_latched := false
@@ -208,7 +213,7 @@ func _ready() -> void:
 	var returned_to_exploration := returned_from_combat or returned_from_dungeon
 	player_anchor.position = GameState.consume_return_position(start_position)
 	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
-	capanga_active = not GameState.is_encounter_defeated(CAPANGA_ID)
+	capanga_active = returned_to_exploration or not GameState.is_encounter_defeated(CAPANGA_ID)
 	door_contact_latched = returned_from_dungeon
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
@@ -228,8 +233,10 @@ func _ready() -> void:
 	else:
 		fade.modulate.a = 0.0
 
-	if capanga_active:
-		_update_status("Clique ou WASD para caminhar — o Capanga patrulha adiante.")
+	if returned_to_exploration and GameState.is_encounter_defeated(CAPANGA_ID):
+		_update_status("Capanga renasceu — progresso mantido.")
+	elif capanga_active:
+		_update_status("Botão direito/WASD — Capanga adiante.")
 	else:
 		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
 	_update_hud()
@@ -282,13 +289,10 @@ func _advance_timers(delta: float) -> void:
 	capanga_hit_flash_remaining = maxf(0.0, capanga_hit_flash_remaining - delta)
 	_update_damage_border()
 
-	if is_aiming_lapada:
-		if not player_anchor.position.is_equal_approx(lapada_aim_origin):
-			_cancel_aiming_lapada("Mira cancelada — você se moveu.")
-		else:
-			lapada_aim_remaining = maxf(0.0, lapada_aim_remaining - delta)
-			if lapada_aim_remaining <= 0.0:
-				_fire_lapada_seca()
+	if is_reloading:
+		reload_remaining = maxf(0.0, reload_remaining - delta)
+		if reload_remaining <= 0.0:
+			_complete_reload()
 
 	for index in range(combat_popups.size() - 1, -1, -1):
 		var popup := combat_popups[index]
@@ -386,7 +390,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_E:
-			_start_aiming_lapada()
+			_attempt_lapada_seca()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_R:
+			_start_reload()
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_SPACE:
@@ -395,10 +403,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			if is_aiming_lapada:
-				_cancel_aiming_lapada("Mira cancelada pelo clique.")
-			elif stun_remaining > 0.0:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			if stun_remaining > 0.0:
 				_update_status("Atordoado — aguarde 0,7 s.")
 			else:
 				_set_destination(get_global_mouse_position())
@@ -502,12 +508,12 @@ func _toggle_weapon() -> bool:
 	if stun_remaining > 0.0:
 		_update_status("Atordoado — não é possível trocar de arma.")
 		return false
+	if is_reloading:
+		_update_status("Recarga ativa — Q bloqueado.")
+		return false
 	if weapon_switch_cooldown > 0.0:
 		_update_status("Q em recarga por %.1f s." % weapon_switch_cooldown)
 		return false
-	if is_aiming_lapada:
-		_cancel_aiming_lapada("Mira cancelada pela troca de arma.")
-
 	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
 	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
 	_play_audio("ui_click")
@@ -519,7 +525,64 @@ func _toggle_weapon() -> bool:
 	return true
 
 
+func _start_reload() -> bool:
+	if scene_transitioning or dungeon_prompt_visible:
+		return false
+	if is_reloading:
+		_update_status("O Rifle já está sendo recarregado.")
+		return false
+	if stun_remaining > 0.0:
+		_update_status("Atordoado — não é possível recarregar.")
+		return false
+	if current_weapon != Weapon.RIFLE:
+		_update_status("Equipe o Rifle [Q] para recarregar.")
+		return false
+	if rifle_ammo >= RIFLE_STARTING_AMMO:
+		_update_status("O pente do Rifle já está cheio.")
+		return false
+	if rifle_reserve_ammo <= 0:
+		_update_status("Sem balas na reserva.")
+		return false
+
+	is_reloading = true
+	reload_remaining = RIFLE_RELOAD_DURATION
+	_update_status("RECARREGANDO — mova; ataque/E/Q bloqueados.")
+	_update_hud()
+	return true
+
+
+func _complete_reload() -> int:
+	if not is_reloading:
+		return 0
+	is_reloading = false
+	reload_remaining = 0.0
+	var transferred_ammo: int = GameState.reload_rifle_magazine()
+	if transferred_ammo > 0:
+		_play_audio("ui_click")
+		_update_status("Recarga concluída — pente %d/%d, reserva %d." % [
+			rifle_ammo,
+			RIFLE_STARTING_AMMO,
+			rifle_reserve_ammo,
+		])
+	else:
+		_update_status("Recarga encerrada sem transferir munição.")
+	_update_hud()
+	return transferred_ammo
+
+
+func _cancel_reload(reason: String) -> bool:
+	if not is_reloading:
+		return false
+	is_reloading = false
+	reload_remaining = 0.0
+	_update_status(reason)
+	_update_hud()
+	return true
+
+
 func _attempt_parry() -> bool:
+	if is_reloading:
+		_cancel_reload("Recarga cancelada para tentar o aparo.")
 	if stun_remaining > 0.0:
 		return false
 	if heavy_warning_active:
@@ -541,15 +604,25 @@ func _attempt_parry() -> bool:
 
 
 func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -> bool:
-	if not capanga_active or stun_remaining > 0.0 or player_attack_cooldown > 0.0 or is_aiming_lapada:
+	if (
+		not capanga_active
+		or stun_remaining > 0.0
+		or player_attack_cooldown > 0.0
+		or is_reloading
+	):
 		return false
 
 	var attack_range := RIFLE_RANGE if current_weapon == Weapon.RIFLE else KNIFE_RANGE
 	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > attack_range:
 		return false
 	if current_weapon == Weapon.RIFLE and rifle_ammo <= 0:
-		if status_label.text != "SEM MUNIÇÃO — pressione Q para usar a Peixeira.":
-			_update_status("SEM MUNIÇÃO — pressione Q para usar a Peixeira.")
+		var empty_message := (
+			"PENTE VAZIO — pressione R para recarregar."
+			if rifle_reserve_ammo > 0
+			else "SEM MUNIÇÃO — pressione Q para usar a Peixeira."
+		)
+		if status_label.text != empty_message:
+			_update_status(empty_message)
 		return false
 
 	var attack_interval := RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
@@ -626,8 +699,6 @@ func _defeat_capanga() -> void:
 
 
 func _damage_player(amount: int) -> bool:
-	if is_aiming_lapada:
-		_cancel_aiming_lapada("Mira interrompida pelo dano recebido.")
 	player_hp = maxi(0, player_hp - amount)
 	damage_border_remaining = DAMAGE_BORDER_DURATION
 	player_hit_flash_remaining = HIT_FLASH_DURATION
@@ -648,9 +719,8 @@ func _handle_player_defeat() -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
-	is_aiming_lapada = false
-	lapada_aim_remaining = 0.0
-	lapada_aim_origin = Vector2.ZERO
+	is_reloading = false
+	reload_remaining = 0.0
 	stun_remaining = 0.0
 	skip_next_player_attack = false
 	player_attack_cooldown = 0.0
@@ -896,8 +966,6 @@ func _keyboard_movement_vector() -> Vector2:
 func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
 	if raw_input.is_zero_approx() or delta <= 0.0:
 		return false
-	if is_aiming_lapada:
-		_cancel_aiming_lapada("Mira cancelada — você se moveu.")
 
 	var had_click_destination := has_destination or not movement_path.is_empty()
 	movement_path.clear()
@@ -1181,10 +1249,19 @@ func _update_hud() -> void:
 	var ratio := float(player_hp) / float(PLAYER_MAX_HP)
 	health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
 	health_label.text = "VIDA  %d / %d" % [player_hp, PLAYER_MAX_HP]
-	if is_aiming_lapada:
-		weapon_label.text = "MIRANDO LAPADA SECA... %.1f s  •  NÃO SE MOVA" % lapada_aim_remaining
+	if is_reloading:
+		weapon_label.text = "RECARREGANDO... %.1f s  •  PENTE %d/%d  •  RESERVA %d" % [
+			reload_remaining,
+			rifle_ammo,
+			RIFLE_STARTING_AMMO,
+			rifle_reserve_ammo,
+		]
 	elif current_weapon == Weapon.RIFLE:
-		weapon_label.text = "RIFLE  •  BALAS %d / %d  •  Q PARA TROCAR" % [rifle_ammo, RIFLE_STARTING_AMMO]
+		weapon_label.text = "RIFLE  •  PENTE %d/%d  •  RESERVA %d  •  [R] RECARREGAR" % [
+			rifle_ammo,
+			RIFLE_STARTING_AMMO,
+			rifle_reserve_ammo,
+		]
 		if GameState.has_lapada_ready():
 			weapon_label.text += "  •  [E] LAPADA PRONTA"
 	else:
@@ -1192,6 +1269,22 @@ func _update_hud() -> void:
 	if stun_remaining > 0.0:
 		weapon_label.text += "  •  ATORDOADO"
 	_update_lapada_pips()
+	realtime_hud.set_hud_state(
+		player_hp,
+		PLAYER_MAX_HP,
+		100,
+		100,
+		"RIFLE" if current_weapon == Weapon.RIFLE else "PEIXEIRA",
+		rifle_ammo,
+		RIFLE_STARTING_AMMO,
+		rifle_reserve_ammo,
+		GameState.lapada_charges,
+		GameState.has_lapada_ready(),
+		stun_remaining > 0.0,
+		is_reloading,
+		reload_remaining,
+		RIFLE_RELOAD_DURATION
+	)
 
 
 func _update_lapada_pips() -> void:
@@ -1205,8 +1298,11 @@ func _update_lapada_pips() -> void:
 	lapada_pip3.color = charged_color if charges >= 3 else uncharged_color
 
 
-func _start_aiming_lapada() -> bool:
-	if not capanga_active or stun_remaining > 0.0 or scene_transitioning or is_aiming_lapada:
+func _attempt_lapada_seca() -> bool:
+	if not capanga_active or stun_remaining > 0.0 or scene_transitioning:
+		return false
+	if is_reloading:
+		_update_status("Recarga ativa — Lapada bloqueada.")
 		return false
 	if current_weapon != Weapon.RIFLE:
 		_update_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
@@ -1218,63 +1314,9 @@ func _start_aiming_lapada() -> bool:
 		_update_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
 		return false
 	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
-		_update_status("Capanga fora do alcance (máx. 5 tiles) para mirar.")
+		_update_status("Capanga fora do alcance da Lapada (máx. 5 tiles).")
 		return false
 
-	movement_path.clear()
-	path_index = 0
-	has_destination = false
-	is_aiming_lapada = true
-	lapada_aim_remaining = LAPADA_AIM_DURATION
-	lapada_aim_origin = player_anchor.position
-	_reset_character_animations_to_idle()
-	_play_audio("ui_hover")
-	_update_status("MIRANDO LAPADA SECA... NÃO SE MOVA!")
-	_update_hud()
-	return true
-
-
-func _cancel_aiming_lapada(reason: String) -> void:
-	if not is_aiming_lapada:
-		return
-	is_aiming_lapada = false
-	lapada_aim_remaining = 0.0
-	lapada_aim_origin = Vector2.ZERO
-	_update_status(reason)
-	_update_hud()
-
-
-func _fire_lapada_seca() -> bool:
-	is_aiming_lapada = false
-	lapada_aim_remaining = 0.0
-	if not capanga_active:
-		lapada_aim_origin = Vector2.ZERO
-		return false
-	if current_weapon != Weapon.RIFLE:
-		lapada_aim_origin = Vector2.ZERO
-		_update_status("Lapada cancelada — o Rifle não está equipado.")
-		_update_hud()
-		return false
-	if rifle_ammo <= 0:
-		lapada_aim_origin = Vector2.ZERO
-		_update_status("Lapada cancelada — sem munição.")
-		_update_hud()
-		return false
-	if not GameState.has_lapada_ready():
-		lapada_aim_origin = Vector2.ZERO
-		return false
-	if not player_anchor.position.is_equal_approx(lapada_aim_origin):
-		lapada_aim_origin = Vector2.ZERO
-		_update_status("Lapada cancelada — você se moveu.")
-		_update_hud()
-		return false
-	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
-		lapada_aim_origin = Vector2.ZERO
-		_update_status("Lapada cancelada — o alvo saiu do alcance.")
-		_update_hud()
-		return false
-
-	lapada_aim_origin = Vector2.ZERO
 	if not GameState.consume_lapada_charges():
 		return false
 	rifle_ammo -= 1

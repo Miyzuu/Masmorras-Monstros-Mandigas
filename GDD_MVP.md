@@ -22,7 +22,8 @@ Cabra-Cabriola.
 - Mobs comuns enfrentados diretamente no mapa, sem troca para a arena tática.
 - Uma entrada separada para a masmorra, com confirmação **Sim/Não**.
 - Objetivo futuro da primeira masmorra: 2 andares e 2 salas por andar.
-- Primeira etapa implementada: uma sala de pedra vazia com escada bloqueada.
+- Primeira sala funcional implementada: um Capanga Encouraçado em combate em
+  tempo real e uma escada selada até a vitória.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
 - Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.
@@ -34,7 +35,8 @@ Cabra-Cabriola.
 - Uma sala inicial separada de masmorra, também com 16×12 tiles.
 - Cada tile visual mede 64×32 pixels.
 - Movimento contínuo a 140 pixels por segundo, sem teleporte entre tiles.
-- O jogador clica num ponto caminhável para definir o destino.
+- O jogador usa o botão direito do mouse num ponto caminhável para definir o
+  destino.
 - Um novo clique substitui imediatamente o destino anterior.
 - **WASD** move continuamente nas direções da tela, mantendo 140 px/s e
   respeitando os mesmos limites e obstáculos do caminho por clique.
@@ -45,9 +47,16 @@ Cabra-Cabriola.
   inteiro.
 - Mobs comuns patrulham, detectam e perseguem o personagem no próprio mapa.
 - O Cangaceiro ataca automaticamente enquanto continua andando.
-- **Q** alterna entre Rifle e Peixeira, com recarga de 0,5 segundo para a troca.
-- O Rifle começa com 5 balas e cada disparo consome uma, inclusive ao errar.
-- Sem munição, o Rifle é bloqueado e o jogador precisa usar **Q**.
+- **Q** alterna entre Rifle e Peixeira, com intervalo de 0,5 segundo entre trocas.
+- O Rifle começa com 5 balas no pente e 10 na reserva; cada disparo consome uma
+  bala do pente, inclusive ao errar.
+- **R** inicia uma recarga manual de 1,5 segundo somente nos mapas em tempo real.
+- Durante a recarga, o herói pode caminhar e receber dano comum, mas não pode
+  atacar, usar a Lapada ou trocar de arma. Espaço cancela a recarga e tenta o
+  aparo; a troca de mapa também a cancela.
+- As balas passam da reserva para o pente apenas quando os 1,5 segundo terminam;
+  cancelar não consome munição e o pente vazio nunca recarrega automaticamente.
+- Sem balas no pente ou na reserva, o jogador precisa usar **Q** e a Peixeira.
 - Ao ser derrotado no mapa comum, o herói retorna ao início com 40% da vida e
   preserva a munição restante.
 - A porta no fim do caminho permanece trancada até o Capanga ser derrotado.
@@ -99,7 +108,8 @@ máximo de 4 em cada atributo durante a criação.
 - Crítico comum causa 150% do dano-base, arredondado para 40 no balanceamento
   atual.
 - No combate em tempo real, ocorre automaticamente a cada 1,2 segundo.
-- Cada disparo consome uma das 5 balas iniciais; não há recarga gratuita.
+- Cada disparo consome uma bala do pente. Recarregar apenas transfere munição
+  existente da reserva e não cria balas gratuitas.
 
 ### Golpe de Peixeira
 
@@ -126,8 +136,11 @@ máximo de 4 em cada atributo durante a criação.
   200% do ataque mais 100% do ataque-base.
 - Requer 3 Disparos críticos acumulados.
 - Os críticos acumulados persistem entre encontros.
-- Depois de completar a carga, exige 1 turno Mirando sem se mover.
+- Com a carga completa, o uso é instantâneo e não exige turno de mira nem
+  interrompe o movimento. Nos mapas em tempo real, o disparo ocorre ao pressionar **E**.
 - O disparo consome 1 bala e zera as 3 cargas acumuladas.
+- Rifle equipado, munição e alvo dentro do alcance são revalidados no instante;
+  falhar em qualquer condição não consome bala nem cargas.
 - Buffs e efeitos provenientes de itens, feitiços, magias ou poções ficam fora
   do MVP.
 
@@ -145,6 +158,12 @@ ataque básico e comportamento.
   corrupção sobrenatural justifica sua presença na Caatinga.
 - **Rasga-Mortalha:** criatura folclórica de ataque à distância; tenta manter
   distância do herói.
+- Ao retornar de outra cena ao mapa externo, mobs comuns derrotados reaparecem
+  nas posições iniciais, com vida cheia e patrulha normal. A visão geral com
+  **M** não aciona esse renascimento.
+- Derrotar novamente um mob renascido não repete ouro, pontuação nem progresso.
+  As salas concluídas da masmorra permanecem limpas enquanto a sessão interna
+  estiver ativa.
 
 ### Aparo contra mobs
 
@@ -166,16 +185,17 @@ ataque básico e comportamento.
 
 - Não há recuperação automática de vida após vencer um encontro.
 - Ao morrer no mapa comum, o herói retorna ao início com 40% da vida e mantém
-  a munição; o Capanga preserva a vida atual e regenera somente na patrulha.
+  pente e reserva; o Capanga preserva a vida atual e regenera somente na patrulha.
 - Ao morrer na masmorra, o jogador escolhe **Sair** ou **Voltar do início**.
 - Ambas restauram a vida e preservam a munição restante; voltar reinicia toda
   a masmorra e restaura seus mobs.
 - A saída voluntária pela porta inicial ou por **Esc** pede confirmação, apaga
   todo o progresso interno e retorna o herói diante da porta externa.
-- A saída voluntária preserva a vida e a munição atuais, sem cura ou recarga.
+- A saída voluntária preserva vida, pente e reserva atuais, sem cura ou recarga.
 - A derrota remove 25% do ouro acumulado, representando o saque sofrido.
 - Há checkpoint automático entre os encontros.
-- O checkpoint guarda personagem, vida, ouro e carga acumulada da Lapada Seca.
+- O checkpoint guarda personagem, vida, pente, reserva, ouro e carga acumulada
+  da Lapada Seca.
 
 ## 10. Ouro e pontuação
 
@@ -190,6 +210,15 @@ ataque básico e comportamento.
 - Pixel art em visão 2D de cima na arena tática.
 - Paleta predominantemente terrosa para o Sertão e a Caatinga.
 - Cores vibrantes reservadas aos elementos mágicos e sobrenaturais.
+- Nos mapas em tempo real, a HUD principal fica centralizada na parte inferior:
+  Vida à esquerda, arma e munição no centro e Mana à direita.
+- Vida e Mana usam barras Fill com valores numéricos; a Mana permanece cheia e
+  apenas visual até que uma função seja definida em uma versão futura.
+- A barra de habilidades possui slots **Q**, **E** e **R**: troca de arma,
+  Lapada Seca e recarga. O slot R mostra o tempo e o progresso da recarga; o
+  aparo continua no Espaço.
+- Quatro slots visuais de armadura ficam no canto inferior esquerdo, em pilha:
+  cabeça, busto, pernas e pés. Eles não equipam itens nem alteram atributos.
 
 ## 12. Fora do MVP
 

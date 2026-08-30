@@ -36,6 +36,7 @@ func _run() -> void:
 		return
 
 	_test_initial_state_and_weapon_switch(exploration)
+	_test_reload_rules(exploration)
 	_test_auto_attack_while_moving(exploration)
 	_test_rifle_rules(exploration)
 	_test_knife_rules(exploration)
@@ -57,6 +58,7 @@ func _test_initial_state_and_weapon_switch(exploration: Node) -> void:
 	_expect(int(exploration.get("player_hp")) == 100, "O Cangaceiro deve começar com 100 HP.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 150.0), "O Capanga deve começar com 150 HP.")
 	_expect(int(exploration.get("rifle_ammo")) == 5, "O Rifle deve começar com 5 balas.")
+	_expect(int(exploration.get("rifle_reserve_ammo")) == 10, "A reserva deve começar com 10 balas.")
 	_expect(int(exploration.get("current_weapon")) == WEAPON_RIFLE, "O Rifle deve ser a arma inicial.")
 
 	_expect(bool(exploration.call("_toggle_weapon")), "Q deve trocar do Rifle para a Peixeira.")
@@ -67,6 +69,51 @@ func _test_initial_state_and_weapon_switch(exploration: Node) -> void:
 	exploration.call("_advance_timers", 0.02)
 	_expect(bool(exploration.call("_toggle_weapon")), "Q deve voltar a funcionar após 0,5 s.")
 	_expect(int(exploration.get("current_weapon")) == WEAPON_RIFLE, "A segunda troca válida deve reequipar o Rifle.")
+
+
+func _test_reload_rules(exploration: Node) -> void:
+	_reset_state(exploration)
+	var player := exploration.get_node("PlayerAnchor") as Node2D
+	var capanga := exploration.get_node("CapangaAnchor") as Node2D
+	exploration.set("rifle_ammo", 2)
+	exploration.set("rifle_reserve_ammo", 10)
+	_expect(bool(exploration.call("_start_reload")), "R deve iniciar a recarga manual de um pente incompleto.")
+	_expect(bool(exploration.get("is_reloading")), "A recarga deve permanecer ativa por 1,5 s.")
+	_expect(not bool(exploration.call("_toggle_weapon")), "Q deve ser bloqueado durante a recarga.")
+	_expect(not bool(exploration.call("_attempt_lapada_seca")), "A Lapada deve ser bloqueada durante a recarga.")
+	var position_before_move := player.position
+	exploration.call("_move_player_with_input", 0.10, Vector2.RIGHT)
+	_expect(player.position != position_before_move, "O Cangaceiro deve poder andar durante a recarga.")
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	capanga.position = exploration.call("_cell_to_world", Vector2i(6, 10))
+	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "Ataques devem ficar bloqueados durante a recarga.")
+	exploration.call("_advance_timers", 0.50)
+	exploration.call("_damage_player", 15)
+	_expect(bool(exploration.get("is_reloading")), "Dano comum não deve interromper a recarga.")
+	exploration.call("_advance_timers", 0.99)
+	_expect(int(exploration.get("rifle_ammo")) == 2, "As balas só devem entrar no pente ao final dos 1,5 s.")
+	exploration.call("_advance_timers", 0.02)
+	_expect(not bool(exploration.get("is_reloading")), "A recarga deve terminar após 1,5 s.")
+	_expect(int(exploration.get("rifle_ammo")) == 5, "A recarga deve completar o pente até 5 balas.")
+	_expect(int(exploration.get("rifle_reserve_ammo")) == 7, "Somente 3 balas devem sair da reserva.")
+
+	_reset_state(exploration)
+	exploration.set("rifle_ammo", 0)
+	exploration.set("rifle_reserve_ammo", 4)
+	exploration.set("heavy_warning_active", true)
+	_expect(bool(exploration.call("_start_reload")), "A recarga deve iniciar com pente vazio e reserva disponível.")
+	exploration.call("_advance_timers", 0.70)
+	_expect(bool(exploration.call("_attempt_parry")), "Espaço deve cancelar a recarga e executar um aparo válido.")
+	_expect(not bool(exploration.get("is_reloading")), "O aparo deve cancelar o temporizador de recarga.")
+	_expect(int(exploration.get("rifle_ammo")) == 0, "Cancelar antes do fim não deve inserir balas no pente.")
+	_expect(int(exploration.get("rifle_reserve_ammo")) == 4, "Cancelar antes do fim não deve gastar a reserva.")
+
+	_reset_state(exploration)
+	exploration.set("rifle_ammo", 0)
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	capanga.position = exploration.call("_cell_to_world", Vector2i(6, 10))
+	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "Pente vazio não deve iniciar recarga automática.")
+	_expect(not bool(exploration.get("is_reloading")), "A recarga deve depender exclusivamente do comando R.")
 
 
 func _test_auto_attack_while_moving(exploration: Node) -> void:
@@ -294,13 +341,17 @@ func _test_player_defeat_and_regeneration(exploration: Node) -> void:
 	capanga.position = exploration.call("_cell_to_world", Vector2i(2, 10))
 	exploration.set("player_hp", 15)
 	exploration.set("rifle_ammo", 2)
+	exploration.set("rifle_reserve_ammo", 8)
 	exploration.set("capanga_hp", 35.0)
 	exploration.set("capanga_state", STATE_CHASE)
+	_expect(bool(exploration.call("_start_reload")), "A recarga deve iniciar antes do teste de derrota.")
 
 	_expect(bool(exploration.call("_damage_player", 15)), "Dano letal deve acionar a derrota.")
 	_expect(int(exploration.get("player_hp")) == 40, "O Cangaceiro deve reaparecer com 40 HP.")
 	_expect(player.position == exploration.call("_cell_to_world", Vector2i(1, 10)), "O Cangaceiro deve reaparecer no PLAYER_START.")
 	_expect(int(exploration.get("rifle_ammo")) == 2, "A derrota deve preservar a munição.")
+	_expect(int(exploration.get("rifle_reserve_ammo")) == 8, "A derrota deve preservar a reserva.")
+	_expect(not bool(exploration.get("is_reloading")), "O respawn deve cancelar a recarga sem transferir balas.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 35.0), "A derrota deve preservar a vida atual do Capanga.")
 	_expect(int(exploration.get("capanga_state")) == STATE_RETURN, "Após a derrota, o Capanga deve retornar à patrulha.")
 
@@ -354,9 +405,12 @@ func _reset_state(exploration: Node) -> void:
 	exploration.set("has_destination", false)
 	exploration.set("player_hp", 100)
 	exploration.set("rifle_ammo", 5)
+	exploration.set("rifle_reserve_ammo", 10)
 	exploration.set("current_weapon", WEAPON_RIFLE)
 	exploration.set("player_attack_cooldown", 0.0)
 	exploration.set("weapon_switch_cooldown", 0.0)
+	exploration.set("is_reloading", false)
+	exploration.set("reload_remaining", 0.0)
 	exploration.set("stun_remaining", 0.0)
 	exploration.set("skip_next_player_attack", false)
 	exploration.set("capanga_active", true)

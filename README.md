@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.0`
+**Versão atual:** `V.0.2.1`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -20,12 +20,22 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - combate contra o Capanga diretamente no mapa, sem troca de cena;
 - Cangaceiro com 100 HP e Capanga com 150 HP;
 - barra de vida do herói no rodapé e barra inimiga acima do alvo;
+- HUD compartilhada entre exploração e masmorra, centralizada no rodapé;
+- barras Fill numéricas de Vida e Mana, com a Mana ainda apenas visual;
+- hotbar de habilidades com Q para arma, E para Lapada e R para recarga;
+- quatro slots visuais de armadura no canto inferior esquerdo, na ordem cabeça,
+  busto, pernas e pés;
 - ataques automáticos enquanto o personagem continua andando;
-- troca entre Rifle e Peixeira com **Q** e recarga de 0,5 segundo;
-- Rifle com 5 balas, alcance 5 tiles, dano 25 e crítico de 40;
+- troca entre Rifle e Peixeira com **Q** e intervalo de 0,5 segundo;
+- Rifle com pente de 5 balas, reserva inicial de 10, alcance 5 tiles, dano 25 e
+  crítico de 40;
+- recarga manual com **R** em 1,5 segundo, mantendo movimento e bloqueando
+  ataques, Lapada e Q até concluir;
+- Espaço cancelando a recarga para tentar o aparo, sem consumir a reserva antes
+  da conclusão do temporizador;
 - Peixeira com alcance 1 tile, dano 20 e crítico de 30;
 - Lapada Seca carregada por 3 críticos acertados de Rifle, persistindo entre cenas;
-- mira da Lapada por 1 segundo com **E**, cancelada por movimento, dano ou troca de arma;
+- Lapada Seca disparada instantaneamente com **E**, sem mira e sem interromper o movimento;
 - Lapada Seca consumindo 1 bala, zerando as cargas e eliminando o Capanga;
 - números de dano animados e críticos maiores, vermelhos e em negrito;
 - Capanga com patrulha, perseguição, retorno e regeneração de 5 HP/s;
@@ -33,21 +43,28 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - alerta **!**, aparo com Espaço e retorno visual **HÁ**;
 - falha de aparo causando stun e perda do próximo ataque;
 - derrota retornando ao início com 40% de vida e munição preservada;
-- `GameState` como fonte única para vida, munição, arma, ouro, encontros
+- `GameState` como fonte única para vida, pente, reserva, arma, ouro, encontros
   derrotados e progresso da masmorra;
 - respawn de 40% e transições de mapa sincronizados imediatamente no estado
   global;
 - porta no fim do caminho, liberada somente após derrotar o Capanga;
+- mob comum externo renascendo com vida cheia e patrulha normal ao retornar de
+  outra cena, sem duplicar progresso ou recompensa;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
-- mapa separado de masmorra com sala de pedra 16×12, saída inicial e escada
-  bloqueada;
+- mapa separado de masmorra com primeira sala de pedra 16×12 e um Capanga;
+- combate em tempo real da sala preservando Rifle, Peixeira, Lapada Seca,
+  aparo, munição, vida e movimentação por clique ou WASD;
+- escada selada enquanto o Capanga estiver vivo e liberada após a vitória,
+  com a conclusão da sala registrada no `GameState`;
+- derrota interna oferecendo **Voltar do início** ou **Sair**, reiniciando o
+  progresso e restaurando o herói com 40% de vida;
 - saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
   recarregar e devolvendo o herói diante da entrada externa;
 - arena tática da versão anterior preservada para futuros chefes;
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
-- Cangaceiro e Capanga animados na exploração e Cangaceiro animado na masmorra;
+- Cangaceiro e Capanga animados na exploração e na primeira sala da masmorra;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
@@ -63,8 +80,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a Lapada Seca funcional contra o Capanga na `V.0.2.0`, a próxima decisão
-será integrar sua regra de 300% ao futuro combate tático contra chefes.
+Com a primeira sala funcional na `V.0.2.1`, a próxima decisão será definir o
+destino da escada liberada sem ampliar a masmorra inteira de uma vez.
 
 ## Como executar
 
@@ -74,11 +91,13 @@ será integrar sua regra de 300% ao futuro combate tático contra chefes.
 
 ## Controles
 
-- **Clique esquerdo:** definir ou substituir o destino na exploração.
+- **Clique direito:** definir ou substituir o destino na exploração e na
+  masmorra.
 - **WASD:** mover continuamente nas direções da tela e cancelar a rota atual.
 - **M:** alternar entre câmera próxima e visão geral do mapa.
 - **Q:** alternar entre Rifle e Peixeira.
-- **E:** iniciar a mira da Lapada Seca quando as 3 cargas estiverem prontas.
+- **E:** disparar instantaneamente a Lapada Seca quando as 3 cargas estiverem prontas.
+- **R:** recarregar manualmente o Rifle usando as balas da reserva.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
 - **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
 - **Esc:** cancelar uma caixa aberta; dentro da masmorra, abrir o aviso de saída.

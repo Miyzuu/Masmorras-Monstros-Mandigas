@@ -3,7 +3,9 @@ extends Node
 const PLAYER_MAX_HP := 100
 const PLAYER_RESPAWN_RATIO := 0.40
 const DEFAULT_PLAYER_HP := PLAYER_MAX_HP
-const DEFAULT_RIFLE_AMMO := 5
+const RIFLE_MAGAZINE_CAPACITY := 5
+const DEFAULT_RIFLE_AMMO := RIFLE_MAGAZINE_CAPACITY
+const DEFAULT_RIFLE_RESERVE_AMMO := 10
 const DEFAULT_WEAPON := 0
 const DEFAULT_GOLD_SCORE := 0
 const WEAPON_RIFLE := 0
@@ -19,6 +21,7 @@ var returning_from_dungeon := false
 
 var player_hp := DEFAULT_PLAYER_HP
 var rifle_ammo := DEFAULT_RIFLE_AMMO
+var rifle_reserve_ammo := DEFAULT_RIFLE_RESERVE_AMMO
 var current_weapon := DEFAULT_WEAPON
 var gold_score := DEFAULT_GOLD_SCORE
 var lapada_charges := 0
@@ -62,7 +65,19 @@ func set_player_hp(new_hp: int) -> void:
 
 
 func set_rifle_ammo(new_rifle_ammo: int) -> void:
-	rifle_ammo = maxi(0, new_rifle_ammo)
+	rifle_ammo = clampi(new_rifle_ammo, 0, RIFLE_MAGAZINE_CAPACITY)
+
+
+func set_rifle_reserve_ammo(new_rifle_reserve_ammo: int) -> void:
+	rifle_reserve_ammo = maxi(0, new_rifle_reserve_ammo)
+
+
+func reload_rifle_magazine() -> int:
+	var missing_ammo := RIFLE_MAGAZINE_CAPACITY - rifle_ammo
+	var transferred_ammo := mini(missing_ammo, rifle_reserve_ammo)
+	set_rifle_ammo(rifle_ammo + transferred_ammo)
+	set_rifle_reserve_ammo(rifle_reserve_ammo - transferred_ammo)
+	return transferred_ammo
 
 
 func set_current_weapon(new_weapon: int) -> void:
@@ -98,6 +113,20 @@ func leave_dungeon(new_hp: int, new_rifle_ammo: int, new_weapon: int) -> void:
 
 func reset_dungeon_progress() -> void:
 	dungeon_progress.clear()
+
+
+func mark_dungeon_room_cleared(room_id: String) -> void:
+	if room_id.is_empty():
+		return
+
+	dungeon_progress[room_id] = true
+
+
+func is_dungeon_room_cleared(room_id: String) -> bool:
+	if room_id.is_empty():
+		return false
+
+	return bool(dungeon_progress.get(room_id, false))
 
 
 func is_encounter_defeated(encounter_id: String) -> bool:
@@ -148,6 +177,7 @@ func reset_session() -> void:
 	returning_from_dungeon = false
 	player_hp = DEFAULT_PLAYER_HP
 	rifle_ammo = DEFAULT_RIFLE_AMMO
+	rifle_reserve_ammo = DEFAULT_RIFLE_RESERVE_AMMO
 	current_weapon = DEFAULT_WEAPON
 	gold_score = DEFAULT_GOLD_SCORE
 	lapada_charges = 0

@@ -1,5 +1,50 @@
 # Histórico de versões
 
+## V.0.2.1 — 2026-08-30
+
+### Título do commit
+
+`V.0.2.1 — Masmorra, recarga e Lapada instantânea`
+
+### Descrição
+
+- adiciona um Capanga Encouraçado à primeira sala sem modificar cenas ou arte;
+- preserva dentro da masmorra o combate em tempo real, os ataques automáticos,
+  críticos, Rifle, Peixeira, Lapada Seca e aparo do ataque pesado;
+- permite movimentação por clique e WASD com colisão contra paredes, escada
+  selada e posição atual do inimigo;
+- move o comando de caminhada para o botão direito do mouse nos mapas em tempo
+  real, deixando o botão esquerdo disponível para interações futuras;
+- substitui as HUDs inferiores antigas por uma interface compartilhada e
+  centralizada nos dois mapas em tempo real;
+- apresenta Vida e Mana em barras Fill numéricas, mantendo a Mana cheia e
+  somente visual nesta etapa;
+- adiciona hotbar Q/E/R para arma, Lapada Seca e recarga manual do Rifle;
+- torna a Lapada Seca instantânea ao pressionar **E**, removendo o segundo de
+  mira e preservando a rota ou o movimento atual do Cangaceiro;
+- mantém Rifle, 3 críticos, 1 bala e alcance como condições; uma condição
+  inválida não consome munição nem cargas;
+- separa a munição em pente de 5 balas e reserva inicial de 10, ambos
+  persistentes no `GameState` durante respawn e troca de mapa;
+- implementa recarga manual com **R** em 1,5 segundo nos mapas em tempo real,
+  transferindo apenas as balas necessárias quando o temporizador termina;
+- permite caminhar e receber dano comum durante a recarga, bloqueia ataques,
+  Lapada e troca de arma, e faz Espaço cancelar a recarga para tentar o aparo;
+- exibe pente, reserva, tempo restante e preenchimento do slot R na HUD;
+- desenha quatro slots de armadura originais no canto inferior esquerdo, em
+  ordem de cabeça, busto, pernas e pés, sem criar inventário ou atributos;
+- mantém a escada bloqueada enquanto o Capanga estiver vivo e a libera
+  imediatamente após a vitória;
+- registra a conclusão da sala no `GameState`, mantendo-o como fonte única do
+  progresso interno e reiniciando esse progresso ao sair ou voltar do início;
+- faz o mob comum externo renascer com vida cheia e patrulha normal ao retornar
+  de outra cena, sem duplicar progresso ou recompensa; alternar a visão com M
+  não aciona o renascimento;
+- reutiliza a caixa existente para oferecer **Voltar** ou **Sair** após derrota,
+  com respawn em 40% da vida, pente e reserva preservados;
+- valida a carga do projeto e os sete testes automatizados, incluindo Lapada
+  instantânea, mob, WASD, recarga, persistência, escada e reinício da sala.
+
 ## V.0.2.0 — 2026-08-30
 
 ### Título do commit

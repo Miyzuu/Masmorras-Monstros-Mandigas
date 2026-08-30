@@ -66,11 +66,14 @@ func _run() -> void:
 	_expect(not bool(exploration.get("dungeon_prompt_visible")), "Esc deve cancelar a entrada.")
 
 	exploration.set("door_contact_latched", false)
-	exploration.call("_check_dungeon_door_contact")
 	exploration.set("player_hp", 73)
 	exploration.set("rifle_ammo", 2)
-	exploration.set("current_weapon", 1)
+	exploration.set("rifle_reserve_ammo", 8)
+	exploration.set("current_weapon", 0)
 	exploration.set("stun_remaining", 0.0)
+	_expect(bool(exploration.call("_start_reload")), "A recarga deve poder começar antes da troca de mapa.")
+	exploration.call("_advance_timers", 0.50)
+	exploration.call("_check_dungeon_door_contact")
 	_expect(
 		bool(exploration.call("_handle_dungeon_prompt_key", KEY_SPACE)),
 		"Espaço deve confirmar o modal de entrada."
@@ -79,6 +82,7 @@ func _run() -> void:
 	_expect(bool(game_state.get("dungeon_active")), "Confirmar a entrada deve iniciar a sessão da masmorra.")
 	_expect(int(game_state.get("player_hp")) == 73, "A entrada deve preservar 73 HP.")
 	_expect(int(game_state.get("rifle_ammo")) == 2, "A entrada deve preservar 2 balas.")
+	_expect(int(game_state.get("rifle_reserve_ammo")) == 8, "A troca de mapa deve preservar as 8 balas da reserva.")
 	_expect(game_state.get("return_position") == exterior_entry, "O retorno deve ser guardado diante da porta.")
 	_expect(bool(exploration.get("scene_transitioning")), "Confirmar com Espaço deve iniciar o fade.")
 
@@ -152,8 +156,19 @@ func _run() -> void:
 	_expect(dungeon.find_child("CapangaAnchor", true, false) == null, "A sala inicial não deve conter inimigos.")
 	_expect(int(dungeon.get("player_hp")) == 73, "A masmorra deve receber os 73 HP atuais.")
 	_expect(int(dungeon.get("rifle_ammo")) == 2, "A masmorra deve receber as 2 balas atuais.")
+	_expect(int(dungeon.get("rifle_reserve_ammo")) == 8, "A masmorra deve receber as 8 balas da reserva.")
 	_expect(int(dungeon.get("current_weapon")) == 1, "A arma equipada também deve ser preservada.")
+	_expect(not bool(dungeon.get("is_reloading")), "Trocar de mapa deve cancelar a recarga em andamento.")
 	_expect(dungeon_astar.is_point_solid(Vector2i(14, 1)), "A escada ao fundo deve estar bloqueada.")
+
+	dungeon.set("current_weapon", 0)
+	dungeon.set("rifle_ammo", 2)
+	_expect(bool(dungeon.call("_start_reload")), "R também deve recarregar durante o combate em tempo real da masmorra.")
+	dungeon.call("_advance_timers", 1.49)
+	_expect(int(dungeon.get("rifle_ammo")) == 2, "A recarga interna não deve transferir balas antes de 1,5 s.")
+	dungeon.call("_advance_timers", 0.02)
+	_expect(int(dungeon.get("rifle_ammo")) == 5, "A recarga interna deve completar o pente.")
+	_expect(int(dungeon.get("rifle_reserve_ammo")) == 5, "A recarga interna deve consumir somente 3 balas da reserva.")
 
 	var exit_front: Vector2 = dungeon.call("_cell_to_world", Vector2i(1, 10))
 	var exit_door_top: Vector2 = dungeon.call("_cell_to_world", Vector2i(0, 10)) + Vector2(0.0, -25.0)
@@ -191,6 +206,7 @@ func _run() -> void:
 	_expect((game_state.get("dungeon_progress") as Dictionary).is_empty(), "Sair deve apagar o progresso interno.")
 	_expect(int(game_state.get("player_hp")) == 41, "A saída não deve curar os 41 HP atuais.")
 	_expect(int(game_state.get("rifle_ammo")) == 1, "A saída não deve recarregar a munição.")
+	_expect(int(game_state.get("rifle_reserve_ammo")) == 5, "A saída deve preservar a reserva restante.")
 	_expect(
 		bool(game_state.call("is_encounter_defeated", "capanga_01")),
 		"Limpar a masmorra não deve ressuscitar o Capanga."
@@ -211,13 +227,27 @@ func _run() -> void:
 	_expect(returned_player.position == exterior_entry, "A saída deve devolver o herói diante da porta externa.")
 	_expect(int(returned_exploration.get("player_hp")) == 41, "O mapa externo deve manter os 41 HP.")
 	_expect(int(returned_exploration.get("rifle_ammo")) == 1, "O mapa externo deve manter 1 bala.")
-	_expect(not bool(returned_exploration.get("capanga_active")), "O Capanga derrotado deve continuar removido.")
+	_expect(int(returned_exploration.get("rifle_reserve_ammo")) == 5, "O mapa externo deve manter 5 balas na reserva.")
+	_expect(bool(returned_exploration.get("capanga_active")), "O Capanga comum deve renascer ao retornar de outra cena.")
+	_expect(is_equal_approx(float(returned_exploration.get("capanga_hp")), 150.0), "O Capanga renascido deve voltar com vida cheia.")
+	_expect(int(returned_exploration.get("capanga_state")) == 0, "O Capanga renascido deve voltar patrulhando.")
+	_expect(bool(game_state.call("is_encounter_defeated", "capanga_01")), "O renascimento não deve apagar o progresso já registrado.")
+	_expect(bool(returned_exploration.call("_is_dungeon_door_unlocked")), "O Capanga renascido não deve trancar novamente a porta já liberada.")
 	_expect(bool(returned_exploration.get("door_contact_latched")), "O retorno deve bloquear a reabertura imediata da porta.")
 	returned_exploration.call("_check_dungeon_door_contact")
 	_expect(
 		not bool(returned_exploration.get("dungeon_prompt_visible")),
 		"O modal não deve reabrir automaticamente no retorno."
 	)
+	var defeated_count_before_repeat := (game_state.get("defeated_encounters") as Dictionary).size()
+	returned_exploration.call("_damage_capanga", 150, false)
+	_expect(not bool(returned_exploration.get("capanga_active")), "O Capanga renascido deve poder ser derrotado novamente.")
+	_expect(
+		(game_state.get("defeated_encounters") as Dictionary).size() == defeated_count_before_repeat,
+		"Derrotá-lo novamente não deve duplicar o progresso do encontro."
+	)
+	returned_exploration.call("_toggle_overview")
+	_expect(not bool(returned_exploration.get("capanga_active")), "Alternar a visão com M não deve renascer o mob.")
 
 	returned_exploration.queue_free()
 	await process_frame
@@ -232,6 +262,7 @@ func _run() -> void:
 	_expect(reentered_player.position == dungeon_start, "Reentrar deve começar no início da masmorra.")
 	_expect(int(reentered_dungeon.get("player_hp")) == 41, "Reentrar deve preservar a vida atual.")
 	_expect(int(reentered_dungeon.get("rifle_ammo")) == 1, "Reentrar deve preservar a munição atual.")
+	_expect(int(reentered_dungeon.get("rifle_reserve_ammo")) == 5, "Reentrar deve preservar a reserva atual.")
 	_expect((game_state.get("dungeon_progress") as Dictionary).is_empty(), "Reentrar deve começar sem progresso interno.")
 	reentered_dungeon.queue_free()
 	_finish(game_state)
