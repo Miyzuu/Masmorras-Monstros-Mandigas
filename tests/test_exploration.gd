@@ -106,6 +106,7 @@ func _run() -> void:
 	exploration.call("_physics_process", 1.0 / 60.0)
 	_expect(int(exploration.get("player_animation_state")) == 0, "No primeiro tick sem deslocamento, o Cangaceiro deve voltar para idle.")
 	_expect(int(exploration.get("player_animation_frame")) == 0, "Voltar para idle deve reiniciar no quadro 0.")
+	_test_wasd_movement(exploration)
 
 	exploration.call("_toggle_overview")
 	_expect(bool(exploration.get("overview_enabled")), "A visão geral deve ser ativada.")
@@ -114,6 +115,83 @@ func _run() -> void:
 
 	exploration.queue_free()
 	_finish()
+
+
+func _test_wasd_movement(exploration: Node) -> void:
+	var player := exploration.get_node("PlayerAnchor") as Node2D
+	exploration.set("capanga_active", false)
+	exploration.set("movement_path", PackedVector2Array())
+	exploration.set("path_index", 0)
+	exploration.set("has_destination", false)
+
+	# Direção da tela e velocidade de 140 px/s.
+	player.position = exploration.call("_cell_to_world", Vector2i(9, 6))
+	var start := player.position
+	_expect(bool(exploration.call("_move_player_with_input", 0.10, Vector2.RIGHT)), "D deve mover em uma área livre.")
+	_expect(is_equal_approx(player.position.distance_to(start), 14.0), "WASD deve manter 140 px/s.")
+	_expect(is_equal_approx(player.position.y, start.y), "D deve mover somente para a direita da tela.")
+
+	# Diagonal normalizada não pode aumentar a velocidade.
+	player.position = exploration.call("_cell_to_world", Vector2i(9, 6))
+	start = player.position
+	exploration.call("_move_player_with_input", 0.10, Vector2(1.0, 1.0))
+	_expect(is_equal_approx(player.position.distance_to(start), 14.0), "Diagonal WASD deve continuar em 140 px/s.")
+
+	# Obstáculos e limites não podem ser atravessados, mesmo com delta alto.
+	var obstacle_cell := Vector2i(5, 9)
+	player.position = exploration.call("_cell_to_world", Vector2i(4, 9))
+	var obstacle_direction: Vector2 = (
+		exploration.call("_cell_to_world", obstacle_cell) - player.position
+	).normalized()
+	exploration.call("_move_player_with_input", 1.0, obstacle_direction)
+	var occupied_cell: Vector2i = exploration.call("_world_to_cell", player.position)
+	_expect(occupied_cell != obstacle_cell, "WASD não deve atravessar uma rocha.")
+	_expect(bool(exploration.call("_is_walkable_player_cell", occupied_cell)), "A posição final deve continuar caminhável.")
+
+	player.position = exploration.call("_cell_to_world", Vector2i(0, 10))
+	var outside_direction: Vector2 = (
+		exploration.call("_cell_to_world", Vector2i(-1, 10)) - player.position
+	).normalized()
+	exploration.call("_move_player_with_input", 1.0, outside_direction)
+	occupied_cell = exploration.call("_world_to_cell", player.position)
+	_expect(bool(exploration.call("_is_walkable_player_cell", occupied_cell)), "WASD deve respeitar o limite do mapa.")
+
+	# Uma diagonal não pode cortar a quina entre duas células bloqueadas.
+	var astar := exploration.get("astar") as AStarGrid2D
+	var corner_origin := Vector2i(7, 6)
+	var corner_target := Vector2i(8, 5)
+	var corner_side_a := Vector2i(8, 6)
+	var corner_side_b := Vector2i(7, 5)
+	astar.set_point_solid(corner_side_a, true)
+	astar.set_point_solid(corner_side_b, true)
+	player.position = exploration.call("_cell_to_world", corner_origin)
+	_expect(
+		not bool(exploration.call("_is_walkable_player_position", exploration.call("_cell_to_world", corner_target))),
+		"WASD diagonal não deve cortar uma quina bloqueada."
+	)
+	astar.set_point_solid(corner_side_a, false)
+	astar.set_point_solid(corner_side_b, false)
+
+	# WASD cancela a rota atual; um clique posterior continua funcionando.
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	var click_target: Vector2 = exploration.call("_cell_to_world", Vector2i(3, 10))
+	exploration.call("_set_destination", click_target)
+	_expect(bool(exploration.get("has_destination")), "O clique deve criar uma rota antes do WASD.")
+	exploration.call("_move_player_with_input", 0.10, Vector2.RIGHT)
+	_expect(not bool(exploration.get("has_destination")), "WASD deve cancelar o destino do clique.")
+	_expect((exploration.get("movement_path") as PackedVector2Array).is_empty(), "WASD deve limpar a rota anterior.")
+	_expect(int(exploration.get("path_index")) == 0, "WASD deve zerar o índice da rota.")
+
+	click_target = exploration.call("_cell_to_world", Vector2i(2, 10))
+	exploration.call("_set_destination", click_target)
+	_expect(bool(exploration.get("has_destination")), "Um novo clique deve voltar a criar uma rota.")
+	var position_before_zero_input := player.position
+	_expect(
+		not bool(exploration.call("_move_player_with_input", 0.10, Vector2.ZERO)),
+		"Entrada WASD neutra não deve deslocar diretamente."
+	)
+	_expect(bool(exploration.get("has_destination")), "Entrada WASD neutra deve preservar a rota do clique.")
+	_expect(player.position == position_before_zero_input, "Entrada WASD neutra não deve alterar a posição.")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -9,6 +9,7 @@ const BUS_BGM := "BGM"
 const BUS_SFX := "SFX"
 const SFX_POOL_SIZE := 10
 const SAMPLE_RATE := 22050
+const LAPADA_SECA_VOLUME_DB := 4.0
 
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_index := 0
@@ -58,6 +59,7 @@ func _pregenerate_procedural_sfx() -> void:
 	_synth_cache["parry"] = _generate_parry_sfx()
 	_synth_cache["hit"] = _generate_hit_sfx()
 	_synth_cache["critical"] = _generate_critical_sfx()
+	_synth_cache["lapada_seca"] = _generate_lapada_seca_sfx()
 	_synth_cache["ui_click"] = _generate_ui_click_sfx()
 	_synth_cache["ui_hover"] = _generate_ui_hover_sfx()
 	_synth_cache["door"] = _generate_door_sfx()
@@ -66,11 +68,14 @@ func _pregenerate_procedural_sfx() -> void:
 ## Toca efeito sonoro por nome ou recurso de AudioStream
 func play_sfx(sound: Variant, pitch_scale: float = 1.0, volume_db: float = 0.0) -> AudioStreamPlayer:
 	var stream: AudioStream = null
+	var resolved_volume_db := volume_db
 
 	if sound is AudioStream:
 		stream = sound as AudioStream
 	elif sound is String:
 		var sound_name := (sound as String).to_lower()
+		if sound_name == "lapada_seca" and is_zero_approx(volume_db):
+			resolved_volume_db = LAPADA_SECA_VOLUME_DB
 		if _synth_cache.has(sound_name):
 			stream = _synth_cache[sound_name]
 		else:
@@ -84,7 +89,7 @@ func play_sfx(sound: Variant, pitch_scale: float = 1.0, volume_db: float = 0.0) 
 	var player := _get_available_sfx_player()
 	player.stream = stream
 	player.pitch_scale = clampf(pitch_scale, 0.5, 2.0)
-	player.volume_db = volume_db
+	player.volume_db = resolved_volume_db
 	player.play()
 	return player
 
@@ -117,6 +122,10 @@ func play_hit(pitch_random: float = 0.08) -> void:
 
 func play_critical() -> void:
 	play_sfx("critical", 1.0, 3.0)
+
+
+func play_lapada_seca() -> void:
+	play_sfx("lapada_seca", 1.0, LAPADA_SECA_VOLUME_DB)
 
 
 func play_ui_click() -> void:
@@ -358,6 +367,32 @@ func _generate_door_sfx() -> AudioStreamWAV:
 		var env := exp(-progress * 8.0)
 		var creak := sin(2.0 * PI * (180.0 + sin(t * 40.0) * 50.0) * t)
 		var sample_val := creak * env * 0.6
+		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
+		bytes.encode_s16(i * 2, sample_16)
+
+	return _create_pcm_stream(bytes)
+
+
+func _generate_lapada_seca_sfx() -> AudioStreamWAV:
+	var duration := 0.65
+	var total_samples := int(SAMPLE_RATE * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(total_samples * 2)
+
+	for i in range(total_samples):
+		var t := float(i) / float(SAMPLE_RATE)
+		var progress := t / duration
+		var env_impact := exp(-progress * 10.0)
+		var env_thunder := exp(-progress * 4.5)
+		var env_ring := exp(-progress * 3.0)
+		var sub := sin(2.0 * PI * 42.0 * (1.0 - progress * 0.4) * t) * env_impact
+		var noise := randf_range(-1.0, 1.0) * env_thunder
+		var chime := (
+			sin(2.0 * PI * 880.0 * t) * 0.5
+			+ sin(2.0 * PI * 1320.0 * t) * 0.3
+			+ sin(2.0 * PI * 1760.0 * t) * 0.2
+		) * env_ring
+		var sample_val := sub * 0.6 + noise * 0.5 + chime * 0.4
 		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
 		bytes.encode_s16(i * 2, sample_16)
 

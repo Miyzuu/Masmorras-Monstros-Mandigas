@@ -36,6 +36,10 @@ Cabra-Cabriola.
 - Movimento contínuo a 140 pixels por segundo, sem teleporte entre tiles.
 - O jogador clica num ponto caminhável para definir o destino.
 - Um novo clique substitui imediatamente o destino anterior.
+- **WASD** move continuamente nas direções da tela, mantendo 140 px/s e
+  respeitando os mesmos limites e obstáculos do caminho por clique.
+- Pressionar **WASD** cancela o destino do clique; um novo clique volta a criar
+  uma rota normalmente.
 - A câmera acompanha o personagem durante a exploração.
 - A tecla **M** alterna entre a câmera próxima e uma visão afastada do mapa
   inteiro.
@@ -123,6 +127,7 @@ máximo de 4 em cada atributo durante a criação.
 - Requer 3 Disparos críticos acumulados.
 - Os críticos acumulados persistem entre encontros.
 - Depois de completar a carga, exige 1 turno Mirando sem se mover.
+- O disparo consome 1 bala e zera as 3 cargas acumuladas.
 - Buffs e efeitos provenientes de itens, feitiços, magias ou poções ficam fora
   do MVP.
 
@@ -205,5 +210,4 @@ protótipo:
 - Atributos, movimento, alcance e dano dos demais inimigos.
 - Dano da investida e vida da Cabra-Cabriola.
 - Quantidades de ouro, bônus e regra de arredondamento da perda de 25%.
-- Consumo ou reinício da carga da Lapada Seca depois do uso.
 - Textos narrativos, nome da vila e título definitivo do jogo.

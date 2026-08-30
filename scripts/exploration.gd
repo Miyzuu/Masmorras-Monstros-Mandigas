@@ -15,6 +15,7 @@ const MAP_SIZE := Vector2i(16, 12)
 const TILE_SIZE := Vector2(64.0, 32.0)
 const HALF_TILE := TILE_SIZE * 0.5
 const PLAYER_SPEED := 140.0
+const PLAYER_COLLISION_STEP := 4.0
 const PLAYER_MAX_HP := 100
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
@@ -72,6 +73,7 @@ const PARRY_TEXT_DURATION := 0.5
 const DAMAGE_BORDER_DURATION := 0.15
 const HIT_FLASH_DURATION := 0.12
 const STEP_DISTANCE := 42.0
+const LAPADA_AIM_DURATION := 1.0
 
 const COLOR_VOID := Color("17120d")
 const COLOR_GROUND_A := Color("a97945")
@@ -126,6 +128,9 @@ const ROAD_OBSTACLES = [
 @onready var health_fill: ColorRect = $Interface/CombatHUD/HealthBack/HealthFill
 @onready var health_label: Label = $Interface/CombatHUD/HealthBack/HealthLabel
 @onready var weapon_label: Label = $Interface/CombatHUD/WeaponLabel
+@onready var lapada_pip1: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip1
+@onready var lapada_pip2: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip2
+@onready var lapada_pip3: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip3
 @onready var damage_border: Control = $Interface/DamageBorder
 @onready var dungeon_prompt: Control = $DialogLayer/DungeonPrompt
 @onready var dungeon_yes_button: Button = $DialogLayer/DungeonPrompt/Dialog/YesButton
@@ -186,6 +191,9 @@ var heavy_warning_remaining := 0.0
 var damage_border_remaining := 0.0
 var player_hit_flash_remaining := 0.0
 var capanga_hit_flash_remaining := 0.0
+var is_aiming_lapada := false
+var lapada_aim_remaining := 0.0
+var lapada_aim_origin := Vector2.ZERO
 var combat_popups: Array[Dictionary] = []
 var dungeon_prompt_visible := false
 var door_contact_latched := false
@@ -221,7 +229,7 @@ func _ready() -> void:
 		fade.modulate.a = 0.0
 
 	if capanga_active:
-		_update_status("Clique para caminhar — o Capanga patrulha mais adiante.")
+		_update_status("Clique ou WASD para caminhar — o Capanga patrulha adiante.")
 	else:
 		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
 	_update_hud()
@@ -273,6 +281,14 @@ func _advance_timers(delta: float) -> void:
 	player_hit_flash_remaining = maxf(0.0, player_hit_flash_remaining - delta)
 	capanga_hit_flash_remaining = maxf(0.0, capanga_hit_flash_remaining - delta)
 	_update_damage_border()
+
+	if is_aiming_lapada:
+		if not player_anchor.position.is_equal_approx(lapada_aim_origin):
+			_cancel_aiming_lapada("Mira cancelada — você se moveu.")
+		else:
+			lapada_aim_remaining = maxf(0.0, lapada_aim_remaining - delta)
+			if lapada_aim_remaining <= 0.0:
+				_fire_lapada_seca()
 
 	for index in range(combat_popups.size() - 1, -1, -1):
 		var popup := combat_popups[index]
@@ -369,6 +385,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_weapon()
 			get_viewport().set_input_as_handled()
 			return
+		if event.keycode == KEY_E:
+			_start_aiming_lapada()
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_SPACE:
 			_attempt_parry()
 			get_viewport().set_input_as_handled()
@@ -376,7 +396,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			if stun_remaining > 0.0:
+			if is_aiming_lapada:
+				_cancel_aiming_lapada("Mira cancelada pelo clique.")
+			elif stun_remaining > 0.0:
 				_update_status("Atordoado — aguarde 0,7 s.")
 			else:
 				_set_destination(get_global_mouse_position())
@@ -483,6 +505,8 @@ func _toggle_weapon() -> bool:
 	if weapon_switch_cooldown > 0.0:
 		_update_status("Q em recarga por %.1f s." % weapon_switch_cooldown)
 		return false
+	if is_aiming_lapada:
+		_cancel_aiming_lapada("Mira cancelada pela troca de arma.")
 
 	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
 	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
@@ -517,7 +541,7 @@ func _attempt_parry() -> bool:
 
 
 func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -> bool:
-	if not capanga_active or stun_remaining > 0.0 or player_attack_cooldown > 0.0:
+	if not capanga_active or stun_remaining > 0.0 or player_attack_cooldown > 0.0 or is_aiming_lapada:
 		return false
 
 	var attack_range := RIFLE_RANGE if current_weapon == Weapon.RIFLE else KNIFE_RANGE
@@ -554,6 +578,8 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	var damage := 0
 	if current_weapon == Weapon.RIFLE:
 		damage = RIFLE_CRITICAL_DAMAGE if critical else RIFLE_DAMAGE
+		if critical:
+			GameState.add_lapada_charge()
 	else:
 		damage = KNIFE_CRITICAL_DAMAGE if critical else KNIFE_DAMAGE
 
@@ -561,14 +587,15 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	return true
 
 
-func _damage_capanga(amount: int, critical: bool) -> void:
+func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true) -> void:
 	capanga_hp = maxf(0.0, capanga_hp - float(amount))
 	capanga_hit_flash_remaining = HIT_FLASH_DURATION
 	_update_hit_flash_overlays()
 	if critical:
-		_play_audio("critical")
+		if play_impact_audio:
+			_play_audio("critical")
 		_trigger_screenshake(0.5)
-	else:
+	elif play_impact_audio:
 		_play_audio("hit")
 	_spawn_popup(
 		str(amount),
@@ -599,6 +626,8 @@ func _defeat_capanga() -> void:
 
 
 func _damage_player(amount: int) -> bool:
+	if is_aiming_lapada:
+		_cancel_aiming_lapada("Mira interrompida pelo dano recebido.")
 	player_hp = maxi(0, player_hp - amount)
 	damage_border_remaining = DAMAGE_BORDER_DURATION
 	player_hit_flash_remaining = HIT_FLASH_DURATION
@@ -619,6 +648,9 @@ func _handle_player_defeat() -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	is_aiming_lapada = false
+	lapada_aim_remaining = 0.0
+	lapada_aim_origin = Vector2.ZERO
 	stun_remaining = 0.0
 	skip_next_player_attack = false
 	player_attack_cooldown = 0.0
@@ -841,6 +873,94 @@ func _is_dungeon_door_click(world_position: Vector2) -> bool:
 
 
 func _move_player(delta: float) -> void:
+	var keyboard_input := _keyboard_movement_vector()
+	if not keyboard_input.is_zero_approx():
+		_move_player_with_input(delta, keyboard_input)
+		return
+	_move_player_along_path(delta)
+
+
+func _keyboard_movement_vector() -> Vector2:
+	var direction := Vector2.ZERO
+	if Input.is_key_pressed(KEY_A):
+		direction.x -= 1.0
+	if Input.is_key_pressed(KEY_D):
+		direction.x += 1.0
+	if Input.is_key_pressed(KEY_W):
+		direction.y -= 1.0
+	if Input.is_key_pressed(KEY_S):
+		direction.y += 1.0
+	return direction.normalized()
+
+
+func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
+	if raw_input.is_zero_approx() or delta <= 0.0:
+		return false
+	if is_aiming_lapada:
+		_cancel_aiming_lapada("Mira cancelada — você se moveu.")
+
+	var had_click_destination := has_destination or not movement_path.is_empty()
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	if had_click_destination:
+		_update_status("Rota cancelada — movimentação por WASD ativada.")
+
+	var direction := raw_input.normalized()
+	var remaining_distance := PLAYER_SPEED * delta
+	var moved_distance := 0.0
+	while remaining_distance > 0.0:
+		var step_length := minf(PLAYER_COLLISION_STEP, remaining_distance)
+		var accepted_motion := _resolve_player_motion(direction * step_length)
+		if accepted_motion.is_zero_approx():
+			break
+		player_anchor.position += accepted_motion
+		var accepted_distance := accepted_motion.length()
+		moved_distance += accepted_distance
+		remaining_distance -= step_length
+
+	_emit_step_feedback(moved_distance)
+	return moved_distance > 0.0
+
+
+func _resolve_player_motion(motion: Vector2) -> Vector2:
+	if _is_walkable_player_position(player_anchor.position + motion):
+		return motion
+
+	var horizontal_motion := Vector2(motion.x, 0.0)
+	if not horizontal_motion.is_zero_approx() and _is_walkable_player_position(
+		player_anchor.position + horizontal_motion
+	):
+		return horizontal_motion
+
+	var vertical_motion := Vector2(0.0, motion.y)
+	if not vertical_motion.is_zero_approx() and _is_walkable_player_position(
+		player_anchor.position + vertical_motion
+	):
+		return vertical_motion
+	return Vector2.ZERO
+
+
+func _is_walkable_player_position(world_position: Vector2) -> bool:
+	var origin_cell := _world_to_cell(player_anchor.position)
+	var cell := _world_to_cell(world_position)
+	if not _is_walkable_player_cell(cell):
+		return false
+	if cell.x != origin_cell.x and cell.y != origin_cell.y:
+		if not _is_walkable_player_cell(Vector2i(cell.x, origin_cell.y)):
+			return false
+		if not _is_walkable_player_cell(Vector2i(origin_cell.x, cell.y)):
+			return false
+	return true
+
+
+func _is_walkable_player_cell(cell: Vector2i) -> bool:
+	if not astar.is_in_boundsv(cell) or astar.is_point_solid(cell):
+		return false
+	return not capanga_active or cell != _world_to_cell(capanga_anchor.position)
+
+
+func _move_player_along_path(delta: float) -> void:
 	if path_index >= movement_path.size():
 		return
 
@@ -934,6 +1054,7 @@ func _play_audio(sound_name: String) -> void:
 			"parry": mgr.call("play_parry")
 			"hit": mgr.call("play_hit")
 			"critical": mgr.call("play_critical")
+			"lapada_seca": mgr.call("play_lapada_seca")
 			"ui_click": mgr.call("play_ui_click")
 			"ui_hover": mgr.call("play_ui_hover")
 			"door": mgr.call("play_door_open")
@@ -1060,12 +1181,111 @@ func _update_hud() -> void:
 	var ratio := float(player_hp) / float(PLAYER_MAX_HP)
 	health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
 	health_label.text = "VIDA  %d / %d" % [player_hp, PLAYER_MAX_HP]
-	if current_weapon == Weapon.RIFLE:
+	if is_aiming_lapada:
+		weapon_label.text = "MIRANDO LAPADA SECA... %.1f s  •  NÃO SE MOVA" % lapada_aim_remaining
+	elif current_weapon == Weapon.RIFLE:
 		weapon_label.text = "RIFLE  •  BALAS %d / %d  •  Q PARA TROCAR" % [rifle_ammo, RIFLE_STARTING_AMMO]
+		if GameState.has_lapada_ready():
+			weapon_label.text += "  •  [E] LAPADA PRONTA"
 	else:
 		weapon_label.text = "PEIXEIRA  •  Q PARA TROCAR"
 	if stun_remaining > 0.0:
 		weapon_label.text += "  •  ATORDOADO"
+	_update_lapada_pips()
+
+
+func _update_lapada_pips() -> void:
+	if lapada_pip1 == null or lapada_pip2 == null or lapada_pip3 == null:
+		return
+	var charges: int = GameState.lapada_charges
+	var charged_color := Color("44d6b3")
+	var uncharged_color := Color("281d14")
+	lapada_pip1.color = charged_color if charges >= 1 else uncharged_color
+	lapada_pip2.color = charged_color if charges >= 2 else uncharged_color
+	lapada_pip3.color = charged_color if charges >= 3 else uncharged_color
+
+
+func _start_aiming_lapada() -> bool:
+	if not capanga_active or stun_remaining > 0.0 or scene_transitioning or is_aiming_lapada:
+		return false
+	if current_weapon != Weapon.RIFLE:
+		_update_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
+		return false
+	if rifle_ammo <= 0:
+		_update_status("Sem munição para a Lapada Seca.")
+		return false
+	if not GameState.has_lapada_ready():
+		_update_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
+		return false
+	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
+		_update_status("Capanga fora do alcance (máx. 5 tiles) para mirar.")
+		return false
+
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	is_aiming_lapada = true
+	lapada_aim_remaining = LAPADA_AIM_DURATION
+	lapada_aim_origin = player_anchor.position
+	_reset_character_animations_to_idle()
+	_play_audio("ui_hover")
+	_update_status("MIRANDO LAPADA SECA... NÃO SE MOVA!")
+	_update_hud()
+	return true
+
+
+func _cancel_aiming_lapada(reason: String) -> void:
+	if not is_aiming_lapada:
+		return
+	is_aiming_lapada = false
+	lapada_aim_remaining = 0.0
+	lapada_aim_origin = Vector2.ZERO
+	_update_status(reason)
+	_update_hud()
+
+
+func _fire_lapada_seca() -> bool:
+	is_aiming_lapada = false
+	lapada_aim_remaining = 0.0
+	if not capanga_active:
+		lapada_aim_origin = Vector2.ZERO
+		return false
+	if current_weapon != Weapon.RIFLE:
+		lapada_aim_origin = Vector2.ZERO
+		_update_status("Lapada cancelada — o Rifle não está equipado.")
+		_update_hud()
+		return false
+	if rifle_ammo <= 0:
+		lapada_aim_origin = Vector2.ZERO
+		_update_status("Lapada cancelada — sem munição.")
+		_update_hud()
+		return false
+	if not GameState.has_lapada_ready():
+		lapada_aim_origin = Vector2.ZERO
+		return false
+	if not player_anchor.position.is_equal_approx(lapada_aim_origin):
+		lapada_aim_origin = Vector2.ZERO
+		_update_status("Lapada cancelada — você se moveu.")
+		_update_hud()
+		return false
+	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
+		lapada_aim_origin = Vector2.ZERO
+		_update_status("Lapada cancelada — o alvo saiu do alcance.")
+		_update_hud()
+		return false
+
+	lapada_aim_origin = Vector2.ZERO
+	if not GameState.consume_lapada_charges():
+		return false
+	rifle_ammo -= 1
+	_emit_rifle_muzzle_flash()
+	_play_audio("lapada_seca")
+	_trigger_screenshake(0.85)
+	_spawn_popup("LAPADA SECA!", capanga_anchor.position, COLOR_MAGIC, 22, true, 1.2)
+	_damage_capanga(ceili(capanga_hp), true, false)
+	_update_status("LAPADA SECA — o Capanga foi eliminado.")
+	_update_hud()
+	return true
 
 
 func _update_damage_border() -> void:

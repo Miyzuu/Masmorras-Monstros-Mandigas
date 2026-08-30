@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.1.9`
+**Versão atual:** `V.0.2.0`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -12,6 +12,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - mapa de exploração isométrico com 16×12 tiles de 64×32 pixels;
 - movimentação contínua por clique a 140 px/s;
 - novo clique substitui imediatamente o destino anterior;
+- movimentação contínua por **WASD** nas direções da tela, também a 140 px/s;
+- WASD cancelando a rota atual sem impedir um novo destino por clique;
 - busca de caminho que contorna terreno bloqueado;
 - câmera seguindo o personagem e visão geral alternada pela tecla **M**;
 - Capanga patrulhando mais adiante, detectando e perseguindo o herói;
@@ -22,6 +24,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - troca entre Rifle e Peixeira com **Q** e recarga de 0,5 segundo;
 - Rifle com 5 balas, alcance 5 tiles, dano 25 e crítico de 40;
 - Peixeira com alcance 1 tile, dano 20 e crítico de 30;
+- Lapada Seca carregada por 3 críticos acertados de Rifle, persistindo entre cenas;
+- mira da Lapada por 1 segundo com **E**, cancelada por movimento, dano ou troca de arma;
+- Lapada Seca consumindo 1 bala, zerando as cargas e eliminando o Capanga;
 - números de dano animados e críticos maiores, vermelhos e em negrito;
 - Capanga com patrulha, perseguição, retorno e regeneração de 5 HP/s;
 - três ataques básicos de 15 seguidos por um pesado de 30;
@@ -45,7 +50,7 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - Cangaceiro e Capanga animados na exploração e Cangaceiro animado na masmorra;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
-- áudio procedural para tiro, Peixeira, passos, impactos, crítico, aparo, porta e interface;
+- áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
 - HUD e caixas de diálogo com tema de xilogravura e couro;
 - atlas Sudeste de 640×256 com linhas próprias para Rifle, Capanga, Peixeira e
   Cabra-Cabriola;
@@ -58,8 +63,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a integração audiovisual e a correção do atlas da `V.0.1.9` concluídas, a
-próxima decisão retorna à Engine, usando o `GameState` compartilhado como base.
+Com a Lapada Seca funcional contra o Capanga na `V.0.2.0`, a próxima decisão
+será integrar sua regra de 300% ao futuro combate tático contra chefes.
 
 ## Como executar
 
@@ -70,8 +75,10 @@ próxima decisão retorna à Engine, usando o `GameState` compartilhado como bas
 ## Controles
 
 - **Clique esquerdo:** definir ou substituir o destino na exploração.
+- **WASD:** mover continuamente nas direções da tela e cancelar a rota atual.
 - **M:** alternar entre câmera próxima e visão geral do mapa.
 - **Q:** alternar entre Rifle e Peixeira.
+- **E:** iniciar a mira da Lapada Seca quando as 3 cargas estiverem prontas.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
 - **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
 - **Esc:** cancelar uma caixa aberta; dentro da masmorra, abrir o aviso de saída.

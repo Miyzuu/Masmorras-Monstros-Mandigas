@@ -8,6 +8,7 @@ const DEFAULT_WEAPON := 0
 const DEFAULT_GOLD_SCORE := 0
 const WEAPON_RIFLE := 0
 const WEAPON_KNIFE := 1
+const MAX_LAPADA_CHARGES := 3
 
 var defeated_encounters: Dictionary = {}
 var active_encounter_id := ""
@@ -20,6 +21,7 @@ var player_hp := DEFAULT_PLAYER_HP
 var rifle_ammo := DEFAULT_RIFLE_AMMO
 var current_weapon := DEFAULT_WEAPON
 var gold_score := DEFAULT_GOLD_SCORE
+var lapada_charges := 0
 
 var dungeon_active := false
 var dungeon_progress: Dictionary = {}
@@ -119,6 +121,24 @@ func acknowledge_return() -> void:
 	returning_from_dungeon = false
 
 
+func add_lapada_charge() -> bool:
+	if lapada_charges < MAX_LAPADA_CHARGES:
+		lapada_charges += 1
+		return lapada_charges == MAX_LAPADA_CHARGES
+	return false
+
+
+func consume_lapada_charges() -> bool:
+	if lapada_charges >= MAX_LAPADA_CHARGES:
+		lapada_charges = 0
+		return true
+	return false
+
+
+func has_lapada_ready() -> bool:
+	return lapada_charges >= MAX_LAPADA_CHARGES
+
+
 func reset_session() -> void:
 	defeated_encounters.clear()
 	active_encounter_id = ""
@@ -130,5 +150,6 @@ func reset_session() -> void:
 	rifle_ammo = DEFAULT_RIFLE_AMMO
 	current_weapon = DEFAULT_WEAPON
 	gold_score = DEFAULT_GOLD_SCORE
+	lapada_charges = 0
 	dungeon_active = false
 	reset_dungeon_progress()

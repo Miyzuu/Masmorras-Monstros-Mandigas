@@ -1,5 +1,34 @@
 # Histórico de versões
 
+## V.0.2.0 — 2026-08-30
+
+### Título do commit
+
+`V.0.2.0 — Lapada Seca e movimento WASD`
+
+### Descrição
+
+- adiciona ao `GameState` as 3 cargas persistentes da Lapada Seca, acumuladas
+  somente por críticos acertados de Rifle;
+- permite iniciar a mira com **E** durante 1 segundo, interrompendo movimento e
+  ataques automáticos;
+- adiciona movimento contínuo por **WASD** nas direções da tela, normalizado em
+  140 px/s, com colisão contra limites, terreno, quinas e o Capanga;
+- mantém o clique como alternativa e faz o primeiro WASD cancelar somente a
+  rota ativa, permitindo definir outro destino depois;
+- cancela a mira sem consumir recursos ao clicar, mover, receber dano, trocar
+  de arma ou perder o alcance do alvo;
+- revalida Rifle, munição, cargas, posição e alcance no instante do disparo;
+- elimina instantaneamente o Capanga, consome 1 bala e zera as 3 cargas após o
+  uso bem-sucedido;
+- adiciona três indicadores de carga ao HUD, muzzle flash, screen shake e áudio
+  procedural próprio para o disparo especial;
+- preserva o atlas de quatro linhas, o estado global centralizado e os efeitos
+  audiovisuais da V.0.1.9;
+- adiciona teste dedicado para carga, persistência, cancelamentos, revalidação
+  e dano fatal, além de ampliar o teste audiovisual;
+- mantém a regra de 300% contra chefes reservada para a futura arena tática.
+
 ## V.0.1.9 — 2026-08-30
 
 ### Título do commit

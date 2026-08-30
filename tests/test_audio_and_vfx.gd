@@ -53,6 +53,14 @@ func _test_audio_manager() -> void:
 	var crit_player = audio_mgr.call("play_sfx", "critical")
 	_expect(crit_player != null, "play_sfx('critical') deve retornar um player ativo.")
 
+	var lapada_player = audio_mgr.call("play_sfx", "lapada_seca")
+	_expect(lapada_player != null, "play_sfx('lapada_seca') deve retornar um player ativo.")
+	if lapada_player != null:
+		_expect(
+			is_equal_approx(float(lapada_player.volume_db), 4.0),
+			"O efeito da Lapada Seca deve usar o volume próprio de +4 dB."
+		)
+
 	audio_mgr.queue_free()
 	await process_frame
 
