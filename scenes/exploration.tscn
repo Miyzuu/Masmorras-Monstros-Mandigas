@@ -97,9 +97,9 @@ offset_top = 9.0
 offset_right = 260.0
 offset_bottom = 49.0
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
-theme_override_font_sizes/font_size = 13
-text = "M — VISÃO GERAL  •  Q — ARMA
-ESPAÇO — APARO  •  CLIQUE — ANDAR"
+theme_override_font_sizes/font_size = 12
+text = "M — MAPA • Q — ARMA • E — LAPADA
+ESPAÇO — APARO • CLIQUE — ANDAR"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -159,10 +159,88 @@ text = "VIDA  100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="LapadaContainer" type="Control" parent="Interface/CombatHUD"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 264.0
+offset_top = 9.0
+offset_right = 444.0
+offset_bottom = 29.0
+mouse_filter = 2
+
+[node name="LapadaLabel" type="Label" parent="Interface/CombatHUD/LapadaContainer"]
+offset_right = 96.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.761, 0.659, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "LAPADA SECA"
+vertical_alignment = 1
+
+[node name="Pip1" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+offset_left = 104.0
+offset_top = 3.0
+offset_right = 120.0
+offset_bottom = 17.0
+mouse_filter = 2
+color = Color(0.157, 0.114, 0.078, 1)
+
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+border_color = Color(0.439, 0.314, 0.2, 1)
+border_width = 1.0
+editor_only = false
+
+[node name="Pip2" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+offset_left = 128.0
+offset_top = 3.0
+offset_right = 144.0
+offset_bottom = 17.0
+mouse_filter = 2
+color = Color(0.157, 0.114, 0.078, 1)
+
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+border_color = Color(0.439, 0.314, 0.2, 1)
+border_width = 1.0
+editor_only = false
+
+[node name="Pip3" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+offset_left = 152.0
+offset_top = 3.0
+offset_right = 168.0
+offset_bottom = 17.0
+mouse_filter = 2
+color = Color(0.157, 0.114, 0.078, 1)
+
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+border_color = Color(0.439, 0.314, 0.2, 1)
+border_width = 1.0
+editor_only = false
+
 [node name="WeaponLabel" type="Label" parent="Interface/CombatHUD"]
 offset_left = 12.0
 offset_top = 33.0
-offset_right = 424.0
+offset_right = 444.0
 offset_bottom = 53.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
