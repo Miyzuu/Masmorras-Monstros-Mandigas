@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.4`
+**Versão atual:** `V.0.2.5`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -36,7 +36,7 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - Peixeira com alcance 1 tile, dano 20 e crítico de 30;
 - Lapada Seca carregada por 3 críticos acertados de Rifle, persistindo entre cenas;
 - Lapada Seca disparada instantaneamente com **E**, sem mira e sem interromper o movimento;
-- Lapada Seca consumindo 1 bala, zerando as cargas e eliminando o Capanga;
+- Lapada Seca consumindo 1 bala, zerando as cargas e eliminando o inimigo comum;
 - números de dano animados e críticos maiores, vermelhos e em negrito;
 - Capanga com patrulha, perseguição, retorno e regeneração de 5 HP/s;
 - três ataques básicos de 15 seguidos por um pesado de 30;
@@ -53,7 +53,7 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - mob comum externo renascendo com vida cheia e patrulha normal ao retornar de
   outra cena, sem duplicar progresso ou recompensa;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
-- mapa separado de masmorra com duas salas encadeadas de 16×12;
+- mapa separado de masmorra com três salas encadeadas de 16×12;
 - segunda sala diferenciada por três blocos de pedras que formam duas rotas
   transitáveis até a escada;
 - Lobo-guará corrompido na segunda sala, com 70 HP, perseguição a 220 px/s e
@@ -62,14 +62,24 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   Lapada Seca continuam atravessando objetos que não sejam paredes;
 - silhueta provisória do Lobo-guará desenhada pelo código, sem novo recurso de
   arte nesta etapa;
+- terceira sala iniciando o segundo andar, com quatro pedras espalhadas como
+  cobertura e uma Rasga-Mortalha própria;
+- Rasga-Mortalha com 60 HP, patrulha entre dois pontos, detecção em 6 tiles,
+  desistência acima de 10 tiles e reposicionamento a 120 px/s;
+- ataque à distância de 10 a cada 1,2 segundo, usando projétil visível e
+  desviável a 300 px/s, bloqueado por paredes e pedras;
+- recuo abaixo de 3 tiles, alcance máximo de 5 tiles e continuação dos disparos
+  quando não existir rota de fuga;
+- projéteis da Rasga-Mortalha não aparáveis e silhueta provisória desenhada por
+  código, sem alterar recursos gráficos;
 - combate em tempo real da sala preservando Rifle, Peixeira, Lapada Seca,
   aparo, munição, vida e movimentação por clique ou WASD;
 - escada selada enquanto o inimigo da sala estiver vivo e liberada após a vitória,
   com a conclusão da sala registrada no `GameState`;
-- transição `sala_01 → sala_02` com fade de 0,5 segundo, preservando vida,
+- transições `sala_01 → sala_02 → sala_03` com fade de 0,5 segundo, preservando vida,
   pente, reserva, arma, ouro e cargas da Lapada;
 - porta de retorno disponível somente na sala inicial; **Esc** continua abrindo
-  a saída voluntária em ambas as salas;
+  a saída voluntária nas três salas;
 - derrota interna oferecendo **Voltar do início** ou **Sair**, reiniciando o
   progresso e restaurando o herói com 40% de vida;
 - saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
@@ -78,8 +88,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
-- Cangaceiro animado na exploração e nas duas salas; Capanga animado no mapa
-  externo e na primeira sala, com o Lobo-guará ainda usando silhueta provisória;
+- Cangaceiro animado na exploração e nas três salas; Capanga animado no mapa
+  externo e na primeira sala, com Lobo-guará e Rasga-Mortalha ainda usando
+  silhuetas provisórias;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
@@ -95,8 +106,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com os perfis de salas e inimigos centralizados na `V.0.2.4`, a próxima decisão
-será definir o conteúdo mínimo da terceira sala, sem iniciar o chefe ainda.
+Com a terceira sala e a Rasga-Mortalha funcionais na `V.0.2.5`, a próxima decisão
+será definir o conteúdo mínimo da quarta sala, sem iniciar o chefe ainda.
 
 ## Como executar
 

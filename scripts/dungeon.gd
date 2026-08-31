@@ -11,6 +11,12 @@ enum EnemyState {
 	RETURN,
 }
 
+enum EnemyVisual {
+	ATLAS,
+	LOBO_PLACEHOLDER,
+	RASGA_PLACEHOLDER,
+}
+
 const MAP_SIZE := Vector2i(16, 12)
 const TILE_SIZE := Vector2(64.0, 32.0)
 const HALF_TILE := TILE_SIZE * 0.5
@@ -60,6 +66,8 @@ const DAMAGE_NUMBER_DURATION := 0.8
 const PARRY_TEXT_DURATION := 0.5
 const DAMAGE_BORDER_DURATION := 0.15
 const HIT_FLASH_DURATION := 0.12
+const ENEMY_PROJECTILE_HIT_RADIUS := 12.0
+const ENEMY_PROJECTILE_SAMPLE_STEP := 8.0
 
 const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
@@ -68,8 +76,10 @@ const BLOCKED_STAIRS_CELL := Vector2i(14, 1)
 
 const ROOM_ID_ONE := "sala_01"
 const ROOM_ID_TWO := "sala_02"
+const ROOM_ID_THREE := "sala_03"
 const ENEMY_ID_CAPANGA := "capanga_encouracado"
 const ENEMY_ID_LOBO := "lobo_guara_corrompido"
+const ENEMY_ID_RASGA := "rasga_mortalha"
 
 const ENEMY_PROFILES := {
 	ENEMY_ID_CAPANGA: {
@@ -88,6 +98,10 @@ const ENEMY_PROFILES := {
 		"regen_per_second": 5.0,
 		"repath_interval": 0.2,
 		"patrol_pause": 0.6,
+		"minimum_combat_range": 0,
+		"uses_projectile": false,
+		"projectile_speed": 0.0,
+		"visual": EnemyVisual.ATLAS,
 		"atlas_row": CAPANGA_ATLAS_ROW,
 	},
 	ENEMY_ID_LOBO: {
@@ -106,6 +120,32 @@ const ENEMY_PROFILES := {
 		"regen_per_second": 0.0,
 		"repath_interval": 0.2,
 		"patrol_pause": 0.6,
+		"minimum_combat_range": 0,
+		"uses_projectile": false,
+		"projectile_speed": 0.0,
+		"visual": EnemyVisual.LOBO_PLACEHOLDER,
+		"atlas_row": -1,
+	},
+	ENEMY_ID_RASGA: {
+		"name": "Rasga-Mortalha",
+		"max_hp": 60.0,
+		"patrol_speed": 70.0,
+		"chase_speed": 120.0,
+		"detection_range": 6,
+		"disengage_range": 10,
+		"attack_range": 5,
+		"attack_interval": 1.2,
+		"basic_damage": 10,
+		"has_heavy_attack": false,
+		"heavy_damage": 0,
+		"heavy_warning": 0.0,
+		"regen_per_second": 0.0,
+		"repath_interval": 0.2,
+		"patrol_pause": 0.6,
+		"minimum_combat_range": 3,
+		"uses_projectile": true,
+		"projectile_speed": 300.0,
+		"visual": EnemyVisual.RASGA_PLACEHOLDER,
 		"atlas_row": -1,
 	},
 }
@@ -137,6 +177,19 @@ const ROOM_PROFILES := {
 			Vector2i(12, 3),
 		],
 	},
+	ROOM_ID_THREE: {
+		"enemy_id": ENEMY_ID_RASGA,
+		"patrol_cells": [
+			Vector2i(9, 5),
+			Vector2i(12, 3),
+		],
+		"obstacle_cells": [
+			Vector2i(5, 8),
+			Vector2i(7, 6),
+			Vector2i(9, 7),
+			Vector2i(11, 4),
+		],
+	},
 }
 
 const COLOR_VOID := Color("0d0e12")
@@ -163,6 +216,9 @@ const COLOR_ROCK_TOP := Color("514d4b")
 const COLOR_ROCK_SIDE := Color("302e30")
 const COLOR_LOBO_BODY := Color("a75f38")
 const COLOR_LOBO_DARK := Color("3c2924")
+const COLOR_RASGA_BODY := Color("d8d1c5")
+const COLOR_RASGA_DARK := Color("403846")
+const COLOR_RASGA_PROJECTILE := Color("ba63ff")
 
 @onready var player_anchor: Node2D = $PlayerAnchor
 @onready var camera: Camera2D = $Camera2D
@@ -245,6 +301,7 @@ var damage_border_remaining := 0.0
 var player_hit_flash_remaining := 0.0
 var capanga_hit_flash_remaining := 0.0
 var combat_popups: Array[Dictionary] = []
+var enemy_projectiles: Array[Dictionary] = []
 
 var exit_prompt_visible := false
 var defeat_prompt_visible := false
@@ -318,6 +375,7 @@ func _advance_realtime(
 	_advance_capanga_ai(delta)
 	_update_capanga_animation(delta, capanga_previous_position)
 	_attempt_auto_attack(hit_roll, critical_roll)
+	_advance_enemy_projectiles(delta)
 	_advance_capanga_attack(delta)
 	_update_hud()
 	queue_redraw()
@@ -853,6 +911,7 @@ func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true
 func _defeat_capanga() -> void:
 	capanga_active = false
 	capanga_path.clear()
+	enemy_projectiles.clear()
 	heavy_warning_active = false
 	heavy_warning_remaining = 0.0
 	GameState.mark_dungeon_room_cleared(dungeon_room_id)
@@ -880,6 +939,7 @@ func _handle_player_defeat() -> void:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	enemy_projectiles.clear()
 	is_reloading = false
 	reload_remaining = 0.0
 	heavy_warning_active = false
@@ -908,7 +968,9 @@ func _advance_capanga_ai(delta: float) -> void:
 				capanga_return_target_index = _nearest_capanga_patrol_index()
 				_set_capanga_state(EnemyState.RETURN)
 				return
-			if distance > _enemy_attack_range():
+			if _enemy_uses_projectile():
+				_advance_ranged_enemy_movement(distance, delta)
+			elif distance > _enemy_attack_range():
 				_move_capanga_toward(_world_to_cell(player_anchor.position), _enemy_chase_speed(), delta)
 		EnemyState.RETURN:
 			var return_cell := _enemy_patrol_cell(capanga_return_target_index)
@@ -917,6 +979,50 @@ func _advance_capanga_ai(delta: float) -> void:
 				capanga_anchor.position = _cell_to_world(return_cell)
 				capanga_patrol_target_index = 1 - capanga_return_target_index
 				_set_capanga_state(EnemyState.PATROL)
+
+
+func _advance_ranged_enemy_movement(distance: int, delta: float) -> void:
+	if distance < _enemy_minimum_combat_range():
+		_move_capanga_away_from_player(delta)
+		return
+	if distance > _enemy_attack_range():
+		_move_capanga_toward(_world_to_cell(player_anchor.position), _enemy_chase_speed(), delta)
+		return
+	capanga_path.clear()
+	capanga_path_index = 0
+
+
+func _move_capanga_away_from_player(delta: float) -> bool:
+	var current_cell := _nearest_walkable_cell(capanga_anchor.position)
+	var player_cell := _world_to_cell(player_anchor.position)
+	var best_cell := current_cell
+	var best_distance := absi(current_cell.x - player_cell.x) + absi(current_cell.y - player_cell.y)
+	for y_offset in range(-1, 2):
+		for x_offset in range(-1, 2):
+			if x_offset == 0 and y_offset == 0:
+				continue
+			var candidate := current_cell + Vector2i(x_offset, y_offset)
+			if not astar.is_in_boundsv(candidate) or astar.is_point_solid(candidate):
+				continue
+			var candidate_distance := absi(candidate.x - player_cell.x) + absi(candidate.y - player_cell.y)
+			if candidate_distance > best_distance:
+				best_cell = candidate
+				best_distance = candidate_distance
+
+	if best_cell == current_cell:
+		capanga_path.clear()
+		capanga_path_index = 0
+		return false
+
+	_rebuild_capanga_path(best_cell)
+	if capanga_path.is_empty():
+		return false
+	var waypoint := capanga_path[capanga_path_index]
+	capanga_anchor.position = capanga_anchor.position.move_toward(waypoint, _enemy_chase_speed() * delta)
+	if capanga_anchor.position.distance_to(waypoint) <= 0.5:
+		capanga_anchor.position = waypoint
+		capanga_path_index += 1
+	return true
 
 
 func _advance_capanga_patrol(delta: float) -> void:
@@ -1001,6 +1107,13 @@ func _advance_capanga_attack(delta: float) -> void:
 	if capanga_attack_cooldown > 0.0:
 		return
 
+	if _enemy_uses_projectile():
+		var projectile_spawned := _spawn_enemy_projectile()
+		capanga_attack_cooldown = attack_interval
+		if projectile_spawned:
+			_update_status("%s lançou um projétil." % _enemy_name())
+		return
+
 	if not _enemy_has_heavy_attack():
 		var basic_damage := _enemy_basic_damage()
 		var defeated := _damage_player(basic_damage)
@@ -1020,6 +1133,60 @@ func _advance_capanga_attack(delta: float) -> void:
 		heavy_warning_active = true
 		heavy_warning_remaining = _enemy_heavy_warning()
 		_update_status("Ataque pesado chegando — pressione Espaço!")
+
+
+func _spawn_enemy_projectile() -> bool:
+	var direction := player_anchor.position - capanga_anchor.position
+	var projectile_speed := _enemy_projectile_speed()
+	if direction.is_zero_approx() or projectile_speed <= 0.0:
+		return false
+	enemy_projectiles.append({
+		"position": capanga_anchor.position,
+		"velocity": direction.normalized() * projectile_speed,
+		"damage": _enemy_basic_damage(),
+	})
+	return true
+
+
+func _advance_enemy_projectiles(delta: float) -> void:
+	for index in range(enemy_projectiles.size() - 1, -1, -1):
+		var projectile := enemy_projectiles[index]
+		var previous_position: Vector2 = projectile["position"]
+		var velocity: Vector2 = projectile["velocity"]
+		var next_position := previous_position + velocity * maxf(0.0, delta)
+		var travel_distance := previous_position.distance_to(next_position)
+		var sample_count := maxi(1, ceili(travel_distance / ENEMY_PROJECTILE_SAMPLE_STEP))
+		var sample_start := previous_position
+		var projectile_removed := false
+		for sample_index in range(1, sample_count + 1):
+			var sample_end := previous_position.lerp(next_position, float(sample_index) / float(sample_count))
+			var sample_cell := _world_to_cell(sample_end)
+			if not astar.is_in_boundsv(sample_cell) or _is_wall(sample_cell):
+				enemy_projectiles.remove_at(index)
+				projectile_removed = true
+				break
+			if _distance_point_to_segment(player_anchor.position, sample_start, sample_end) <= ENEMY_PROJECTILE_HIT_RADIUS:
+				enemy_projectiles.remove_at(index)
+				projectile_removed = true
+				var damage := int(projectile["damage"])
+				var defeated := _damage_player(damage)
+				if not defeated:
+					_update_status("Projétil da %s: %d de dano." % [_enemy_name(), damage])
+				break
+			sample_start = sample_end
+		if projectile_removed:
+			continue
+		projectile["position"] = next_position
+		enemy_projectiles[index] = projectile
+
+
+func _distance_point_to_segment(point: Vector2, start: Vector2, finish: Vector2) -> float:
+	var segment := finish - start
+	var length_squared := segment.length_squared()
+	if is_zero_approx(length_squared):
+		return point.distance_to(start)
+	var projection := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0)
+	return point.distance_to(start + segment * projection)
 
 
 func _capanga_can_attack_player() -> bool:
@@ -1190,6 +1357,22 @@ func _enemy_patrol_pause() -> float:
 	return float(_enemy_profile()["patrol_pause"])
 
 
+func _enemy_minimum_combat_range() -> int:
+	return int(_enemy_profile()["minimum_combat_range"])
+
+
+func _enemy_uses_projectile() -> bool:
+	return bool(_enemy_profile()["uses_projectile"])
+
+
+func _enemy_projectile_speed() -> float:
+	return float(_enemy_profile()["projectile_speed"])
+
+
+func _enemy_visual() -> int:
+	return int(_enemy_profile()["visual"])
+
+
 func _enemy_atlas_row() -> int:
 	return int(_enemy_profile()["atlas_row"])
 
@@ -1204,6 +1387,7 @@ func _reset_room_enemy() -> void:
 	capanga_anchor.position = _cell_to_world(_enemy_patrol_cell(0))
 	capanga_active = not GameState.is_dungeon_room_cleared(dungeon_room_id)
 	capanga_hp = _enemy_max_hp()
+	enemy_projectiles.clear()
 	capanga_state = EnemyState.PATROL
 	capanga_patrol_target_index = 1
 	capanga_return_target_index = 0
@@ -1555,6 +1739,7 @@ func _draw() -> void:
 	_draw_player()
 	if capanga_active and capanga_anchor.position.y > player_anchor.position.y:
 		_draw_capanga()
+	_draw_enemy_projectiles()
 	_draw_combat_popups()
 	_draw_damage_border()
 
@@ -1686,16 +1871,19 @@ func _draw_capanga() -> void:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
-	var enemy_atlas_row := _enemy_atlas_row()
-	if enemy_atlas_row < 0:
-		_draw_lobo_placeholder(position)
-	else:
-		draw_texture_rect_region(
-			CHARACTER_ATLAS,
-			_character_draw_rect(position),
-			_character_sprite_region(enemy_atlas_row, capanga_animation_state, capanga_animation_frame),
-			Color("ffd0c8") if capanga_hit_flash_remaining > 0.0 else Color.WHITE
-		)
+	match _enemy_visual():
+		EnemyVisual.LOBO_PLACEHOLDER:
+			_draw_lobo_placeholder(position)
+		EnemyVisual.RASGA_PLACEHOLDER:
+			_draw_rasga_placeholder(position)
+		_:
+			var enemy_atlas_row := _enemy_atlas_row()
+			draw_texture_rect_region(
+				CHARACTER_ATLAS,
+				_character_draw_rect(position),
+				_character_sprite_region(enemy_atlas_row, capanga_animation_state, capanga_animation_frame),
+				Color("ffd0c8") if capanga_hit_flash_remaining > 0.0 else Color.WHITE
+			)
 
 	var health_rect := Rect2(position + Vector2(-18.0, -58.0), Vector2(36.0, 5.0))
 	draw_rect(health_rect, COLOR_HEALTH_BACKGROUND, true)
@@ -1738,6 +1926,52 @@ func _draw_lobo_placeholder(position: Vector2) -> void:
 	draw_line(position + Vector2(-10.0, -16.0), position + Vector2(-12.0, 0.0), COLOR_LOBO_DARK, 4.0)
 	draw_line(position + Vector2(8.0, -17.0), position + Vector2(11.0, 0.0), COLOR_LOBO_DARK, 4.0)
 	draw_circle(position + Vector2(19.0, -31.0), 2.0, COLOR_MAGIC)
+
+
+func _draw_rasga_placeholder(position: Vector2) -> void:
+	var body_color := Color("ffd0c8") if capanga_hit_flash_remaining > 0.0 else COLOR_RASGA_BODY
+	var left_wing := PackedVector2Array([
+		position + Vector2(-3.0, -30.0),
+		position + Vector2(-28.0, -42.0),
+		position + Vector2(-20.0, -20.0),
+		position + Vector2(-5.0, -15.0),
+	])
+	var right_wing := PackedVector2Array([
+		position + Vector2(3.0, -30.0),
+		position + Vector2(28.0, -42.0),
+		position + Vector2(20.0, -20.0),
+		position + Vector2(5.0, -15.0),
+	])
+	draw_colored_polygon(left_wing, COLOR_RASGA_DARK)
+	draw_colored_polygon(right_wing, COLOR_RASGA_DARK)
+	draw_circle(position + Vector2(0.0, -25.0), 12.0, body_color)
+	draw_circle(position + Vector2(0.0, -42.0), 9.0, body_color)
+	draw_colored_polygon(PackedVector2Array([
+		position + Vector2(7.0, -44.0),
+		position + Vector2(20.0, -40.0),
+		position + Vector2(7.0, -37.0),
+	]), COLOR_RASGA_DARK)
+	draw_circle(position + Vector2(3.0, -44.0), 2.0, COLOR_MAGIC)
+	draw_line(position + Vector2(-5.0, -14.0), position + Vector2(-9.0, -3.0), COLOR_RASGA_DARK, 3.0)
+	draw_line(position + Vector2(5.0, -14.0), position + Vector2(9.0, -3.0), COLOR_RASGA_DARK, 3.0)
+
+
+func _draw_enemy_projectiles() -> void:
+	for projectile in enemy_projectiles:
+		var ground_position: Vector2 = projectile["position"]
+		var velocity: Vector2 = projectile["velocity"]
+		var direction := velocity.normalized()
+		var perpendicular := Vector2(-direction.y, direction.x)
+		var position := ground_position + Vector2(0.0, -28.0)
+		var tip := position + direction * 10.0
+		var tail := position - direction * 8.0
+		draw_line(tail - direction * 6.0, tip, Color(0.73, 0.39, 1.0, 0.35), 6.0)
+		draw_colored_polygon(PackedVector2Array([
+			tip,
+			tail + perpendicular * 4.0,
+			tail - perpendicular * 4.0,
+		]), COLOR_RASGA_PROJECTILE)
+		draw_circle(position, 2.5, Color.WHITE)
 
 
 func _draw_combat_popups() -> void:

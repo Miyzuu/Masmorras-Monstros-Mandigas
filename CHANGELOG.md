@@ -1,5 +1,28 @@
 # Histórico de versões
 
+## V.0.2.5 — 2026-08-31
+
+### Título do commit
+
+`V.0.2.5 — Terceira sala e Rasga-Mortalha`
+
+### Descrição
+
+- adiciona `sala_03` ao progresso da masmorra como primeira sala do segundo
+  andar, mantendo a escada final sem destino nesta versão;
+- cria quatro pedras de cobertura e preserva uma rota válida entre a entrada e
+  a escada;
+- adiciona a Rasga-Mortalha com 60 HP, patrulha entre dois pontos, detecção em
+  6 tiles, desistência em 10 tiles e reposicionamento a 120 px/s;
+- implementa recuo abaixo de 3 tiles e disparos até 5 tiles, mantendo o ataque
+  quando não houver uma rota de fuga;
+- adiciona projéteis visíveis e desviáveis a 300 px/s, causando 10 de dano a
+  cada 1,2 segundo e sendo destruídos por paredes ou pedras;
+- mantém os projéteis fora do aparo e usa silhueta provisória desenhada por
+  código, sem modificar cenas, arte ou testes;
+- valida carregamento, progressão das três salas, cobertura, recuo, projéteis e
+  os sete testes automatizados.
+
 ## V.0.2.4 — 2026-08-30
 
 ### Título do commit

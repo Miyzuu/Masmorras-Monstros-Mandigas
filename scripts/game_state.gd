@@ -11,7 +11,7 @@ const DEFAULT_GOLD_SCORE := 0
 const WEAPON_RIFLE := 0
 const WEAPON_KNIFE := 1
 const MAX_LAPADA_CHARGES := 3
-const DUNGEON_ROOM_IDS := ["sala_01", "sala_02"]
+const DUNGEON_ROOM_IDS := ["sala_01", "sala_02", "sala_03"]
 
 var defeated_encounters: Dictionary = {}
 var active_encounter_id := ""
