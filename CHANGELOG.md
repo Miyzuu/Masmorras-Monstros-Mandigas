@@ -1,5 +1,26 @@
 # Histórico de versões
 
+## V.0.2.3 — 2026-08-30
+
+### Título do commit
+
+`V.0.2.3 — Sala 2 e Lobo-guará corrompido`
+
+### Descrição
+
+- diferencia a segunda sala com três blocos de pedras e duas rotas transitáveis
+  até a escada;
+- adiciona o Lobo-guará corrompido com 70 HP, perseguição a 220 px/s e ataque
+  de 10 a cada 0,8 segundo, sem ataque pesado ou regeneração;
+- mantém as pedras como obstáculos de movimento e busca de caminho, enquanto
+  Rifle e Lapada Seca atravessam objetos que não sejam paredes;
+- preserva o perfil e o comportamento existentes do Capanga na primeira sala;
+- usa uma silhueta provisória desenhada pelo código, sem modificar arte ou cenas;
+- corrige a reconstrução da grade de navegação ao reiniciar da segunda sala,
+  impedindo que as pedras permaneçam bloqueando a primeira;
+- valida parsing, perfil do Lobo, rotas da sala, passagem dos projéteis, os sete
+  testes automatizados e o fluxo manual aprovado pelo usuário.
+
 ## V.0.2.2 — 2026-08-30
 
 ### Título do commit

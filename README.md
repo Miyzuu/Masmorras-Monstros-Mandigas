@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.2`
+**Versão atual:** `V.0.2.3`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -51,11 +51,18 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - mob comum externo renascendo com vida cheia e patrulha normal ao retornar de
   outra cena, sem duplicar progresso ou recompensa;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
-- mapa separado de masmorra com duas salas encadeadas de 16×12, reutilizando
-  temporariamente o mesmo mapa e um Capanga em cada encontro;
+- mapa separado de masmorra com duas salas encadeadas de 16×12;
+- segunda sala diferenciada por três blocos de pedras que formam duas rotas
+  transitáveis até a escada;
+- Lobo-guará corrompido na segunda sala, com 70 HP, perseguição a 220 px/s e
+  ataque de 10 a cada 0,8 segundo, sem golpe pesado ou regeneração;
+- pedras bloqueando movimento e busca de caminho, enquanto tiros do Rifle e a
+  Lapada Seca continuam atravessando objetos que não sejam paredes;
+- silhueta provisória do Lobo-guará desenhada pelo código, sem novo recurso de
+  arte nesta etapa;
 - combate em tempo real da sala preservando Rifle, Peixeira, Lapada Seca,
   aparo, munição, vida e movimentação por clique ou WASD;
-- escada selada enquanto o Capanga estiver vivo e liberada após a vitória,
+- escada selada enquanto o inimigo da sala estiver vivo e liberada após a vitória,
   com a conclusão da sala registrada no `GameState`;
 - transição `sala_01 → sala_02` com fade de 0,5 segundo, preservando vida,
   pente, reserva, arma, ouro e cargas da Lapada;
@@ -85,8 +92,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o encadeamento `sala_01 → sala_02` funcional na `V.0.2.2`, a próxima decisão
-será definir o conteúdo definitivo da segunda sala sem iniciar o chefe ainda.
+Com a segunda sala e o Lobo-guará funcionais na `V.0.2.3`, a próxima decisão
+será modularizar os dados de salas e inimigos antes de criar a terceira sala.
 
 ## Como executar
 

@@ -25,8 +25,8 @@ Cabra-Cabriola.
 - Primeira sala funcional implementada: um Capanga Encouraçado em combate em
   tempo real e uma escada selada até a vitória.
 - Encadeamento funcional implementado entre `sala_01` e `sala_02`: a escada
-  liberada usa fade de 0,5 segundo e a segunda sala reutiliza temporariamente o
-  mapa e o Capanga existentes, sem introduzir novas estatísticas.
+  liberada usa fade de 0,5 segundo. A segunda sala possui três blocos de pedras,
+  duas rotas transitáveis e um Lobo-guará corrompido próprio.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
 - Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.
@@ -157,8 +157,10 @@ ataque básico e comportamento.
   Desiste acima de 10 tiles, retorna à patrulha e regenera 5 HP/s. Ataca a cada
   1,5 segundo quando está a 1 tile: usa 3 golpes básicos e depois 1 pesado.
   A resistência especial da armadura ainda não é aplicada.
-- **Lobo-guará corrompido:** criatura veloz, corpo a corpo; persegue o herói. A
-  corrupção sobrenatural justifica sua presença na Caatinga.
+- **Lobo-guará corrompido:** criatura veloz, corpo a corpo, com 70 HP. Persegue
+  o herói a 220 px/s e ataca a cada 0,8 segundo, causando 10 de dano. Não usa
+  ataque pesado nem regenera vida. A corrupção sobrenatural justifica sua
+  presença na Caatinga.
 - **Rasga-Mortalha:** criatura folclórica de ataque à distância; tenta manter
   distância do herói.
 - Ao retornar de outra cena ao mapa externo, mobs comuns derrotados reaparecem
@@ -239,7 +241,7 @@ Estes itens não alteram o escopo, mas precisam ser decididos antes ou durante o
 protótipo:
 
 - Fórmulas exatas dos cinco atributos e sua relação com os valores-base atuais.
-- Atributos, movimento, alcance e dano dos demais inimigos.
+- Atributos, movimento, alcance e dano da Rasga-Mortalha e de inimigos futuros.
 - Dano da investida e vida da Cabra-Cabriola.
 - Quantidades de ouro, bônus e regra de arredondamento da perda de 25%.
 - Textos narrativos, nome da vila e título definitivo do jogo.
