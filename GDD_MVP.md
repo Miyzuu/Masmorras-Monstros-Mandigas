@@ -27,6 +27,8 @@ Cabra-Cabriola.
 - Encadeamento funcional implementado entre `sala_01` e `sala_02`: a escada
   liberada usa fade de 0,5 segundo. A segunda sala possui três blocos de pedras,
   duas rotas transitáveis e um Lobo-guará corrompido próprio.
+- A implementação usa perfis internos de sala e inimigo para centralizar
+  obstáculos, patrulha e estatísticas sem alterar as regras de combate.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
 - Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.

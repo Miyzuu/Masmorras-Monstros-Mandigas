@@ -55,25 +55,6 @@ const KNIFE_CRITICAL_DAMAGE := 30
 const PLAYER_CRITICAL_CHANCE := 0.25
 const WEAPON_SWITCH_COOLDOWN := 0.5
 
-const CAPANGA_MAX_HP := 150.0
-const CAPANGA_PATROL_SPEED := 70.0
-const CAPANGA_CHASE_SPEED := 150.0
-const CAPANGA_DETECTION_RANGE := 6
-const CAPANGA_DISENGAGE_RANGE := 10
-const CAPANGA_ATTACK_RANGE := 1
-const CAPANGA_ATTACK_INTERVAL := 1.5
-const CAPANGA_BASIC_DAMAGE := 15
-const CAPANGA_HEAVY_DAMAGE := 30
-const CAPANGA_HEAVY_WARNING := 0.7
-const CAPANGA_REGEN_PER_SECOND := 5.0
-const CAPANGA_REPATH_INTERVAL := 0.2
-const CAPANGA_PATROL_PAUSE := 0.6
-
-const LOBO_MAX_HP := 70.0
-const LOBO_CHASE_SPEED := 220.0
-const LOBO_ATTACK_INTERVAL := 0.8
-const LOBO_BASIC_DAMAGE := 10
-
 const FAILED_PARRY_STUN := 0.7
 const DAMAGE_NUMBER_DURATION := 0.8
 const PARRY_TEXT_DURATION := 0.5
@@ -84,25 +65,79 @@ const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
 const EXIT_INTERACTION_CELL := Vector2i(1, 10)
 const BLOCKED_STAIRS_CELL := Vector2i(14, 1)
-const CAPANGA_PATROL_CELLS := [
-	Vector2i(7, 7),
-	Vector2i(11, 4),
-]
-const LOBO_PATROL_CELLS := [
-	Vector2i(7, 7),
-	Vector2i(10, 4),
-]
-const ROOM_TWO_ROCK_CELLS := [
-	Vector2i(5, 8),
-	Vector2i(5, 9),
-	Vector2i(6, 9),
-	Vector2i(8, 5),
-	Vector2i(8, 6),
-	Vector2i(9, 6),
-	Vector2i(11, 2),
-	Vector2i(11, 3),
-	Vector2i(12, 3),
-]
+
+const ROOM_ID_ONE := "sala_01"
+const ROOM_ID_TWO := "sala_02"
+const ENEMY_ID_CAPANGA := "capanga_encouracado"
+const ENEMY_ID_LOBO := "lobo_guara_corrompido"
+
+const ENEMY_PROFILES := {
+	ENEMY_ID_CAPANGA: {
+		"name": "Capanga",
+		"max_hp": 150.0,
+		"patrol_speed": 70.0,
+		"chase_speed": 150.0,
+		"detection_range": 6,
+		"disengage_range": 10,
+		"attack_range": 1,
+		"attack_interval": 1.5,
+		"basic_damage": 15,
+		"has_heavy_attack": true,
+		"heavy_damage": 30,
+		"heavy_warning": 0.7,
+		"regen_per_second": 5.0,
+		"repath_interval": 0.2,
+		"patrol_pause": 0.6,
+		"atlas_row": CAPANGA_ATLAS_ROW,
+	},
+	ENEMY_ID_LOBO: {
+		"name": "Lobo-guará corrompido",
+		"max_hp": 70.0,
+		"patrol_speed": 70.0,
+		"chase_speed": 220.0,
+		"detection_range": 6,
+		"disengage_range": 10,
+		"attack_range": 1,
+		"attack_interval": 0.8,
+		"basic_damage": 10,
+		"has_heavy_attack": false,
+		"heavy_damage": 0,
+		"heavy_warning": 0.0,
+		"regen_per_second": 0.0,
+		"repath_interval": 0.2,
+		"patrol_pause": 0.6,
+		"atlas_row": -1,
+	},
+}
+
+const ROOM_PROFILES := {
+	ROOM_ID_ONE: {
+		"enemy_id": ENEMY_ID_CAPANGA,
+		"patrol_cells": [
+			Vector2i(7, 7),
+			Vector2i(11, 4),
+		],
+		"obstacle_cells": [],
+	},
+	ROOM_ID_TWO: {
+		"enemy_id": ENEMY_ID_LOBO,
+		"patrol_cells": [
+			Vector2i(7, 7),
+			Vector2i(10, 4),
+		],
+		"obstacle_cells": [
+			Vector2i(5, 8),
+			Vector2i(5, 9),
+			Vector2i(6, 9),
+			Vector2i(8, 5),
+			Vector2i(8, 6),
+			Vector2i(9, 6),
+			Vector2i(11, 2),
+			Vector2i(11, 3),
+			Vector2i(12, 3),
+		],
+	},
+}
 
 const COLOR_VOID := Color("0d0e12")
 const COLOR_FLOOR_A := Color("6f675f")
@@ -193,7 +228,7 @@ var stun_remaining := 0.0
 var skip_next_player_attack := false
 
 var capanga_active := true
-var capanga_hp := CAPANGA_MAX_HP
+var capanga_hp := 0.0
 var capanga_state := EnemyState.PATROL
 var capanga_patrol_target_index := 1
 var capanga_return_target_index := 0
@@ -201,7 +236,7 @@ var capanga_path := PackedVector2Array()
 var capanga_path_index := 0
 var capanga_repath_remaining := 0.0
 var capanga_patrol_pause_remaining := 0.0
-var capanga_attack_cooldown := CAPANGA_ATTACK_INTERVAL
+var capanga_attack_cooldown := 0.0
 var capanga_basic_attack_count := 0
 var heavy_warning_active := false
 var heavy_warning_remaining := 0.0
@@ -864,20 +899,20 @@ func _advance_capanga_ai(delta: float) -> void:
 			var regen_per_second := _enemy_regen_per_second()
 			if regen_per_second > 0.0:
 				capanga_hp = minf(_enemy_max_hp(), capanga_hp + regen_per_second * delta)
-			if distance <= CAPANGA_DETECTION_RANGE:
+			if distance <= _enemy_detection_range():
 				_set_capanga_state(EnemyState.CHASE)
 				return
 			_advance_capanga_patrol(delta)
 		EnemyState.CHASE:
-			if distance > CAPANGA_DISENGAGE_RANGE:
+			if distance > _enemy_disengage_range():
 				capanga_return_target_index = _nearest_capanga_patrol_index()
 				_set_capanga_state(EnemyState.RETURN)
 				return
-			if distance > CAPANGA_ATTACK_RANGE:
+			if distance > _enemy_attack_range():
 				_move_capanga_toward(_world_to_cell(player_anchor.position), _enemy_chase_speed(), delta)
 		EnemyState.RETURN:
 			var return_cell := _enemy_patrol_cell(capanga_return_target_index)
-			_move_capanga_toward(return_cell, CAPANGA_PATROL_SPEED, delta)
+			_move_capanga_toward(return_cell, _enemy_patrol_speed(), delta)
 			if capanga_anchor.position.distance_to(_cell_to_world(return_cell)) <= 1.0:
 				capanga_anchor.position = _cell_to_world(return_cell)
 				capanga_patrol_target_index = 1 - capanga_return_target_index
@@ -890,11 +925,11 @@ func _advance_capanga_patrol(delta: float) -> void:
 		return
 
 	var target_cell := _enemy_patrol_cell(capanga_patrol_target_index)
-	_move_capanga_toward(target_cell, CAPANGA_PATROL_SPEED, delta)
+	_move_capanga_toward(target_cell, _enemy_patrol_speed(), delta)
 	if capanga_anchor.position.distance_to(_cell_to_world(target_cell)) <= 1.0:
 		capanga_anchor.position = _cell_to_world(target_cell)
 		capanga_patrol_target_index = 1 - capanga_patrol_target_index
-		capanga_patrol_pause_remaining = CAPANGA_PATROL_PAUSE
+		capanga_patrol_pause_remaining = _enemy_patrol_pause()
 		capanga_path.clear()
 
 
@@ -902,7 +937,7 @@ func _move_capanga_toward(target_cell: Vector2i, speed: float, delta: float) -> 
 	capanga_repath_remaining = maxf(0.0, capanga_repath_remaining - delta)
 	if capanga_repath_remaining <= 0.0 or capanga_path_index >= capanga_path.size():
 		_rebuild_capanga_path(target_cell)
-		capanga_repath_remaining = CAPANGA_REPATH_INTERVAL
+		capanga_repath_remaining = _enemy_repath_interval()
 	if capanga_path_index >= capanga_path.size():
 		return
 
@@ -948,9 +983,10 @@ func _advance_capanga_attack(delta: float) -> void:
 		if heavy_warning_remaining <= 0.0:
 			heavy_warning_active = false
 			if _capanga_can_attack_player():
-				var defeated := _damage_player(CAPANGA_HEAVY_DAMAGE)
+				var heavy_damage := _enemy_heavy_damage()
+				var defeated := _damage_player(heavy_damage)
 				if not defeated:
-					_update_status("Ataque pesado: 30 de dano.")
+					_update_status("Ataque pesado: %d de dano." % heavy_damage)
 			else:
 				_update_status("O ataque pesado não alcançou o Cangaceiro.")
 			capanga_basic_attack_count = 0
@@ -966,11 +1002,11 @@ func _advance_capanga_attack(delta: float) -> void:
 		return
 
 	if not _enemy_has_heavy_attack():
-		var lobo_damage := _enemy_basic_damage()
-		var defeated := _damage_player(lobo_damage)
+		var basic_damage := _enemy_basic_damage()
+		var defeated := _damage_player(basic_damage)
 		capanga_attack_cooldown = attack_interval
 		if not defeated:
-			_update_status("%s atacou: %d de dano." % [_enemy_name(), lobo_damage])
+			_update_status("%s atacou: %d de dano." % [_enemy_name(), basic_damage])
 		return
 
 	if capanga_basic_attack_count < 3:
@@ -982,12 +1018,12 @@ func _advance_capanga_attack(delta: float) -> void:
 			_update_status("%s atacou: %d de dano." % [_enemy_name(), basic_damage])
 	else:
 		heavy_warning_active = true
-		heavy_warning_remaining = CAPANGA_HEAVY_WARNING
+		heavy_warning_remaining = _enemy_heavy_warning()
 		_update_status("Ataque pesado chegando — pressione Espaço!")
 
 
 func _capanga_can_attack_player() -> bool:
-	return _tile_distance_between_positions(capanga_anchor.position, player_anchor.position) <= CAPANGA_ATTACK_RANGE
+	return _tile_distance_between_positions(capanga_anchor.position, player_anchor.position) <= _enemy_attack_range()
 
 
 func _nearest_capanga_patrol_index() -> int:
@@ -1020,7 +1056,9 @@ func _is_wall(cell: Vector2i) -> bool:
 	)
 	if boundary_wall:
 		return true
-	return _is_lobo_room() and cell in ROOM_TWO_ROCK_CELLS
+	return cell in _room_obstacle_cells()
+
+
 func _set_destination(clicked_world_position: Vector2) -> void:
 	var target_cell := _world_to_cell(clicked_world_position)
 	if _is_initial_dungeon_room() and (target_cell == EXIT_DOOR_CELL or _is_exit_door_click(clicked_world_position)):
@@ -1072,44 +1110,94 @@ func _is_exit_door_click(world_position: Vector2) -> bool:
 
 
 func _is_initial_dungeon_room() -> bool:
-	return dungeon_room_id == String(GameState.DUNGEON_ROOM_IDS[0])
+	return dungeon_room_id == ROOM_ID_ONE
 
 
-func _is_lobo_room() -> bool:
-	return dungeon_room_id == String(GameState.DUNGEON_ROOM_IDS[1])
+func _room_profile() -> Dictionary:
+	if ROOM_PROFILES.has(dungeon_room_id):
+		return ROOM_PROFILES[dungeon_room_id]
+	return ROOM_PROFILES[ROOM_ID_ONE]
+
+
+func _room_obstacle_cells() -> Array:
+	return _room_profile()["obstacle_cells"]
+
+
+func _enemy_profile() -> Dictionary:
+	var enemy_id := String(_room_profile()["enemy_id"])
+	if ENEMY_PROFILES.has(enemy_id):
+		return ENEMY_PROFILES[enemy_id]
+	return ENEMY_PROFILES[ENEMY_ID_CAPANGA]
 
 
 func _enemy_name() -> String:
-	return "Lobo-guará corrompido" if _is_lobo_room() else "Capanga"
+	return String(_enemy_profile()["name"])
 
 
 func _enemy_max_hp() -> float:
-	return LOBO_MAX_HP if _is_lobo_room() else CAPANGA_MAX_HP
+	return float(_enemy_profile()["max_hp"])
+
+
+func _enemy_patrol_speed() -> float:
+	return float(_enemy_profile()["patrol_speed"])
 
 
 func _enemy_chase_speed() -> float:
-	return LOBO_CHASE_SPEED if _is_lobo_room() else CAPANGA_CHASE_SPEED
+	return float(_enemy_profile()["chase_speed"])
+
+
+func _enemy_detection_range() -> int:
+	return int(_enemy_profile()["detection_range"])
+
+
+func _enemy_disengage_range() -> int:
+	return int(_enemy_profile()["disengage_range"])
+
+
+func _enemy_attack_range() -> int:
+	return int(_enemy_profile()["attack_range"])
 
 
 func _enemy_attack_interval() -> float:
-	return LOBO_ATTACK_INTERVAL if _is_lobo_room() else CAPANGA_ATTACK_INTERVAL
+	return float(_enemy_profile()["attack_interval"])
 
 
 func _enemy_basic_damage() -> int:
-	return LOBO_BASIC_DAMAGE if _is_lobo_room() else CAPANGA_BASIC_DAMAGE
+	return int(_enemy_profile()["basic_damage"])
 
 
 func _enemy_has_heavy_attack() -> bool:
-	return not _is_lobo_room()
+	return bool(_enemy_profile()["has_heavy_attack"])
+
+
+func _enemy_heavy_damage() -> int:
+	return int(_enemy_profile()["heavy_damage"])
+
+
+func _enemy_heavy_warning() -> float:
+	return float(_enemy_profile()["heavy_warning"])
 
 
 func _enemy_regen_per_second() -> float:
-	return 0.0 if _is_lobo_room() else CAPANGA_REGEN_PER_SECOND
+	return float(_enemy_profile()["regen_per_second"])
+
+
+func _enemy_repath_interval() -> float:
+	return float(_enemy_profile()["repath_interval"])
+
+
+func _enemy_patrol_pause() -> float:
+	return float(_enemy_profile()["patrol_pause"])
+
+
+func _enemy_atlas_row() -> int:
+	return int(_enemy_profile()["atlas_row"])
 
 
 func _enemy_patrol_cell(index: int) -> Vector2i:
-	var patrol_cells := LOBO_PATROL_CELLS if _is_lobo_room() else CAPANGA_PATROL_CELLS
-	return patrol_cells[clampi(index, 0, patrol_cells.size() - 1)]
+	var patrol_cells: Array = _room_profile()["patrol_cells"]
+	var safe_index := clampi(index, 0, patrol_cells.size() - 1)
+	return patrol_cells[safe_index]
 
 
 func _reset_room_enemy() -> void:
@@ -1498,9 +1586,7 @@ func _draw_diamond(center: Vector2, color: Color) -> void:
 
 
 func _draw_room_rocks() -> void:
-	if not _is_lobo_room():
-		return
-	for rock_cell in ROOM_TWO_ROCK_CELLS:
+	for rock_cell in _room_obstacle_cells():
 		var position := _cell_to_world(rock_cell)
 		var top := PackedVector2Array([
 			position + Vector2(-19.0, -7.0),
@@ -1600,13 +1686,14 @@ func _draw_capanga() -> void:
 		return
 	var position := capanga_anchor.position
 	draw_circle(position + Vector2(0.0, 7.0), 10.0, Color(0.08, 0.05, 0.03, 0.35))
-	if _is_lobo_room():
+	var enemy_atlas_row := _enemy_atlas_row()
+	if enemy_atlas_row < 0:
 		_draw_lobo_placeholder(position)
 	else:
 		draw_texture_rect_region(
 			CHARACTER_ATLAS,
 			_character_draw_rect(position),
-			_character_sprite_region(CAPANGA_ATLAS_ROW, capanga_animation_state, capanga_animation_frame),
+			_character_sprite_region(enemy_atlas_row, capanga_animation_state, capanga_animation_frame),
 			Color("ffd0c8") if capanga_hit_flash_remaining > 0.0 else Color.WHITE
 		)
 

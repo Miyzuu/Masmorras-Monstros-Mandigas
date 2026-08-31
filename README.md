@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.3`
+**Versão atual:** `V.0.2.4`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -45,6 +45,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - derrota retornando ao início com 40% de vida e munição preservada;
 - `GameState` como fonte única para vida, pente, reserva, arma, ouro, encontros
   derrotados e progresso da masmorra;
+- perfis internos de salas e inimigos centralizando obstáculos, patrulha,
+  atributos, ataques e representação visual da masmorra;
 - respawn de 40% e transições de mapa sincronizados imediatamente no estado
   global;
 - porta no fim do caminho, liberada somente após derrotar o Capanga;
@@ -76,7 +78,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
-- Cangaceiro e Capanga animados na exploração e nas duas salas da masmorra;
+- Cangaceiro animado na exploração e nas duas salas; Capanga animado no mapa
+  externo e na primeira sala, com o Lobo-guará ainda usando silhueta provisória;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
@@ -92,8 +95,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a segunda sala e o Lobo-guará funcionais na `V.0.2.3`, a próxima decisão
-será modularizar os dados de salas e inimigos antes de criar a terceira sala.
+Com os perfis de salas e inimigos centralizados na `V.0.2.4`, a próxima decisão
+será definir o conteúdo mínimo da terceira sala, sem iniciar o chefe ainda.
 
 ## Como executar
 

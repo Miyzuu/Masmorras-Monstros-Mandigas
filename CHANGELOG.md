@@ -1,5 +1,23 @@
 # Histórico de versões
 
+## V.0.2.4 — 2026-08-30
+
+### Título do commit
+
+`V.0.2.4 — Perfis de salas e inimigos`
+
+### Descrição
+
+- centraliza no `dungeon.gd` os dados do Capanga e do Lobo-guará em perfis de
+  inimigo, incluindo atributos, IA, ataques e representação visual;
+- centraliza patrulhas e obstáculos das duas salas em perfis de sala;
+- substitui condições específicas da segunda sala por consultas aos perfis,
+  preparando a inclusão de novas salas sem duplicar a lógica de combate;
+- preserva integralmente vida, velocidades, alcances, danos, intervalos,
+  regeneração, golpe pesado, pedras e rotas da versão anterior;
+- não modifica cenas, arte, testes nem contratos do `GameState`;
+- valida o carregamento do Godot, os dois perfis e os sete testes automatizados.
+
 ## V.0.2.3 — 2026-08-30
 
 ### Título do commit
