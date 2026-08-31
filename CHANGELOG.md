@@ -1,5 +1,30 @@
 # Histórico de versões
 
+## V.0.2.2 — 2026-08-30
+
+### Título do commit
+
+`V.0.2.2 — Encadeamento das salas da masmorra`
+
+### Descrição
+
+- adiciona ao `GameState` a ordem implementada das salas e a sala atual como
+  fonte única para o avanço interno;
+- impede o avanço enquanto o encontro atual não estiver concluído;
+- conecta `sala_01 → sala_02` pela escada liberada, reutilizando a cena e o
+  Capanga existentes sem criar inimigos, estatísticas, cenas ou arte;
+- usa fade de 0,5 segundo e cancela uma recarga em andamento sem transferir ou
+  consumir munição;
+- preserva vida, pente, reserva, arma, ouro e cargas da Lapada entre as salas;
+- mantém a porta de retorno somente na sala inicial e preserva a saída por
+  **Esc** nas duas salas;
+- reinicia na `sala_01`, com progresso limpo e 40% de vida, ao escolher voltar
+  depois de uma derrota;
+- identifica a sala atual no título da interface e mantém a segunda escada sem
+  destino até a próxima fatia aprovada;
+- valida parsing, encadeamento e persistência específicos, os sete testes
+  automatizados e o fluxo manual aprovado pelo usuário.
+
 ## V.0.2.1 — 2026-08-30
 
 ### Título do commit

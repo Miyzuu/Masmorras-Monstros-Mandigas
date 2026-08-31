@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.1`
+**Versão atual:** `V.0.2.2`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -51,11 +51,16 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - mob comum externo renascendo com vida cheia e patrulha normal ao retornar de
   outra cena, sem duplicar progresso ou recompensa;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
-- mapa separado de masmorra com primeira sala de pedra 16×12 e um Capanga;
+- mapa separado de masmorra com duas salas encadeadas de 16×12, reutilizando
+  temporariamente o mesmo mapa e um Capanga em cada encontro;
 - combate em tempo real da sala preservando Rifle, Peixeira, Lapada Seca,
   aparo, munição, vida e movimentação por clique ou WASD;
 - escada selada enquanto o Capanga estiver vivo e liberada após a vitória,
   com a conclusão da sala registrada no `GameState`;
+- transição `sala_01 → sala_02` com fade de 0,5 segundo, preservando vida,
+  pente, reserva, arma, ouro e cargas da Lapada;
+- porta de retorno disponível somente na sala inicial; **Esc** continua abrindo
+  a saída voluntária em ambas as salas;
 - derrota interna oferecendo **Voltar do início** ou **Sair**, reiniciando o
   progresso e restaurando o herói com 40% de vida;
 - saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
@@ -64,7 +69,7 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
-- Cangaceiro e Capanga animados na exploração e na primeira sala da masmorra;
+- Cangaceiro e Capanga animados na exploração e nas duas salas da masmorra;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
@@ -80,8 +85,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a primeira sala funcional na `V.0.2.1`, a próxima decisão será definir o
-destino da escada liberada sem ampliar a masmorra inteira de uma vez.
+Com o encadeamento `sala_01 → sala_02` funcional na `V.0.2.2`, a próxima decisão
+será definir o conteúdo definitivo da segunda sala sem iniciar o chefe ainda.
 
 ## Como executar
 

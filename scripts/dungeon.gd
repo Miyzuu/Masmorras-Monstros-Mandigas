@@ -22,6 +22,7 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
+const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
@@ -78,7 +79,6 @@ const PLAYER_START := Vector2i(2, 10)
 const EXIT_DOOR_CELL := Vector2i(0, 10)
 const EXIT_INTERACTION_CELL := Vector2i(1, 10)
 const BLOCKED_STAIRS_CELL := Vector2i(14, 1)
-const DUNGEON_ROOM_ID := "sala_01"
 const CAPANGA_PATROL_CELLS := [
 	Vector2i(7, 7),
 	Vector2i(11, 4),
@@ -108,6 +108,7 @@ const COLOR_ALERT := Color("ed3128")
 @onready var player_anchor: Node2D = $PlayerAnchor
 @onready var camera: Camera2D = $Camera2D
 @onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
+@onready var title_label: Label = $Interface/TopPanel/Title
 @onready var status_label: Label = $Interface/TopPanel/Status
 @onready var version_label: Label = $Interface/Version
 @onready var health_fill: ColorRect = $Interface/StatusHUD/HealthBack/HealthFill
@@ -192,14 +193,18 @@ var exit_contact_latched := false
 var stairs_contact_latched := false
 var scene_transitioning := false
 var exit_request_source := ""
+var dungeon_room_id: String:
+	get:
+		return GameState.get_current_dungeon_room_id()
 
 
 func _ready() -> void:
+	title_label.text = "MASMORRA — %s" % _room_label().to_upper()
 	capanga_anchor = Node2D.new()
 	capanga_anchor.name = "RoomMobAnchor"
 	add_child(capanga_anchor)
 	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
-	capanga_active = not GameState.is_dungeon_room_cleared(DUNGEON_ROOM_ID)
+	capanga_active = not GameState.is_dungeon_room_cleared(dungeon_room_id)
 	_setup_pathfinding()
 	player_anchor.position = _cell_to_world(PLAYER_START)
 	camera.position = player_anchor.position
@@ -216,9 +221,9 @@ func _ready() -> void:
 	fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
 	fade_tween.finished.connect(_finish_entry_fade, CONNECT_ONE_SHOT)
 	if capanga_active:
-		_update_status("Derrote o Capanga para quebrar o selo da escada.")
+		_update_status("%s — derrote o Capanga para quebrar o selo da escada." % _room_label())
 	else:
-		_update_status("Sala concluída — a escada está liberada.")
+		_update_status("%s concluída — a escada está liberada." % _room_label())
 	_update_hud()
 	queue_redraw()
 
@@ -405,6 +410,9 @@ func _handle_exit_prompt_key(keycode: int) -> bool:
 
 
 func _check_exit_door_contact() -> bool:
+	if not _is_initial_dungeon_room():
+		exit_contact_latched = false
+		return false
 	var touching_exit := _world_to_cell(player_anchor.position) == EXIT_INTERACTION_CELL
 	if not touching_exit:
 		exit_contact_latched = false
@@ -429,7 +437,29 @@ func _check_stairs_contact() -> bool:
 	if capanga_active:
 		_update_status("O selo da escada só quebra após derrotar o Capanga.")
 		return false
-	_update_status("Sala concluída — escada liberada; próxima sala ainda não implementada.")
+	if GameState.has_next_dungeon_room():
+		return _advance_to_next_room()
+	_update_status("%s concluída — próxima etapa ainda não implementada." % _room_label())
+	return true
+
+
+func _advance_to_next_room() -> bool:
+	if scene_transitioning or capanga_active:
+		return false
+	if not GameState.advance_dungeon_room():
+		_update_status("A próxima sala ainda não está disponível.")
+		return false
+
+	scene_transitioning = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	is_reloading = false
+	reload_remaining = 0.0
+	_reset_player_animation_to_idle()
+	_play_audio("door")
+	_update_status("Descendo para %s..." % _room_label())
+	_start_scene_transition(DUNGEON_SCENE)
 	return true
 
 
@@ -534,7 +564,7 @@ func _restart_dungeon_after_defeat() -> void:
 	stairs_contact_latched = false
 	_reset_player_animation_to_idle()
 	_play_audio("ui_click")
-	_update_status("Retorno ao início com 40% de vida — derrote o Capanga novamente.")
+	_update_status("Retorno à %s com 40%% de vida — derrote o Capanga novamente." % _room_label())
 	_update_hud()
 	queue_redraw()
 
@@ -779,7 +809,7 @@ func _defeat_capanga() -> void:
 	capanga_path.clear()
 	heavy_warning_active = false
 	heavy_warning_remaining = 0.0
-	GameState.mark_dungeon_room_cleared(DUNGEON_ROOM_ID)
+	GameState.mark_dungeon_room_cleared(dungeon_room_id)
 	astar.set_point_solid(BLOCKED_STAIRS_CELL, false)
 	stairs_contact_latched = false
 	_update_status("Capanga derrotado — o selo que bloqueava a escada foi quebrado.")
@@ -963,7 +993,7 @@ func _is_wall(cell: Vector2i) -> bool:
 
 func _set_destination(clicked_world_position: Vector2) -> void:
 	var target_cell := _world_to_cell(clicked_world_position)
-	if target_cell == EXIT_DOOR_CELL or _is_exit_door_click(clicked_world_position):
+	if _is_initial_dungeon_room() and (target_cell == EXIT_DOOR_CELL or _is_exit_door_click(clicked_world_position)):
 		target_cell = EXIT_INTERACTION_CELL
 	if not astar.is_in_boundsv(target_cell):
 		_update_status("Destino fora da sala.")
@@ -1005,8 +1035,21 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 
 
 func _is_exit_door_click(world_position: Vector2) -> bool:
+	if not _is_initial_dungeon_room():
+		return false
 	var door_position := _cell_to_world(EXIT_DOOR_CELL)
 	return Rect2(door_position + Vector2(-24.0, -40.0), Vector2(48.0, 44.0)).has_point(world_position)
+
+
+func _is_initial_dungeon_room() -> bool:
+	return dungeon_room_id == String(GameState.DUNGEON_ROOM_IDS[0])
+
+
+func _room_label() -> String:
+	return "Sala %d/%d" % [
+		GameState.get_current_dungeon_room_number(),
+		GameState.get_implemented_dungeon_room_count(),
+	]
 
 
 func _move_player(delta: float) -> void:
@@ -1300,6 +1343,7 @@ func _update_hud() -> void:
 		weapon_label.text += "  •  ESCADA SELADA"
 	else:
 		weapon_label.text += "  •  SALA LIMPA"
+	weapon_label.text += "  •  %s" % _room_label().to_upper()
 	realtime_hud.set_hud_state(
 		player_hp,
 		PLAYER_MAX_HP,
@@ -1321,7 +1365,8 @@ func _update_hud() -> void:
 func _draw() -> void:
 	draw_rect(_map_bounds().grow(256.0), COLOR_VOID, true)
 	_draw_tiles()
-	_draw_exit_door()
+	if _is_initial_dungeon_room():
+		_draw_exit_door()
 	_draw_blocked_stairs()
 	_draw_route_preview()
 	_draw_destination()

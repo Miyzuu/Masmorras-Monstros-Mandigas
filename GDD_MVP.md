@@ -24,6 +24,9 @@ Cabra-Cabriola.
 - Objetivo futuro da primeira masmorra: 2 andares e 2 salas por andar.
 - Primeira sala funcional implementada: um Capanga Encouraçado em combate em
   tempo real e uma escada selada até a vitória.
+- Encadeamento funcional implementado entre `sala_01` e `sala_02`: a escada
+  liberada usa fade de 0,5 segundo e a segunda sala reutiliza temporariamente o
+  mapa e o Capanga existentes, sem introduzir novas estatísticas.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
 - Entrada na sala final iniciando imediatamente a batalha tática.
 - Uma tela narrativa final.

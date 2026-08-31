@@ -11,6 +11,7 @@ const DEFAULT_GOLD_SCORE := 0
 const WEAPON_RIFLE := 0
 const WEAPON_KNIFE := 1
 const MAX_LAPADA_CHARGES := 3
+const DUNGEON_ROOM_IDS := ["sala_01", "sala_02"]
 
 var defeated_encounters: Dictionary = {}
 var active_encounter_id := ""
@@ -28,6 +29,7 @@ var lapada_charges := 0
 
 var dungeon_active := false
 var dungeon_progress: Dictionary = {}
+var dungeon_room_index := 0
 
 
 func begin_encounter(encounter_id: String, player_position: Vector2) -> void:
@@ -113,6 +115,34 @@ func leave_dungeon(new_hp: int, new_rifle_ammo: int, new_weapon: int) -> void:
 
 func reset_dungeon_progress() -> void:
 	dungeon_progress.clear()
+	dungeon_room_index = 0
+
+
+func get_current_dungeon_room_id() -> String:
+	var safe_index := clampi(dungeon_room_index, 0, DUNGEON_ROOM_IDS.size() - 1)
+	return String(DUNGEON_ROOM_IDS[safe_index])
+
+
+func get_current_dungeon_room_number() -> int:
+	return clampi(dungeon_room_index, 0, DUNGEON_ROOM_IDS.size() - 1) + 1
+
+
+func get_implemented_dungeon_room_count() -> int:
+	return DUNGEON_ROOM_IDS.size()
+
+
+func has_next_dungeon_room() -> bool:
+	return dungeon_active and dungeon_room_index + 1 < DUNGEON_ROOM_IDS.size()
+
+
+func advance_dungeon_room() -> bool:
+	if not has_next_dungeon_room():
+		return false
+	if not is_dungeon_room_cleared(get_current_dungeon_room_id()):
+		return false
+
+	dungeon_room_index += 1
+	return true
 
 
 func mark_dungeon_room_cleared(room_id: String) -> void:
