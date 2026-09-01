@@ -1,5 +1,7 @@
 extends Node2D
 
+const PauseMenuScript = preload("res://scripts/pause_menu.gd")
+
 enum Weapon {
 	RIFLE,
 	KNIFE,
@@ -124,6 +126,7 @@ const ROAD_OBSTACLES = [
 @onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
 @onready var rifle_muzzle_flash: Node2D = $PlayerAnchor/RifleMuzzleFlash
 @onready var status_label: Label = $Interface/TopPanel/Status
+@onready var hint_panel: ColorRect = $Interface/HintPanel
 @onready var version_label: Label = $Interface/Version
 @onready var health_fill: ColorRect = $Interface/CombatHUD/HealthBack/HealthFill
 @onready var health_label: Label = $Interface/CombatHUD/HealthBack/HealthLabel
@@ -203,9 +206,11 @@ var combat_popups: Array[Dictionary] = []
 var dungeon_prompt_visible := false
 var door_contact_latched := false
 var scene_transitioning := false
+var pause_menu
 
 
 func _ready() -> void:
+	_setup_pause_menu()
 	_setup_pathfinding()
 	var start_position := _cell_to_world(PLAYER_START)
 	var returned_from_combat: bool = GameState.returning_from_combat
@@ -218,6 +223,7 @@ func _ready() -> void:
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
+	hint_panel.visible = false
 	dungeon_prompt.visible = false
 	dungeon_yes_button.pressed.connect(_confirm_dungeon_entry)
 	dungeon_no_button.pressed.connect(_cancel_dungeon_entry)
@@ -236,13 +242,28 @@ func _ready() -> void:
 	if returned_to_exploration and GameState.is_encounter_defeated(CAPANGA_ID):
 		_update_status("Capanga renasceu — progresso mantido.")
 	elif capanga_active:
-		_update_status("Botão direito/WASD — Capanga adiante.")
+		_update_status("Capanga patrulhando adiante.")
 	else:
 		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
 	_update_hud()
 	_update_damage_border()
 	_update_hit_flash_overlays()
 	queue_redraw()
+
+
+func _setup_pause_menu() -> void:
+	var pause_layer := CanvasLayer.new()
+	pause_layer.name = "PauseLayer"
+	pause_layer.layer = 200
+	add_child(pause_layer)
+	pause_menu = PauseMenuScript.new()
+	pause_menu.name = "PauseMenu"
+	pause_layer.add_child(pause_menu)
+	pause_menu.configure(false, Callable(self, "_can_open_pause_menu"))
+
+
+func _can_open_pause_menu() -> bool:
+	return not scene_transitioning and not dungeon_prompt_visible
 
 
 func _physics_process(delta: float) -> void:
@@ -972,7 +993,7 @@ func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
 	path_index = 0
 	has_destination = false
 	if had_click_destination:
-		_update_status("Rota cancelada — movimentação por WASD ativada.")
+		_update_status("Rota cancelada.")
 
 	var direction := raw_input.normalized()
 	var remaining_distance := PLAYER_SPEED * delta

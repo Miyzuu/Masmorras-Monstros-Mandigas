@@ -11,7 +11,8 @@ const DEFAULT_GOLD_SCORE := 0
 const WEAPON_RIFLE := 0
 const WEAPON_KNIFE := 1
 const MAX_LAPADA_CHARGES := 3
-const DUNGEON_ROOM_IDS := ["sala_01", "sala_02", "sala_03"]
+const DUNGEON_BOSS_REWARD := 250
+const DUNGEON_ROOM_IDS := ["sala_01", "sala_02", "sala_03", "sala_04"]
 
 var defeated_encounters: Dictionary = {}
 var active_encounter_id := ""
@@ -30,6 +31,7 @@ var lapada_charges := 0
 var dungeon_active := false
 var dungeon_progress: Dictionary = {}
 var dungeon_room_index := 0
+var dungeon_completed := false
 
 
 func begin_encounter(encounter_id: String, player_position: Vector2) -> void:
@@ -159,6 +161,15 @@ func is_dungeon_room_cleared(room_id: String) -> bool:
 	return bool(dungeon_progress.get(room_id, false))
 
 
+func complete_dungeon() -> bool:
+	mark_dungeon_room_cleared(get_current_dungeon_room_id())
+	if dungeon_completed:
+		return false
+	dungeon_completed = true
+	gold_score += DUNGEON_BOSS_REWARD
+	return true
+
+
 func is_encounter_defeated(encounter_id: String) -> bool:
 	return bool(defeated_encounters.get(encounter_id, false))
 
@@ -212,4 +223,5 @@ func reset_session() -> void:
 	gold_score = DEFAULT_GOLD_SCORE
 	lapada_charges = 0
 	dungeon_active = false
+	dungeon_completed = false
 	reset_dungeon_progress()

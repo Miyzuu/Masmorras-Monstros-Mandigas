@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Monstros, Masmorras e Mandingas — Protótipo"
-config/version="V.0.2.5"
+config/version="V.0.2.9"
 run/main_scene="res://scenes/exploration.tscn"
 config/features=PackedStringArray("4.7")
 

@@ -19,17 +19,18 @@ Cabra-Cabriola.
 
 - Criação do personagem.
 - Um mapa pequeno e linear de exploração em tempo real.
-- Mobs comuns enfrentados diretamente no mapa, sem troca para a arena tática.
+- Mobs comuns enfrentados diretamente no mapa, sem troca para a batalha do chefe.
 - Uma entrada separada para a masmorra, com confirmação **Sim/Não**.
-- Objetivo futuro da primeira masmorra: 2 andares e 2 salas por andar.
+- Primeira masmorra implementada com 2 andares e 2 salas por andar.
 - Primeira sala funcional implementada: um Capanga Encouraçado em combate em
   tempo real e uma escada selada até a vitória.
 - Encadeamento funcional implementado entre `sala_01` e `sala_02`: a escada
   liberada usa fade de 0,5 segundo. A segunda sala possui três blocos de pedras,
   duas rotas transitáveis e um Lobo-guará corrompido próprio.
 - A `sala_03`, primeira sala do segundo andar, possui quatro pedras de cobertura
-  e uma Rasga-Mortalha. Sua escada é liberada após a vitória, mas ainda não tem
-  destino implementado.
+  e uma Rasga-Mortalha. Sua escada liberada conduz à batalha 1×1 da `sala_04`.
+- A `sala_04` conclui a masmorra com a Cabra-Cabriola em um combate tático por
+  turnos, seguido por tela de vitória e retorno ao mapa externo.
 - A implementação usa perfis internos de sala e inimigo para centralizar
   obstáculos, patrulha e estatísticas sem alterar as regras de combate.
 - Caminho linear: mobs, escada, mobs e sala do chefe.
@@ -92,25 +93,29 @@ Cabra-Cabriola.
 Todos começam em 1. O jogador distribui 5 pontos adicionais, respeitando o
 máximo de 4 em cada atributo durante a criação.
 
-## 5. Arena tática dos chefes
+## 5. Batalha por turnos dos chefes
 
 - O modo por turnos é usado somente contra chefes de masmorra.
-- Grade quadrada de 10×10 casas.
-- Base gráfica de 32×32 pixels por tile.
-- Movimento somente nas quatro direções ortogonais, sem diagonais.
-- Obstáculos bloqueiam movimento; somente paredes bloqueiam linha de visão.
-- Disparos atravessam objetos que não sejam paredes.
-- Cada unidade age uma vez por rodada.
-- A ordem é fixa em cada rodada, do maior para o menor valor de Velocidade.
-- Em seu turno, o Cangaceiro pode mover até 4 casas e executar 1 ação.
+- O encontro atual é 1×1, com Cangaceiro à esquerda e Cabra-Cabriola à direita.
+- Não há grade, deslocamento, alcance espacial ou linha de visão nessa batalha.
+- O Cangaceiro age primeiro e escolhe uma ação no menu.
+- O ciclo é: escolha do jogador → resolução da ação → anúncio do inimigo →
+  impacto ou aparo → verificação de derrota → próxima rodada.
+- Cada ação válida encerra o turno; ações sem recurso ou condição permanecem no
+  menu sem gastar o turno.
+- **Q** alterna Rifle e Peixeira; **Enter** confirma o ataque selecionado;
+  **E** usa a Lapada Seca e **R** transfere balas da reserva para o pente.
+- A reação por Espaço acontece em tempo real somente durante o turno inimigo.
+- A preparação da Investida apenas anuncia o perigo; durante a janela ativa a
+  arena mostra **APERTE [ESPAÇO] PARA APARAR**, contagem e barra de tempo.
 
 ## 6. Ações do Cangaceiro
 
 ### Disparo
 
 - Ataque básico com rifle.
-- Alcance máximo de 7 casas na arena tática e 5 tiles no combate em tempo real.
-- Exige linha de visão.
+- Alcance máximo de 5 tiles no combate em tempo real; a batalha 1×1 do chefe
+  não usa distância nem linha de visão.
 - 90% de chance fixa de acerto.
 - 25% de chance básica de crítico.
 - Crítico comum causa 150% do dano-base, arredondado para 40 no balanceamento
@@ -190,11 +195,21 @@ ataque básico e comportamento.
 
 ## 8. Chefe: Cabra-Cabriola
 
-- Possui ataque básico e uma investida em linha reta.
-- Usa a investida a cada 3 turnos próprios.
-- Durante a investida, abre uma janela de 0,7 segundo para aparo em tempo real.
+- Possui 250 HP e causa 20 de dano no ataque básico.
+- Executa dois ataques básicos e prepara uma Investida de 40 de dano no terceiro
+  turno próprio, reiniciando o ciclo depois do impacto.
+- A Investida possui um telegraph de 0,35 segundo e depois abre uma janela de
+  0,7 segundo para aparo em tempo real.
 - O aparo é acionado pela barra de Espaço.
 - Um aparo bem-sucedido apenas anula o dano da investida.
+- Cada golpe aceita apenas uma tentativa de aparo.
+- Espaço cedo ou fora da janela causa stun de 0,7 segundo e perde a próxima ação;
+  a Investida continua e causa dano normal.
+- A Lapada Seca causa 75 de dano, consome 1 bala e zera as 3 cargas.
+- A primeira vitória da sessão concede 250 de ouro. Repetir a masmorra mantém o
+  registro da conclusão e não duplica essa recompensa.
+- A tela final mostra a vitória e o ouro total; sair preserva vida e munição e
+  devolve o herói ao mapa externo.
 
 ## 9. Vida, derrota e checkpoint
 
@@ -204,8 +219,8 @@ ataque básico e comportamento.
 - Ao morrer na masmorra, o jogador escolhe **Sair** ou **Voltar do início**.
 - Ambas restauram a vida e preservam a munição restante; voltar reinicia toda
   a masmorra e restaura seus mobs.
-- A saída voluntária pela porta inicial ou por **Esc** pede confirmação, apaga
-  todo o progresso interno e retorna o herói diante da porta externa.
+- A saída voluntária pela porta inicial ou por **Sair da Masmorra** no menu de
+  pausa pede confirmação, apaga o progresso e retorna o herói ao mapa externo.
 - A saída voluntária preserva vida, pente e reserva atuais, sem cura ou recarga.
 - A derrota remove 25% do ouro acumulado, representando o saque sofrido.
 - Há checkpoint automático entre os encontros.
@@ -222,7 +237,7 @@ ataque básico e comportamento.
 ## 11. Direção visual
 
 - Pixel art isométrica 2D na exploração.
-- Pixel art em visão 2D de cima na arena tática.
+- Pixel art em visão 2D lateral na batalha 1×1 do chefe.
 - Paleta predominantemente terrosa para o Sertão e a Caatinga.
 - Cores vibrantes reservadas aos elementos mágicos e sobrenaturais.
 - Nos mapas em tempo real, a HUD principal fica centralizada na parte inferior:
@@ -234,6 +249,15 @@ ataque básico e comportamento.
   aparo continua no Espaço.
 - Quatro slots visuais de armadura ficam no canto inferior esquerdo, em pilha:
   cabeça, busto, pernas e pés. Eles não equipam itens nem alteram atributos.
+- A batalha 1×1 separa arena, recursos, mensagens e ações, desativando
+  visualmente escolhas indisponíveis.
+- Dano normal, crítico, Lapada Seca, dano recebido e aparo possuem retornos
+  próprios por números, cores, flashes, impacto, borda e **HÁ!**.
+- **Esc** abre o menu de pausa com Continuar e Configurações; dentro da
+  masmorra também exibe Sair da Masmorra.
+- Configurações apresenta todos os controles ativos e permite voltar à pausa.
+- As caixas fixas de atalhos ficam ocultas; permanecem apenas HUD, estado da
+  sala e avisos essenciais de combate.
 
 ## 12. Fora do MVP
 
@@ -252,6 +276,5 @@ protótipo:
 
 - Fórmulas exatas dos cinco atributos e sua relação com os valores-base atuais.
 - Atributos, movimento, alcance e dano de inimigos futuros.
-- Dano da investida e vida da Cabra-Cabriola.
 - Quantidades de ouro, bônus e regra de arredondamento da perda de 25%.
 - Textos narrativos, nome da vila e título definitivo do jogo.

@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.5`
+**Versão atual:** `V.0.2.9`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -53,7 +53,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - mob comum externo renascendo com vida cheia e patrulha normal ao retornar de
   outra cena, sem duplicar progresso ou recompensa;
 - confirmação **Sim/Não** e fade de 0,5 segundo para entrar na masmorra;
-- mapa separado de masmorra com três salas encadeadas de 16×12;
+- mapa separado de masmorra com três salas em tempo real de 16×12 e uma batalha
+  final 1×1 orientada por menus;
 - segunda sala diferenciada por três blocos de pedras que formam duas rotas
   transitáveis até a escada;
 - Lobo-guará corrompido na segunda sala, com 70 HP, perseguição a 220 px/s e
@@ -76,15 +77,33 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   aparo, munição, vida e movimentação por clique ou WASD;
 - escada selada enquanto o inimigo da sala estiver vivo e liberada após a vitória,
   com a conclusão da sala registrada no `GameState`;
-- transições `sala_01 → sala_02 → sala_03` com fade de 0,5 segundo, preservando vida,
-  pente, reserva, arma, ouro e cargas da Lapada;
-- porta de retorno disponível somente na sala inicial; **Esc** continua abrindo
-  a saída voluntária nas três salas;
+- transições `sala_01 → sala_02 → sala_03 → sala_04` com fade de 0,5 segundo,
+  preservando vida, pente, reserva, arma, ouro e cargas da Lapada;
+- porta de retorno disponível somente na sala inicial;
 - derrota interna oferecendo **Voltar do início** ou **Sair**, reiniciando o
   progresso e restaurando o herói com 40% de vida;
-- saída pela porta ou por **Esc**, apagando o progresso interno sem curar ou
-  recarregar e devolvendo o herói diante da entrada externa;
-- arena tática da versão anterior preservada para futuros chefes;
+- saída pela porta ou pela opção **Sair da Masmorra** na pausa, apagando o
+  progresso interno sem curar ou recarregar e devolvendo o herói à entrada;
+- quarta sala iniciando uma batalha 1×1 por menus contra a Cabra-Cabriola, com
+  o Cangaceiro agindo primeiro e sem grade ou movimentação tática;
+- ciclo inspirado nos RPGs por turnos clássicos: escolha da ação, resolução do
+  jogador, anúncio do inimigo, impacto e retorno ao menu;
+- Cabra-Cabriola com 250 HP, dois ataques básicos de 20 e uma Investida de 40
+  no terceiro turno próprio;
+- Investida precedida por telegraph de 0,35 segundo e janela reativa de 0,7
+  segundo para aparo por Espaço;
+- preparação da Investida separada visualmente da janela ativa, que mostra
+  **APERTE [ESPAÇO] PARA APARAR**, contagem regressiva e barra de tempo;
+- aparo bem-sucedido anulando a investida e aparo fora da janela causando stun
+  de 0,7 segundo e perda da próxima ação, com uma tentativa por golpe;
+- Rifle, Peixeira, munição, recarga tática e Lapada Seca de 75 de dano integrados
+  ao combate do chefe;
+- interface da batalha 1×1 separando arena, recursos, mensagens e ações, com
+  botões indisponíveis visualmente desativados;
+- danos com números animados, crítico vermelho destacado, efeito mágico da
+  Lapada, flashes de impacto, borda vermelha ao receber dano e **HÁ!** no aparo;
+- tela de vitória com ouro total e saída para o mapa externo; primeira conclusão
+  concedendo 250 de ouro sem duplicar a recompensa ao repetir a masmorra;
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
@@ -95,6 +114,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
 - HUD e caixas de diálogo com tema de xilogravura e couro;
+- menu de pausa com Continuar, Configurações, lista completa de Controles e
+  saída da masmorra; as caixas fixas de atalhos foram removidas da tela;
 - atlas Sudeste de 640×256 com linhas próprias para Rifle, Capanga, Peixeira e
   Cabra-Cabriola;
 - troca visual imediata entre Rifle e Peixeira, preservando o quadro da animação;
@@ -106,8 +127,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a terceira sala e a Rasga-Mortalha funcionais na `V.0.2.5`, a próxima decisão
-será definir o conteúdo mínimo da quarta sala, sem iniciar o chefe ainda.
+Com o menu de pausa concluído na `V.0.2.9`, o próximo passo recomendado é um
+playtest visual da exploração, masmorra e chefe para confirmar legibilidade,
+navegação e retorno correto ao combate.
 
 ## Como executar
 
@@ -126,9 +148,15 @@ será definir o conteúdo mínimo da quarta sala, sem iniciar o chefe ainda.
 - **R:** recarregar manualmente o Rifle usando as balas da reserva.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
 - **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
-- **Esc:** cancelar uma caixa aberta; dentro da masmorra, abrir o aviso de saída.
+- **Esc:** abrir/fechar a pausa ou voltar da tela de Controles; em caixas de
+  confirmação, cancelar a ação.
 - **Porta da masmorra:** toque nela após derrotar o Capanga para entrar.
 - Os ataques básicos são automáticos quando o Capanga entra no alcance da arma.
+- **Batalha do chefe:** clique esquerdo escolhe Rifle, Peixeira, Lapada ou
+  Recarga; **Q** troca a arma selecionada e **Enter** confirma seu ataque básico.
+- **Espaço:** apara durante a janela da Investida; cedo ou tarde demais causa
+  stun de 0,7 segundo e perda da próxima ação.
+- **Pausa na masmorra:** **Sair da Masmorra** abre a confirmação de saída.
 
 ## Versionamento
 

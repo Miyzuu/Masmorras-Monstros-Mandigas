@@ -1,5 +1,96 @@
 # Histórico de versões
 
+## V.0.2.9 — 2026-08-31
+
+### Título do commit
+
+`V.0.2.9 — Menu de pausa e central de controles`
+
+### Descrição
+
+- adiciona um menu de pausa compartilhado à exploração, às salas da masmorra e
+  à batalha da Cabra-Cabriola, aberto e fechado pela tecla **Esc**;
+- oferece **Continuar**, **Configurações** e, dentro da masmorra, **Sair da
+  Masmorra**, preservando a confirmação e a perda do progresso interno;
+- inclui em Configurações uma tela de Controles com todos os comandos ativos do
+  MVP e retorno ao menu principal;
+- pausa o mundo, a IA e o combate sem avançar a janela reativa do chefe, cujo
+  relógio monotônico é compensado ao continuar;
+- remove as caixas fixas de atalhos da exploração e da masmorra, mantendo HUD,
+  estado da sala e avisos essenciais de combate;
+- valida o parser, a execução inicial, os sete testes automatizados e um
+  diagnóstico dedicado de abertura, controles, saída e liberação da pausa.
+
+## V.0.2.8 — 2026-08-31
+
+### Título do commit
+
+`V.0.2.8 — Interface e impactos do chefe`
+
+### Descrição
+
+- reorganiza a arena 1×1 para separar combate, recursos, mensagens e ações,
+  destacando botões indisponíveis sem alterar as regras do turno;
+- diferencia a preparação da Investida da janela ativa de aparo com avisos
+  centrais, pulso visual, contagem regressiva e barra de tempo;
+- exibe **APERTE [ESPAÇO] PARA APARAR** dentro da arena enquanto a reação está
+  disponível, sem depender apenas do alerta do golpe;
+- adiciona números animados para dano normal, crítico, Lapada Seca e dano do
+  herói, além do retorno branco **HÁ!** no aparo bem-sucedido;
+- adiciona flashes nos combatentes, impacto visual, bordas vermelhas breves e
+  reaproveita os sons já existentes para reforçar cada resultado;
+- dimensiona e centraliza os textos de impacto conforme o conteúdo para manter
+  **CRÍTICO!** e **LAPADA!** completos dentro da arena;
+- preserva integralmente dano, recursos, relógio monotônico, token por golpe,
+  punição de aparo e transições da masmorra;
+- valida o parser do Godot, os sete testes automatizados, um teste temporário de
+  efeitos e uma prévia visual real da batalha no editor.
+
+## V.0.2.7 — 2026-08-31
+
+### Título do commit
+
+`V.0.2.7 — Batalha 1×1 e aparo reativo`
+
+### Descrição
+
+- substitui a grade do chefe por um combate 1×1 orientado por menu, preservando
+  a arena legada somente fora do fluxo atual da masmorra;
+- organiza o turno em escolha, ação do jogador, telegraph inimigo, impacto ou
+  aparo, verificação de derrota e retorno ao menu;
+- mantém Rifle, Peixeira, munição, crítico, cargas da Lapada, Recarga e Lapada
+  Seca com os valores e contratos globais existentes;
+- define dois ataques básicos de 20 antes da Investida de 40, com telegraph de
+  0,35 segundo e janela de aparo de 0,7 segundo;
+- usa relógio monotônico e token por ataque para impedir aparo ou dano duplicado;
+- preserva a penalidade de stun e perda da ação para tentativas antecipadas ou
+  fora da janela, além de vitória, derrota, recompensa, saída e replay;
+- valida o parser do Godot, os sete testes automatizados existentes e testes
+  temporários do fluxo 1×1 e dos limites do aparo.
+
+## V.0.2.6 — 2026-08-31
+
+### Título do commit
+
+`V.0.2.6 — Cabra-Cabriola e conclusão da masmorra`
+
+### Descrição
+
+- conecta a escada da `sala_03` à quarta sala e inicia automaticamente a arena
+  tática exclusiva do chefe;
+- adiciona a Cabra-Cabriola com 250 HP, movimento 3, ataque básico de 20 e
+  investida ortogonal de 40 de dano até 5 casas a cada 3 turnos próprios;
+- implementa aviso de 0,7 segundo, aparo por Espaço, bloqueio da investida por
+  obstáculos e penalidade de stun/perda de ação ao aparar fora da janela;
+- integra Rifle, Peixeira, munição persistente, recarga que encerra o turno e
+  Lapada Seca de 75 de dano à batalha do chefe;
+- adiciona telas de vitória, derrota e saída voluntária, com reinício a 40% de
+  vida, preservação da munição e retorno ao mapa externo;
+- concede 250 de ouro somente na primeira conclusão da sessão e permite repetir
+  a masmorra sem duplicar a recompensa;
+- valida o carregamento, os sete testes automatizados existentes e testes
+  temporários do chefe, da progressão, do aparo e das rotas de saída.
+
 ## V.0.2.5 — 2026-08-31
 
 ### Título do commit

@@ -1,5 +1,7 @@
 extends Node2D
 
+const PauseMenuScript = preload("res://scripts/pause_menu.gd")
+
 enum Weapon {
 	RIFLE,
 	KNIFE,
@@ -29,6 +31,7 @@ const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
+const BOSS_SCENE := "res://scenes/main.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
@@ -77,6 +80,7 @@ const BLOCKED_STAIRS_CELL := Vector2i(14, 1)
 const ROOM_ID_ONE := "sala_01"
 const ROOM_ID_TWO := "sala_02"
 const ROOM_ID_THREE := "sala_03"
+const ROOM_ID_FOUR := "sala_04"
 const ENEMY_ID_CAPANGA := "capanga_encouracado"
 const ENEMY_ID_LOBO := "lobo_guara_corrompido"
 const ENEMY_ID_RASGA := "rasga_mortalha"
@@ -225,6 +229,7 @@ const COLOR_RASGA_PROJECTILE := Color("ba63ff")
 @onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
 @onready var title_label: Label = $Interface/TopPanel/Title
 @onready var status_label: Label = $Interface/TopPanel/Status
+@onready var hint_panel: ColorRect = $Interface/HintPanel
 @onready var version_label: Label = $Interface/Version
 @onready var health_fill: ColorRect = $Interface/StatusHUD/HealthBack/HealthFill
 @onready var health_label: Label = $Interface/StatusHUD/HealthBack/HealthLabel
@@ -309,12 +314,14 @@ var exit_contact_latched := false
 var stairs_contact_latched := false
 var scene_transitioning := false
 var exit_request_source := ""
+var pause_menu
 var dungeon_room_id: String:
 	get:
 		return GameState.get_current_dungeon_room_id()
 
 
 func _ready() -> void:
+	_setup_pause_menu()
 	_refresh_room_title()
 	capanga_anchor = Node2D.new()
 	capanga_anchor.name = "RoomMobAnchor"
@@ -325,6 +332,7 @@ func _ready() -> void:
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
+	hint_panel.visible = false
 	exit_prompt.visible = false
 	_restore_exit_prompt_text()
 	exit_yes_button.pressed.connect(_confirm_dungeon_exit)
@@ -341,6 +349,22 @@ func _ready() -> void:
 		_update_status("%s concluída — a escada está liberada." % _room_label())
 	_update_hud()
 	queue_redraw()
+
+
+func _setup_pause_menu() -> void:
+	var pause_layer := CanvasLayer.new()
+	pause_layer.name = "PauseLayer"
+	pause_layer.layer = 200
+	add_child(pause_layer)
+	pause_menu = PauseMenuScript.new()
+	pause_menu.name = "PauseMenu"
+	pause_layer.add_child(pause_menu)
+	pause_menu.configure(true, Callable(self, "_can_open_pause_menu"))
+	pause_menu.dungeon_exit_requested.connect(_request_dungeon_exit.bind("Menu de pausa"))
+
+
+func _can_open_pause_menu() -> bool:
+	return not scene_transitioning and not exit_prompt_visible
 
 
 func _physics_process(delta: float) -> void:
@@ -481,10 +505,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
-			_request_dungeon_exit("Esc")
-			get_viewport().set_input_as_handled()
-			return
 		if event.keycode == KEY_M:
 			_toggle_overview()
 			get_viewport().set_input_as_handled()
@@ -575,7 +595,8 @@ func _advance_to_next_room() -> bool:
 	_reset_player_animation_to_idle()
 	_play_audio("door")
 	_update_status("Descendo para %s..." % _room_label())
-	_start_scene_transition(DUNGEON_SCENE)
+	var next_scene := BOSS_SCENE if dungeon_room_id == ROOM_ID_FOUR else DUNGEON_SCENE
+	_start_scene_transition(next_scene)
 	return true
 
 
@@ -1445,7 +1466,7 @@ func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
 	path_index = 0
 	has_destination = false
 	if had_click_destination:
-		_update_status("Rota cancelada — movimentação por WASD ativada.")
+		_update_status("Rota cancelada.")
 
 	var direction := raw_input.normalized()
 	var remaining_distance := PLAYER_SPEED * delta
