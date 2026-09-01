@@ -18,6 +18,9 @@ const TILE_SIZE := Vector2(64.0, 32.0)
 const HALF_TILE := TILE_SIZE * 0.5
 const PLAYER_SPEED := 140.0
 const PLAYER_COLLISION_STEP := 4.0
+const MOVEMENT_EPSILON := 0.001
+const PLAYER_FOOTPRINT_RADIUS := Vector2(7.0, 3.0)
+const PLAYER_PATH_REPLAN_INTERVAL := 0.15
 const PLAYER_MAX_HP := 100
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
@@ -25,8 +28,17 @@ const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
+const GROUND_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caatinga_terra_rachada.png")
+const PATH_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caminho_batido.png")
+const DUNGEON_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_masmorra_pedra.png")
+const VEGETATION_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_vegetacao_caatinga.png")
+const TAIPA_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_paredes_taipa.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
+const TERRAIN_TILE_FRAME_SIZE := Vector2(64.0, 32.0)
+const ENVIRONMENT_PROP_FRAME_SIZE := Vector2(64.0, 64.0)
+const VEGETATION_FOOT_ANCHOR := Vector2(32.0, 60.0)
+const TAIPA_FOOT_ANCHOR := Vector2(32.0, 48.0)
 const CHARACTER_ATLAS_COLUMNS := 10
 const CHARACTER_ATLAS_ROWS := 4
 const PLAYER_RIFLE_ROW := 0
@@ -82,12 +94,6 @@ const COLOR_GROUND_A := Color("a97945")
 const COLOR_GROUND_B := Color("9b693d")
 const COLOR_PATH_A := Color("c49a61")
 const COLOR_PATH_B := Color("b98d55")
-const COLOR_TILE_LINE := Color("604027")
-const COLOR_CLIFF := Color("563620")
-const COLOR_ROCK := Color("5d5547")
-const COLOR_ROCK_LIGHT := Color("837966")
-const COLOR_CACTUS := Color("42643d")
-const COLOR_CACTUS_LIGHT := Color("668656")
 const COLOR_MAGIC := Color("44d6b3")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
 const COLOR_TEXT := Color("f2dfbd")
@@ -106,6 +112,9 @@ const PLAYER_START := Vector2i(1, 10)
 const CAPANGA_ID := "capanga_01"
 const DUNGEON_DOOR_CELL := Vector2i(15, 3)
 const DUNGEON_ENTRY_CELL := Vector2i(14, 3)
+const START_LANDMARK_CELL := Vector2i(5, 11)
+const COMBAT_LANDMARK_CELL := Vector2i(9, 5)
+const DUNGEON_LANDMARK_CELL := Vector2i(12, 3)
 const CAPANGA_PATROL_CELLS := [
 	Vector2i(8, 6),
 	Vector2i(11, 4),
@@ -146,6 +155,8 @@ var movement_path := PackedVector2Array()
 var path_index := 0
 var destination_marker := Vector2.ZERO
 var has_destination := false
+var player_repath_remaining := 0.0
+var slide_axis_preference := 0
 var step_distance_accumulator := 0.0
 var player_animation_state := ANIMATION_IDLE
 var player_animation_frame := 0
@@ -220,8 +231,8 @@ func _ready() -> void:
 	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
 	capanga_active = returned_to_exploration or not GameState.is_encounter_defeated(CAPANGA_ID)
 	door_contact_latched = returned_from_dungeon
-	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
+	camera.position = _clamp_camera_position(player_anchor.position, camera.zoom)
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
 	hint_panel.visible = false
 	dungeon_prompt.visible = false
@@ -274,7 +285,8 @@ func _physics_process(delta: float) -> void:
 
 	if not overview_enabled and not camera_transitioning:
 		var follow_weight := 1.0 - exp(-CAMERA_FOLLOW_SPEED * delta)
-		camera.position = camera.position.lerp(player_anchor.position, follow_weight)
+		var camera_target := _clamp_camera_position(player_anchor.position, camera.zoom)
+		camera.position = camera.position.lerp(camera_target, follow_weight)
 
 
 func _advance_realtime(
@@ -304,6 +316,7 @@ func _advance_realtime(
 func _advance_timers(delta: float) -> void:
 	player_attack_cooldown = maxf(0.0, player_attack_cooldown - delta)
 	weapon_switch_cooldown = maxf(0.0, weapon_switch_cooldown - delta)
+	player_repath_remaining = maxf(0.0, player_repath_remaining - delta)
 	stun_remaining = maxf(0.0, stun_remaining - delta)
 	damage_border_remaining = maxf(0.0, damage_border_remaining - delta)
 	player_hit_flash_remaining = maxf(0.0, player_hit_flash_remaining - delta)
@@ -929,33 +942,67 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 		_update_status("Esse terreno está bloqueado.")
 		return
 
+	var final_position := _position_inside_cell(clicked_world_position, target_cell)
+	if not _is_walkable_player_footprint(final_position):
+		final_position = _cell_to_world(target_cell)
+	destination_marker = final_position
+	has_destination = true
+	player_repath_remaining = 0.0
+	if not _rebuild_player_path():
+		has_destination = false
+		_update_status("Não há caminho até esse ponto.")
+		return
+	_update_status("Caminhando — ataques automáticos não interrompem o movimento.")
+
+
+func _rebuild_player_path() -> bool:
+	movement_path.clear()
+	path_index = 0
+	if not has_destination:
+		return false
+
+	var target_cell := _world_to_cell(destination_marker)
+	if not astar.is_in_boundsv(target_cell) or astar.is_point_solid(target_cell):
+		return false
+
 	var start_cell := _nearest_walkable_cell(player_anchor.position)
 	var capanga_cell := _world_to_cell(capanga_anchor.position)
 	var block_capanga := capanga_active and astar.is_in_boundsv(capanga_cell)
+	var capanga_cell_was_solid := false
 	if block_capanga:
+		capanga_cell_was_solid = astar.is_point_solid(capanga_cell)
 		astar.set_point_solid(capanga_cell, true)
 	var id_path := astar.get_id_path(start_cell, target_cell)
 	if block_capanga:
-		astar.set_point_solid(capanga_cell, false)
+		astar.set_point_solid(capanga_cell, capanga_cell_was_solid)
 	if id_path.is_empty():
-		_update_status("Não há caminho até esse ponto.")
-		return
+		return false
 
-	var new_path := PackedVector2Array()
 	for index in range(1, id_path.size()):
-		new_path.append(_cell_to_world(id_path[index]))
-
-	var final_position := _position_inside_cell(clicked_world_position, target_cell)
-	if new_path.is_empty():
-		new_path.append(final_position)
+		movement_path.append(_cell_to_world(id_path[index]))
+	if movement_path.is_empty():
+		movement_path.append(destination_marker)
 	else:
-		new_path[new_path.size() - 1] = final_position
+		movement_path[movement_path.size() - 1] = destination_marker
+	return true
 
-	movement_path = new_path
+
+func _player_path_requires_replan() -> bool:
+	if not capanga_active or path_index >= movement_path.size():
+		return false
+	var capanga_cell := _world_to_cell(capanga_anchor.position)
+	var last_index := mini(path_index + 2, movement_path.size())
+	for index in range(path_index, last_index):
+		if _world_to_cell(movement_path[index]) == capanga_cell:
+			return true
+	return false
+
+
+func _wait_for_player_path() -> void:
+	movement_path.clear()
 	path_index = 0
-	destination_marker = final_position
-	has_destination = true
-	_update_status("Caminhando — ataques automáticos não interrompem o movimento.")
+	player_repath_remaining = PLAYER_PATH_REPLAN_INTERVAL
+	_update_status("Passagem ocupada — ajustando a rota.")
 
 
 func _is_dungeon_door_click(world_position: Vector2) -> bool:
@@ -992,13 +1039,14 @@ func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
+	player_repath_remaining = 0.0
 	if had_click_destination:
 		_update_status("Rota cancelada.")
 
 	var direction := raw_input.normalized()
 	var remaining_distance := PLAYER_SPEED * delta
 	var moved_distance := 0.0
-	while remaining_distance > 0.0:
+	while remaining_distance > MOVEMENT_EPSILON:
 		var step_length := minf(PLAYER_COLLISION_STEP, remaining_distance)
 		var accepted_motion := _resolve_player_motion(direction * step_length)
 		if accepted_motion.is_zero_approx():
@@ -1006,7 +1054,7 @@ func _move_player_with_input(delta: float, raw_input: Vector2) -> bool:
 		player_anchor.position += accepted_motion
 		var accepted_distance := accepted_motion.length()
 		moved_distance += accepted_distance
-		remaining_distance -= step_length
+		remaining_distance = maxf(0.0, remaining_distance - accepted_distance)
 
 	_emit_step_feedback(moved_distance)
 	return moved_distance > 0.0
@@ -1017,15 +1065,19 @@ func _resolve_player_motion(motion: Vector2) -> Vector2:
 		return motion
 
 	var horizontal_motion := Vector2(motion.x, 0.0)
-	if not horizontal_motion.is_zero_approx() and _is_walkable_player_position(
-		player_anchor.position + horizontal_motion
-	):
-		return horizontal_motion
-
 	var vertical_motion := Vector2(0.0, motion.y)
-	if not vertical_motion.is_zero_approx() and _is_walkable_player_position(
+	var horizontal_allowed := not horizontal_motion.is_zero_approx() and _is_walkable_player_position(
+		player_anchor.position + horizontal_motion
+	)
+	var vertical_allowed := not vertical_motion.is_zero_approx() and _is_walkable_player_position(
 		player_anchor.position + vertical_motion
-	):
+	)
+	if horizontal_allowed and vertical_allowed:
+		slide_axis_preference = 1 - slide_axis_preference
+		return horizontal_motion if slide_axis_preference == 0 else vertical_motion
+	if horizontal_allowed:
+		return horizontal_motion
+	if vertical_allowed:
 		return vertical_motion
 	return Vector2.ZERO
 
@@ -1033,12 +1085,30 @@ func _resolve_player_motion(motion: Vector2) -> Vector2:
 func _is_walkable_player_position(world_position: Vector2) -> bool:
 	var origin_cell := _world_to_cell(player_anchor.position)
 	var cell := _world_to_cell(world_position)
-	if not _is_walkable_player_cell(cell):
+	if not _is_walkable_player_footprint(world_position):
 		return false
 	if cell.x != origin_cell.x and cell.y != origin_cell.y:
 		if not _is_walkable_player_cell(Vector2i(cell.x, origin_cell.y)):
 			return false
 		if not _is_walkable_player_cell(Vector2i(origin_cell.x, cell.y)):
+			return false
+	return true
+
+
+func _is_walkable_player_footprint(world_position: Vector2) -> bool:
+	var samples := [
+		world_position,
+		world_position + Vector2(PLAYER_FOOTPRINT_RADIUS.x, 0.0),
+		world_position - Vector2(PLAYER_FOOTPRINT_RADIUS.x, 0.0),
+		world_position + Vector2(0.0, PLAYER_FOOTPRINT_RADIUS.y),
+		world_position - Vector2(0.0, PLAYER_FOOTPRINT_RADIUS.y),
+		world_position + PLAYER_FOOTPRINT_RADIUS,
+		world_position + Vector2(PLAYER_FOOTPRINT_RADIUS.x, -PLAYER_FOOTPRINT_RADIUS.y),
+		world_position + Vector2(-PLAYER_FOOTPRINT_RADIUS.x, PLAYER_FOOTPRINT_RADIUS.y),
+		world_position - PLAYER_FOOTPRINT_RADIUS,
+	]
+	for sample in samples:
+		if not _is_walkable_player_cell(_world_to_cell(sample)):
 			return false
 	return true
 
@@ -1050,21 +1120,60 @@ func _is_walkable_player_cell(cell: Vector2i) -> bool:
 
 
 func _move_player_along_path(delta: float) -> void:
-	if path_index >= movement_path.size():
+	if not has_destination or delta <= 0.0:
 		return
 
-	var waypoint := movement_path[path_index]
-	var previous_position := player_anchor.position
-	player_anchor.position = player_anchor.position.move_toward(waypoint, PLAYER_SPEED * delta)
-	_emit_step_feedback(previous_position.distance_to(player_anchor.position))
-	if player_anchor.position.distance_to(waypoint) <= 0.5:
-		player_anchor.position = waypoint
-		path_index += 1
+	if path_index >= movement_path.size():
+		if player_repath_remaining > 0.0:
+			return
+		if not _rebuild_player_path():
+			_wait_for_player_path()
+			return
+
+	var remaining_distance := PLAYER_SPEED * delta
+	var moved_distance := 0.0
+	var rebuilt_this_frame := false
+	while remaining_distance > MOVEMENT_EPSILON and has_destination:
 		if path_index >= movement_path.size():
 			movement_path.clear()
 			path_index = 0
 			has_destination = false
 			_update_status("Destino alcançado.")
+			break
+
+		if _player_path_requires_replan():
+			if rebuilt_this_frame or not _rebuild_player_path():
+				_wait_for_player_path()
+				break
+			rebuilt_this_frame = true
+			_update_status("Rota ajustada ao movimento do Capanga.")
+			continue
+
+		var waypoint := movement_path[path_index]
+		var distance_to_waypoint := player_anchor.position.distance_to(waypoint)
+		if distance_to_waypoint <= 0.5:
+			player_anchor.position = waypoint
+			path_index += 1
+			continue
+
+		var step_length := minf(
+			PLAYER_COLLISION_STEP,
+			minf(remaining_distance, distance_to_waypoint)
+		)
+		var motion := player_anchor.position.direction_to(waypoint) * step_length
+		var accepted_motion := _resolve_player_motion(motion)
+		if accepted_motion.is_zero_approx():
+			if rebuilt_this_frame or not _rebuild_player_path():
+				_wait_for_player_path()
+				break
+			rebuilt_this_frame = true
+			continue
+
+		player_anchor.position += accepted_motion
+		moved_distance += accepted_motion.length()
+		remaining_distance = maxf(0.0, remaining_distance - accepted_motion.length())
+
+	_emit_step_feedback(moved_distance)
 
 
 func _emit_step_feedback(distance: float) -> void:
@@ -1155,13 +1264,34 @@ func _trigger_screenshake(amount: float) -> void:
 		ScreenShake.shake_camera(get_tree(), amount)
 
 
+func _clamp_camera_position(target_position: Vector2, target_zoom: Vector2) -> Vector2:
+	var safe_zoom := Vector2(
+		maxf(absf(target_zoom.x), 0.001),
+		maxf(absf(target_zoom.y), 0.001)
+	)
+	var half_view := get_viewport_rect().size * 0.5 / safe_zoom
+	var bounds := _map_bounds()
+	var minimum := bounds.position + half_view
+	var maximum := bounds.end - half_view
+	var result := target_position
+	if minimum.x > maximum.x:
+		result.x = bounds.get_center().x
+	else:
+		result.x = clampf(result.x, minimum.x, maximum.x)
+	if minimum.y > maximum.y:
+		result.y = bounds.get_center().y
+	else:
+		result.y = clampf(result.y, minimum.y, maximum.y)
+	return result
+
+
 func _toggle_overview() -> void:
 	overview_enabled = not overview_enabled
 	camera_transitioning = true
 	if camera_tween != null and camera_tween.is_valid():
 		camera_tween.kill()
 
-	var target_position := player_anchor.position
+	var target_position := _clamp_camera_position(player_anchor.position, CLOSE_ZOOM)
 	var target_zoom := CLOSE_ZOOM
 	if overview_enabled:
 		target_position = _map_bounds().get_center()
@@ -1364,11 +1494,9 @@ func _draw() -> void:
 	var bounds := _map_bounds().grow(256.0)
 	draw_rect(bounds, COLOR_VOID, true)
 	_draw_tiles()
-	_draw_dungeon_door()
 	_draw_route_preview()
 	_draw_destination()
-	_draw_capanga()
-	_draw_player()
+	_draw_depth_sorted_world()
 	_draw_combat_popups()
 
 
@@ -1378,44 +1506,109 @@ func _draw_tiles() -> void:
 			var cell := Vector2i(x, y)
 			var center := _cell_to_world(cell)
 			var is_road_cell := _is_road(cell)
-			var color: Color
-			if is_road_cell:
-				color = COLOR_PATH_A if (x + y) % 2 == 0 else COLOR_PATH_B
-			else:
-				color = COLOR_GROUND_A if (x + y) % 2 == 0 else COLOR_GROUND_B
-			_draw_diamond(center, color)
-			if not is_road_cell:
-				_draw_cliff_mark(center)
-			elif ROAD_OBSTACLES.has(cell):
-				_draw_road_obstacle(center, (x + y) % 2 == 0)
+			var fallback_color := COLOR_PATH_A if is_road_cell else COLOR_GROUND_A
+			if (x + y) % 2 != 0:
+				fallback_color = COLOR_PATH_B if is_road_cell else COLOR_GROUND_B
+			var texture := PATH_TILESET if is_road_cell else GROUND_TILESET
+			var variant := _terrain_variant_for_cell(cell)
+			if cell == DUNGEON_ENTRY_CELL:
+				texture = DUNGEON_TILESET
+				variant = 3 if _is_dungeon_door_unlocked() else 0
+			_draw_terrain_tile(center, texture, variant, fallback_color)
 
 
-func _draw_diamond(center: Vector2, color: Color) -> void:
+func _terrain_variant_for_cell(cell: Vector2i) -> int:
+	if cell == PLAYER_START:
+		return 3
+	if cell in CAPANGA_PATROL_CELLS:
+		return 2
+	return posmod(cell.x * 3 + cell.y * 5, 4)
+
+
+func _draw_terrain_tile(
+	center: Vector2,
+	texture: Texture2D,
+	variant: int,
+	fallback_color: Color
+) -> void:
 	var points := PackedVector2Array([
 		center + Vector2(0.0, -HALF_TILE.y),
 		center + Vector2(HALF_TILE.x, 0.0),
 		center + Vector2(0.0, HALF_TILE.y),
 		center + Vector2(-HALF_TILE.x, 0.0),
 	])
-	draw_colored_polygon(points, color)
-	draw_polyline(PackedVector2Array([points[0], points[1], points[2], points[3], points[0]]), COLOR_TILE_LINE, 1.0)
+	draw_colored_polygon(points, fallback_color)
+	draw_texture_rect_region(
+		texture,
+		Rect2(center - HALF_TILE, TERRAIN_TILE_FRAME_SIZE),
+		Rect2(
+			Vector2(float(posmod(variant, 4)) * TERRAIN_TILE_FRAME_SIZE.x, 0.0),
+			TERRAIN_TILE_FRAME_SIZE
+		)
+	)
 
 
-func _draw_cliff_mark(center: Vector2) -> void:
-	if int(center.x + center.y) % 3 != 0:
+func _draw_depth_sorted_world() -> void:
+	var drawables: Array[Dictionary] = []
+	for cell in ROAD_OBSTACLES:
+		drawables.append({"kind": "road_prop", "cell": cell, "position": _cell_to_world(cell)})
+	drawables.append({"kind": "door", "position": _cell_to_world(DUNGEON_DOOR_CELL)})
+	if capanga_active:
+		drawables.append({"kind": "capanga", "position": capanga_anchor.position})
+	drawables.append({"kind": "player", "position": player_anchor.position})
+	drawables.sort_custom(_sort_world_drawables_by_y)
+	for drawable in drawables:
+		match String(drawable["kind"]):
+			"road_prop":
+				_draw_road_obstacle(drawable["cell"])
+			"door":
+				_draw_dungeon_door()
+			"capanga":
+				_draw_capanga()
+			"player":
+				_draw_player()
+
+
+func _sort_world_drawables_by_y(first: Dictionary, second: Dictionary) -> bool:
+	var first_position: Vector2 = first["position"]
+	var second_position: Vector2 = second["position"]
+	if not is_equal_approx(first_position.y, second_position.y):
+		return first_position.y < second_position.y
+	return first_position.x < second_position.x
+
+
+func _road_obstacle_variant(cell: Vector2i) -> int:
+	if cell == START_LANDMARK_CELL:
+		return 3
+	if cell == COMBAT_LANDMARK_CELL:
+		return 2
+	if cell == Vector2i(5, 9):
+		return 1
+	return 0
+
+
+func _draw_road_obstacle(cell: Vector2i) -> void:
+	var center := _cell_to_world(cell)
+	if cell == DUNGEON_LANDMARK_CELL:
+		_draw_environment_prop(TAIPA_TILESET, center, 3, TAIPA_FOOT_ANCHOR)
 		return
-	draw_line(center + Vector2(-9.0, 2.0), center + Vector2(-2.0, 6.0), COLOR_CLIFF, 2.0)
-	draw_line(center + Vector2(2.0, 6.0), center + Vector2(9.0, 2.0), COLOR_CLIFF, 2.0)
+	_draw_environment_prop(VEGETATION_TILESET, center, _road_obstacle_variant(cell))
 
 
-func _draw_road_obstacle(center: Vector2, rock: bool) -> void:
-	if rock:
-		draw_rect(Rect2(center + Vector2(-9.0, -12.0), Vector2(18.0, 17.0)), COLOR_ROCK, true)
-		draw_rect(Rect2(center + Vector2(-7.0, -10.0), Vector2(11.0, 4.0)), COLOR_ROCK_LIGHT, true)
-	else:
-		draw_rect(Rect2(center + Vector2(-3.0, -15.0), Vector2(6.0, 19.0)), COLOR_CACTUS, true)
-		draw_rect(Rect2(center + Vector2(-8.0, -9.0), Vector2(6.0, 4.0)), COLOR_CACTUS, true)
-		draw_rect(Rect2(center + Vector2(3.0, -5.0), Vector2(6.0, 4.0)), COLOR_CACTUS_LIGHT, true)
+func _draw_environment_prop(
+	texture: Texture2D,
+	foot_position: Vector2,
+	variant: int,
+	foot_anchor: Vector2 = VEGETATION_FOOT_ANCHOR
+) -> void:
+	draw_texture_rect_region(
+		texture,
+		Rect2(foot_position - foot_anchor, ENVIRONMENT_PROP_FRAME_SIZE),
+		Rect2(
+			Vector2(float(posmod(variant, 4)) * ENVIRONMENT_PROP_FRAME_SIZE.x, 0.0),
+			ENVIRONMENT_PROP_FRAME_SIZE
+		)
+	)
 
 
 func _draw_dungeon_door() -> void:

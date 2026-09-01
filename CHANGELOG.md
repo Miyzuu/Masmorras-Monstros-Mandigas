@@ -1,5 +1,27 @@
 # Histórico de versões
 
+## V.0.3.1 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.1 — Travessia externa`
+
+### Descrição
+
+- integra no mapa externo os tilesets existentes de chão, caminho, vegetação,
+  taipa e masmorra, sem criar arte ou alterar células caminháveis;
+- diferencia início, arena do Capanga e aproximação da masmorra com três marcos
+  ambientais, mantendo a ordenação visual pelo ponto dos pés;
+- adiciona colisão pela área dos pés, deslizamento sem preferência fixa de eixo
+  e rota por clique capaz de recalcular quando o Capanga ocupa o caminho;
+- contém a câmera próxima nos limites do mapa e preserva a visão geral pela
+  tecla **M**;
+- mantém velocidade de 140 px/s sem esperas espúrias em ticks de 1/60 s, além
+  de preservar clique, WASD, animações Sudeste, combate e masmorra sem mudanças
+  de balanceamento;
+- valida o parser, os sete testes automatizados e capturas reais em 768×512 nas
+  câmeras próxima e geral.
+
 ## V.0.3.0 — 2026-08-31
 
 ### Título do commit

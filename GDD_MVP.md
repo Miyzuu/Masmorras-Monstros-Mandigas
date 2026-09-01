@@ -51,7 +51,12 @@ Cabra-Cabriola.
   respeitando os mesmos limites e obstáculos do caminho por clique.
 - Pressionar **WASD** cancela o destino do clique; um novo clique volta a criar
   uma rota normalmente.
-- A câmera acompanha o personagem durante a exploração.
+- A colisão do herói usa uma pequena área nos pés; ao encontrar uma quina, o
+  movimento desliza pelo eixo livre sem preferência fixa por X ou Y.
+- A rota do clique é recalculada quando o Capanga passa a ocupar um dos próximos
+  passos; sem desvio imediato, o herói espera em segurança e tenta novamente.
+- A câmera acompanha o personagem durante a exploração e permanece contida nos
+  limites do mapa.
 - A tecla **M** alterna entre a câmera próxima e uma visão afastada do mapa
   inteiro.
 - Mobs comuns patrulham, detectam e perseguem o personagem no próprio mapa.
@@ -240,6 +245,10 @@ ataque básico e comportamento.
 - Pixel art em visão 2D lateral na batalha 1×1 do chefe.
 - Paleta predominantemente terrosa para o Sertão e a Caatinga.
 - Cores vibrantes reservadas aos elementos mágicos e sobrenaturais.
+- O mapa externo reutiliza os tilesets de chão rachado, caminho, vegetação,
+  taipa e pedra da masmorra já aprovados, sem adicionar arte nesta etapa.
+- Cacto florido, árvore seca e pilar de taipa identificam respectivamente o
+  início, a arena do Capanga e a aproximação da masmorra.
 - Nos mapas em tempo real, a HUD principal fica centralizada na parte inferior:
   Vida à esquerda, arma e munição no centro e Mana à direita.
 - Vida e Mana usam barras Fill com valores numéricos; a Mana permanece cheia e

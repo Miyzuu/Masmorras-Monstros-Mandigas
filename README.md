@@ -3,19 +3,26 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.0`
+**Versão atual:** `V.0.3.1`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Estado atual
 
-- mapa de exploração isométrico com 16×12 tiles de 64×32 pixels;
+- mapa de exploração isométrico com 16×12 tiles de 64×32 pixels, usando os
+  tilesets existentes de chão, caminho, vegetação, taipa e masmorra;
+- três marcos ambientais distintos sinalizando início, arena do Capanga e
+  aproximação da masmorra, sem alterar a caminhabilidade;
 - movimentação contínua por clique a 140 px/s;
 - novo clique substitui imediatamente o destino anterior;
 - movimentação contínua por **WASD** nas direções da tela, também a 140 px/s;
 - WASD cancelando a rota atual sem impedir um novo destino por clique;
-- busca de caminho que contorna terreno bloqueado;
-- câmera seguindo o personagem e visão geral alternada pela tecla **M**;
+- colisão pela área dos pés e deslizamento equilibrado nas quinas, sem
+  preferência fixa por um eixo;
+- busca de caminho que contorna terreno bloqueado e recalcula a rota quando o
+  Capanga ocupa um dos próximos passos;
+- câmera seguindo o personagem dentro dos limites do mapa e visão geral
+  alternada pela tecla **M**;
 - Capanga patrulhando mais adiante, detectando e perseguindo o herói;
 - combate contra o Capanga diretamente no mapa, sem troca de cena;
 - Cangaceiro com 100 HP e Capanga com 150 HP;
@@ -127,8 +134,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o nome oficial aplicado na `V.0.3.0`, o próximo passo recomendado é retomar
-a definição do salvamento persistente local antes de iniciar sua implementação.
+Com a travessia externa consolidada na `V.0.3.1`, o próximo passo recomendado é
+retomar a definição do salvamento persistente local antes de iniciar sua
+implementação.
 
 ## Como executar
 

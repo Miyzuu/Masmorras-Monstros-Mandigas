@@ -21,6 +21,7 @@ func _run() -> void:
 	_expect(character_atlas != null, "O atlas dos personagens deve carregar.")
 	if character_atlas != null:
 		_expect(character_atlas.get_size() == Vector2(640.0, 256.0), "O atlas deve conter 10 colunas e 4 linhas de 64x64.")
+	_test_environment_assets()
 	var script_constants: Dictionary = exploration.get_script().get_script_constant_map()
 	_expect(
 		int(script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
@@ -57,6 +58,11 @@ func _run() -> void:
 		exploration.call("_character_draw_rect", Vector2.ZERO) == Rect2(-32.0, -60.0, 64.0, 64.0),
 		"O ponto dos pés dos personagens deve coincidir com o anchor de movimento."
 	)
+	_expect(
+		script_constants.get("PLAYER_FOOTPRINT_RADIUS", Vector2.ZERO) == Vector2(7.0, 3.0),
+		"O contato do Cangaceiro deve usar uma área curta ancorada nos pés."
+	)
+	_test_environment_landmarks(exploration, script_constants)
 
 	var idle_tick: Dictionary = exploration.call("_next_character_animation", 0, 0, 0.0, false, 0.25)
 	_expect(int(idle_tick["state"]) == 0, "Sem deslocamento, o estado deve permanecer idle.")
@@ -106,7 +112,26 @@ func _run() -> void:
 	exploration.call("_physics_process", 1.0 / 60.0)
 	_expect(int(exploration.get("player_animation_state")) == 0, "No primeiro tick sem deslocamento, o Cangaceiro deve voltar para idle.")
 	_expect(int(exploration.get("player_animation_frame")) == 0, "Voltar para idle deve reiniciar no quadro 0.")
+	# Um tick de 1/60 s não deve criar um replanejamento falso por resíduo
+	# numérico no orçamento de movimento.
+	var short_tick_start: Vector2 = exploration.call("_cell_to_world", Vector2i(1, 10))
+	player.position = short_tick_start
+	exploration.set("capanga_active", false)
+	exploration.call("_set_destination", exploration.call("_cell_to_world", Vector2i(2, 9)))
+	var path_before_tick: PackedVector2Array = exploration.get("movement_path")
+	exploration.call("_move_player_along_path", 1.0 / 60.0)
+	_expect(player.position.distance_to(short_tick_start) > 0.0, "Um tick curto deve aceitar deslocamento real.")
+	_expect(
+		float(exploration.get("player_repath_remaining")) == 0.0,
+		"Um tick curto não deve entrar em espera falsa."
+	)
+	_expect(
+		(exploration.get("movement_path") as PackedVector2Array).size() == path_before_tick.size(),
+		"Um tick curto deve preservar a rota ativa."
+	)
 	_test_wasd_movement(exploration)
+	_test_dynamic_click_path(exploration)
+	_test_camera_bounds(exploration)
 
 	exploration.call("_toggle_overview")
 	_expect(bool(exploration.get("overview_enabled")), "A visão geral deve ser ativada.")
@@ -115,6 +140,38 @@ func _run() -> void:
 
 	exploration.queue_free()
 	_finish()
+
+
+func _test_environment_assets() -> void:
+	var assets := {
+		"res://assets/art/tilesets/tileset_caatinga_terra_rachada.png": Vector2(256.0, 32.0),
+		"res://assets/art/tilesets/tileset_caminho_batido.png": Vector2(256.0, 32.0),
+		"res://assets/art/tilesets/tileset_masmorra_pedra.png": Vector2(256.0, 32.0),
+		"res://assets/art/tilesets/tileset_vegetacao_caatinga.png": Vector2(256.0, 64.0),
+		"res://assets/art/tilesets/tileset_paredes_taipa.png": Vector2(256.0, 64.0),
+	}
+	for asset_path in assets:
+		var texture := load(asset_path) as Texture2D
+		_expect(texture != null, "O recurso visual externo deve carregar: %s" % asset_path)
+		if texture != null:
+			_expect(texture.get_size() == assets[asset_path], "O recurso deve preservar seu atlas: %s" % asset_path)
+
+
+func _test_environment_landmarks(exploration: Node, script_constants: Dictionary) -> void:
+	var start_cell: Vector2i = script_constants.get("START_LANDMARK_CELL", Vector2i(-1, -1))
+	var combat_cell: Vector2i = script_constants.get("COMBAT_LANDMARK_CELL", Vector2i(-1, -1))
+	var dungeon_cell: Vector2i = script_constants.get("DUNGEON_LANDMARK_CELL", Vector2i(-1, -1))
+	var obstacles: Array = script_constants.get("ROAD_OBSTACLES", [])
+	_expect(start_cell != combat_cell and combat_cell != dungeon_cell and start_cell != dungeon_cell, "Os três marcos externos devem ocupar posições únicas.")
+	_expect(obstacles.has(start_cell), "O marco inicial deve reutilizar um obstáculo existente.")
+	_expect(obstacles.has(combat_cell), "O marco do encontro deve reutilizar um obstáculo existente.")
+	_expect(obstacles.has(dungeon_cell), "O marco da masmorra deve reutilizar um obstáculo existente.")
+	_expect(int(exploration.call("_road_obstacle_variant", start_cell)) == 3, "O início deve usar o cacto florido.")
+	_expect(int(exploration.call("_road_obstacle_variant", combat_cell)) == 2, "A arena deve usar o arbusto seco.")
+	_expect(
+		script_constants.get("TAIPA_FOOT_ANCHOR", Vector2.ZERO) == Vector2(32.0, 48.0),
+		"A taipa deve manter a base visual validada em y=48."
+	)
 
 
 func _test_wasd_movement(exploration: Node) -> void:
@@ -192,6 +249,158 @@ func _test_wasd_movement(exploration: Node) -> void:
 	)
 	_expect(bool(exploration.get("has_destination")), "Entrada WASD neutra deve preservar a rota do clique.")
 	_expect(player.position == position_before_zero_input, "Entrada WASD neutra não deve alterar a posição.")
+
+	# O footprint deve barrar o pé antes que o centro entre no obstáculo.
+	var footprint_origin := Vector2i(9, 6)
+	var footprint_blocker := Vector2i(10, 5)
+	var blocker_was_solid: bool = astar.is_point_solid(footprint_blocker)
+	astar.set_point_solid(footprint_blocker, true)
+	player.position = exploration.call("_cell_to_world", footprint_origin)
+	var footprint_probe := player.position + Vector2(26.0, 0.0)
+	_expect(
+		exploration.call("_world_to_cell", footprint_probe) == footprint_origin,
+		"A prova do footprint deve manter o centro na célula livre."
+	)
+	_expect(
+		not bool(exploration.call("_is_walkable_player_footprint", footprint_probe)),
+		"A borda dos pés deve impedir aproximação que invada a célula bloqueada."
+	)
+	astar.set_point_solid(footprint_blocker, blocker_was_solid)
+
+	# Os cantos do footprint também devem barrar um corte diagonal no obstáculo.
+	var diagonal_footprint_origin := Vector2i(4, 9)
+	var diagonal_footprint_blocker := Vector2i(5, 9)
+	var diagonal_blocker_was_solid: bool = astar.is_point_solid(diagonal_footprint_blocker)
+	astar.set_point_solid(diagonal_footprint_blocker, true)
+	var diagonal_footprint_probe: Vector2 = (
+		exploration.call("_cell_to_world", diagonal_footprint_origin) + Vector2(11.2, 5.6)
+	)
+	_expect(
+		exploration.call("_world_to_cell", diagonal_footprint_probe) == diagonal_footprint_origin,
+		"A prova diagonal deve manter o centro do pé na célula livre."
+	)
+	_expect(
+		exploration.call("_world_to_cell", diagonal_footprint_probe + Vector2(7.0, 3.0)) == diagonal_footprint_blocker,
+		"A prova diagonal deve colocar somente o canto do pé no obstáculo."
+	)
+	_expect(
+		not bool(exploration.call("_is_walkable_player_footprint", diagonal_footprint_probe)),
+		"O canto do footprint deve impedir o corte diagonal do obstáculo."
+	)
+	astar.set_point_solid(diagonal_footprint_blocker, diagonal_blocker_was_solid)
+
+	# Em um empate diagonal, os dois eixos livres devem alternar em vez de favorecer X.
+	# Esta posição encosta num canto estático: o passo diagonal é bloqueado, mas
+	# seus componentes horizontal e vertical ainda são válidos separadamente.
+	player.position = exploration.call("_cell_to_world", Vector2i(4, 8)) + Vector2(-17.0, 12.0)
+	var first_slide: Vector2 = exploration.call("_resolve_player_motion", Vector2(4.0, 4.0))
+	var second_slide: Vector2 = exploration.call("_resolve_player_motion", Vector2(4.0, 4.0))
+	_expect(
+		(first_slide == Vector2(4.0, 0.0) and second_slide == Vector2(0.0, 4.0))
+		or (first_slide == Vector2(0.0, 4.0) and second_slide == Vector2(4.0, 0.0)),
+		"O deslizamento diagonal deve alternar os eixos livres."
+	)
+	# Neste trecho, a diagonal encontra o limite, mas um eixo permanece livre por
+	# todo o orçamento de 0,10 s.
+	player.position = exploration.call("_cell_to_world", Vector2i(11, 2)) + Vector2(-10.0, 12.0)
+	exploration.set("step_distance_accumulator", 0.0)
+	exploration.call("_move_player_with_input", 0.10, Vector2(1.0, 1.0))
+	var slide_distance := float(exploration.get("step_distance_accumulator"))
+	_expect(
+		absf(slide_distance - 14.0) <= 0.002,
+		"O deslizamento deve manter o orçamento real de 140 px/s; medido %.3f." % slide_distance
+	)
+
+
+func _test_dynamic_click_path(exploration: Node) -> void:
+	var player := exploration.get_node("PlayerAnchor") as Node2D
+	var capanga := exploration.get_node("CapangaAnchor") as Node2D
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	capanga.position = exploration.call("_cell_to_world", Vector2i(8, 6))
+	exploration.set("capanga_active", true)
+	exploration.set("movement_path", PackedVector2Array())
+	exploration.set("path_index", 0)
+	exploration.set("has_destination", false)
+
+	var target := exploration.call("_cell_to_world", Vector2i(4, 10)) as Vector2
+	exploration.call("_set_destination", target)
+	var original_path: PackedVector2Array = exploration.get("movement_path")
+	_expect(not original_path.is_empty(), "A rota dinâmica deve começar com um caminho válido.")
+	if original_path.is_empty():
+		exploration.set("capanga_active", false)
+		return
+
+	var occupied_cell: Vector2i = exploration.call("_world_to_cell", original_path[0])
+	capanga.position = exploration.call("_cell_to_world", occupied_cell)
+	var position_before_replan := player.position
+	exploration.call("_move_player_along_path", 0.10)
+	var rerouted_path: PackedVector2Array = exploration.get("movement_path")
+	_expect(bool(exploration.get("has_destination")), "Replanejar deve preservar o destino ativo.")
+	_expect(exploration.get("destination_marker") == target, "Replanejar deve preservar o marcador final.")
+	_expect(exploration.call("_world_to_cell", player.position) != occupied_cell, "O jogador não pode entrar na célula móvel ocupada.")
+	_expect(player.position != position_before_replan, "Uma alternativa livre deve continuar a caminhada no mesmo comando.")
+	for waypoint in rerouted_path:
+		_expect(exploration.call("_world_to_cell", waypoint) != occupied_cell, "A nova rota não pode conter a célula do Capanga.")
+
+	for frame in range(600):
+		exploration.call("_advance_timers", 1.0 / 60.0)
+		exploration.call("_move_player_along_path", 1.0 / 60.0)
+		if not bool(exploration.get("has_destination")):
+			break
+	_expect(player.position.distance_to(target) <= 1.0, "A rota ajustada deve alcançar o destino sem um novo clique.")
+	_expect(not bool(exploration.get("has_destination")), "A rota ajustada deve encerrar o destino ao chegar.")
+
+	# Uma rota longa deve continuar estável enquanto o Capanga muda de célula.
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	capanga.position = exploration.call("_cell_to_world", Vector2i(8, 6))
+	exploration.set("capanga_active", true)
+	target = exploration.call("_cell_to_world", Vector2i(13, 3))
+	exploration.call("_set_destination", target)
+	var moving_cells: Array[Vector2i] = [
+		Vector2i(8, 6),
+		Vector2i(9, 6),
+		Vector2i(10, 6),
+		Vector2i(11, 5),
+		Vector2i(11, 4),
+	]
+	var moving_route_overlap := false
+	for frame in range(1200):
+		if frame % 48 == 0:
+			var moving_index := int(frame / 48) % moving_cells.size()
+			capanga.position = exploration.call("_cell_to_world", moving_cells[moving_index])
+		exploration.call("_advance_timers", 1.0 / 60.0)
+		exploration.call("_move_player_along_path", 1.0 / 60.0)
+		if exploration.call("_world_to_cell", player.position) == exploration.call("_world_to_cell", capanga.position):
+			moving_route_overlap = true
+		if not bool(exploration.get("has_destination")):
+			break
+	_expect(not moving_route_overlap, "A rota móvel não deve sobrepor o jogador ao Capanga.")
+	_expect(not bool(exploration.get("has_destination")), "A rota móvel deve concluir sem ficar em espera permanente.")
+	_expect(player.position.distance_to(target) <= 1.0, "A rota móvel deve alcançar o destino final.")
+
+	# O clique mantém a mesma velocidade de 140 px/s em uma rota livre.
+	exploration.set("capanga_active", false)
+	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
+	target = exploration.call("_cell_to_world", Vector2i(4, 10))
+	exploration.call("_set_destination", target)
+	var route_start := player.position
+	exploration.call("_move_player_along_path", 0.10)
+	_expect(is_equal_approx(player.position.distance_to(route_start), 14.0), "O clique deve manter 140 px/s.")
+
+
+func _test_camera_bounds(exploration: Node) -> void:
+	var bounds: Rect2 = exploration.call("_map_bounds")
+	var zoom := Vector2(1.45, 1.45)
+	var half_view: Vector2 = exploration.get_viewport_rect().size * 0.5 / zoom
+	for target in [
+		bounds.position - Vector2(1000.0, 1000.0),
+		bounds.end + Vector2(1000.0, 1000.0),
+	]:
+		var clamped: Vector2 = exploration.call("_clamp_camera_position", target, zoom)
+		_expect(clamped.x - half_view.x >= bounds.position.x - 0.01, "A câmera não deve revelar vazio à esquerda.")
+		_expect(clamped.y - half_view.y >= bounds.position.y - 0.01, "A câmera não deve revelar vazio acima.")
+		_expect(clamped.x + half_view.x <= bounds.end.x + 0.01, "A câmera não deve revelar vazio à direita.")
+		_expect(clamped.y + half_view.y <= bounds.end.y + 0.01, "A câmera não deve revelar vazio abaixo.")
 
 
 func _expect(condition: bool, message: String) -> void:
