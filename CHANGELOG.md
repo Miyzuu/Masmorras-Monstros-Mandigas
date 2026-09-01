@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## V.0.3.5 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.5 — Importação de recursos no CI Web`
+
+### Descrição
+
+- importa os recursos do projeto com o editor Godot em modo headless antes dos
+  testes, recriando o cache `.godot` ausente em um runner limpo;
+- preserva a exportação Web e o deploy do Pages, mas evita falhas falsas dos
+  testes por texturas comprimidas ainda não importadas;
+- mantém a execução local, os sete testes e o pacote `build/web` inalterados.
+
 ## V.0.3.4 — 2026-09-01
 
 ### Título do commit

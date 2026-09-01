@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.4`
+**Versão atual:** `V.0.3.5`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -147,7 +147,7 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o workflow de publicação preparado na `V.0.3.4`, o próximo passo recomendado
+Com o workflow de publicação corrigido na `V.0.3.5`, o próximo passo recomendado
 é abrir a URL pública e validar o jogo em uma segunda rede/dispositivo.
 
 ## Como executar

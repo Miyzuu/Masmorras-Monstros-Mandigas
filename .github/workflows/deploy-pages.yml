@@ -41,6 +41,12 @@ jobs:
           chmod +x "Godot_v${godot_version}-stable_linux.x86_64"
           echo "GODOT_BIN=${GITHUB_WORKSPACE}/Godot_v${godot_version}-stable_linux.x86_64" >> "${GITHUB_ENV}"
 
+      - name: Importar recursos do projeto
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${GODOT_BIN}" --headless --editor --quit --path .
+
       - name: Executar testes automatizados
         shell: bash
         run: |
