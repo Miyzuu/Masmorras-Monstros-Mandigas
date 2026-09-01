@@ -209,6 +209,56 @@ func has_lapada_ready() -> bool:
 	return lapada_charges >= MAX_LAPADA_CHARGES
 
 
+func export_save_data() -> Dictionary:
+	return {
+		"player_hp": player_hp,
+		"rifle_ammo": rifle_ammo,
+		"rifle_reserve_ammo": rifle_reserve_ammo,
+		"current_weapon": current_weapon,
+		"gold_score": gold_score,
+		"lapada_charges": lapada_charges,
+		"defeated_encounters": defeated_encounters.duplicate(true),
+		"dungeon_active": dungeon_active,
+		"dungeon_progress": dungeon_progress.duplicate(true),
+		"dungeon_room_index": dungeon_room_index,
+		"dungeon_completed": dungeon_completed,
+	}
+
+
+func import_save_data(data: Dictionary) -> void:
+	set_player_hp(int(data.get("player_hp", DEFAULT_PLAYER_HP)))
+	set_rifle_ammo(int(data.get("rifle_ammo", DEFAULT_RIFLE_AMMO)))
+	set_rifle_reserve_ammo(int(data.get("rifle_reserve_ammo", DEFAULT_RIFLE_RESERVE_AMMO)))
+	set_current_weapon(int(data.get("current_weapon", DEFAULT_WEAPON)))
+	gold_score = maxi(0, int(data.get("gold_score", DEFAULT_GOLD_SCORE)))
+	lapada_charges = clampi(int(data.get("lapada_charges", 0)), 0, MAX_LAPADA_CHARGES)
+	defeated_encounters = _sanitize_boolean_dictionary(data.get("defeated_encounters", {}))
+	dungeon_active = bool(data.get("dungeon_active", false))
+	dungeon_progress = _sanitize_boolean_dictionary(data.get("dungeon_progress", {}))
+	dungeon_room_index = clampi(
+		int(data.get("dungeon_room_index", 0)),
+		0,
+		DUNGEON_ROOM_IDS.size() - 1
+	)
+	dungeon_completed = bool(data.get("dungeon_completed", false))
+
+	active_encounter_id = ""
+	return_position = Vector2.ZERO
+	return_position_pending = false
+	returning_from_combat = false
+	returning_from_dungeon = false
+
+
+func _sanitize_boolean_dictionary(value: Variant) -> Dictionary:
+	var sanitized: Dictionary = {}
+	if not value is Dictionary:
+		return sanitized
+	for key in value:
+		if bool(value[key]):
+			sanitized[str(key)] = true
+	return sanitized
+
+
 func reset_session() -> void:
 	defeated_encounters.clear()
 	active_encounter_id = ""

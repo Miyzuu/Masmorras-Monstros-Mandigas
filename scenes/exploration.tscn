@@ -1,61 +1,62 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://d322xlyqiv52a"]
 
-[ext_resource type="Script" path="res://scripts/exploration.gd" id="1_exploration"]
-[ext_resource type="Script" path="res://scripts/screen_shake.gd" id="2_screenshake"]
+[ext_resource type="Script" uid="uid://wnu1eqqgdrah" path="res://scripts/exploration.gd" id="1_exploration"]
+[ext_resource type="Script" uid="uid://c440poskh527d" path="res://scripts/screen_shake.gd" id="2_screenshake"]
 [ext_resource type="Theme" path="res://assets/ui/woodcut_theme.tres" id="3_theme"]
 [ext_resource type="PackedScene" path="res://scenes/vfx/dust_particles.tscn" id="4_dust"]
-[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="5_hit_flash"]
+[ext_resource type="Shader" uid="uid://b7krknx4cgr0b" path="res://shaders/hit_flash.gdshader" id="5_hit_flash"]
 [ext_resource type="PackedScene" path="res://scenes/vfx/rifle_muzzle_flash.tscn" id="6_muzzle_flash"]
-[ext_resource type="Script" path="res://scripts/realtime_hud.gd" id="7_realtime_hud"]
+[ext_resource type="Script" uid="uid://uvu8kp5lfexi" path="res://scripts/realtime_hud.gd" id="7_realtime_hud"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_player_hit_flash"]
 resource_local_to_scene = true
 shader = ExtResource("5_hit_flash")
+shader_parameter/flash_color = Color(1, 1, 1, 1)
 shader_parameter/flash_modifier = 0.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_capanga_hit_flash"]
 resource_local_to_scene = true
 shader = ExtResource("5_hit_flash")
+shader_parameter/flash_color = Color(1, 1, 1, 1)
 shader_parameter/flash_modifier = 0.0
 
-[node name="Exploration" type="Node2D"]
+[node name="Exploration" type="Node2D" unique_id=557548769]
 script = ExtResource("1_exploration")
 
-[node name="PlayerAnchor" type="Node2D" parent="."]
+[node name="PlayerAnchor" type="Node2D" parent="." unique_id=151239271]
 
-[node name="DustParticles" parent="PlayerAnchor" instance=ExtResource("4_dust")]
+[node name="DustParticles" parent="PlayerAnchor" unique_id=697920948 instance=ExtResource("4_dust")]
 
-[node name="HitFlash" type="Sprite2D" parent="PlayerAnchor"]
+[node name="HitFlash" type="Sprite2D" parent="PlayerAnchor" unique_id=778130292]
+visible = false
+z_index = 1
 material = SubResource("ShaderMaterial_player_hit_flash")
 centered = false
 offset = Vector2(-32, -60)
 region_enabled = true
+
+[node name="RifleMuzzleFlash" parent="PlayerAnchor" unique_id=1192006740 instance=ExtResource("6_muzzle_flash")]
+z_index = 2
+position = Vector2(18, -40)
+
+[node name="CapangaAnchor" type="Node2D" parent="." unique_id=1030946327]
+
+[node name="HitFlash" type="Sprite2D" parent="CapangaAnchor" unique_id=1380096984]
 visible = false
 z_index = 1
-
-[node name="RifleMuzzleFlash" parent="PlayerAnchor" instance=ExtResource("6_muzzle_flash")]
-position = Vector2(18, -40)
-z_index = 2
-
-[node name="CapangaAnchor" type="Node2D" parent="."]
-
-[node name="HitFlash" type="Sprite2D" parent="CapangaAnchor"]
 material = SubResource("ShaderMaterial_capanga_hit_flash")
 centered = false
 offset = Vector2(-32, -60)
 region_enabled = true
-visible = false
-z_index = 1
 
-[node name="Camera2D" type="Camera2D" parent="."]
-enabled = true
+[node name="Camera2D" type="Camera2D" parent="." unique_id=651220365]
 
-[node name="ScreenShake" type="Node" parent="Camera2D"]
+[node name="ScreenShake" type="Node" parent="Camera2D" unique_id=2139722303]
 script = ExtResource("2_screenshake")
 
-[node name="Interface" type="CanvasLayer" parent="."]
+[node name="Interface" type="CanvasLayer" parent="." unique_id=68481743]
 
-[node name="TopPanel" type="ColorRect" parent="Interface"]
+[node name="TopPanel" type="ColorRect" parent="Interface" unique_id=1011808445]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 392.0
@@ -63,7 +64,7 @@ offset_bottom = 106.0
 mouse_filter = 2
 color = Color(0.098, 0.071, 0.047, 0.96)
 
-[node name="Border" type="ReferenceRect" parent="Interface/TopPanel"]
+[node name="Border" type="ReferenceRect" parent="Interface/TopPanel" unique_id=1945218073]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -75,7 +76,8 @@ border_color = Color(0.439, 0.314, 0.2, 1)
 border_width = 2.0
 editor_only = false
 
-[node name="Title" type="Label" parent="Interface/TopPanel"]
+[node name="Title" type="Label" parent="Interface/TopPanel" unique_id=983306146]
+layout_mode = 0
 offset_left = 18.0
 offset_top = 12.0
 offset_right = 358.0
@@ -84,7 +86,8 @@ theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 18
 text = "EXPLORAÇÃO ISOMÉTRICA"
 
-[node name="Status" type="Label" parent="Interface/TopPanel"]
+[node name="Status" type="Label" parent="Interface/TopPanel" unique_id=1592405037]
+layout_mode = 0
 offset_left = 18.0
 offset_top = 47.0
 offset_right = 358.0
@@ -93,18 +96,17 @@ theme_override_colors/font_color = Color(0.761, 0.659, 0.502, 1)
 theme_override_font_sizes/font_size = 14
 text = "Botão direito ou WASD para caminhar."
 
-[node name="Version" type="Label" parent="Interface"]
+[node name="Version" type="Label" parent="Interface" unique_id=1166119536]
 offset_left = 672.0
 offset_top = 18.0
 offset_right = 752.0
 offset_bottom = 44.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 14
 text = "V.0.1.7"
 horizontal_alignment = 2
 
-[node name="HintPanel" type="ColorRect" parent="Interface"]
+[node name="HintPanel" type="ColorRect" parent="Interface" unique_id=1289575119]
 offset_left = 456.0
 offset_top = 54.0
 offset_right = 752.0
@@ -112,7 +114,7 @@ offset_bottom = 124.0
 mouse_filter = 2
 color = Color(0.098, 0.071, 0.047, 0.96)
 
-[node name="Border" type="ReferenceRect" parent="Interface/HintPanel"]
+[node name="Border" type="ReferenceRect" parent="Interface/HintPanel" unique_id=940530353]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -124,7 +126,8 @@ border_color = Color(0.439, 0.314, 0.2, 1)
 border_width = 2.0
 editor_only = false
 
-[node name="Hint" type="Label" parent="Interface/HintPanel"]
+[node name="Hint" type="Label" parent="Interface/HintPanel" unique_id=1589935413]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 9.0
 offset_right = 260.0
@@ -136,7 +139,7 @@ WASD/MOUSE DIR. ANDAR • ESPAÇO APARO"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CombatHUD" type="ColorRect" parent="Interface"]
+[node name="CombatHUD" type="ColorRect" parent="Interface" unique_id=236031958]
 visible = false
 offset_left = 16.0
 offset_top = 438.0
@@ -145,7 +148,7 @@ offset_bottom = 496.0
 mouse_filter = 2
 color = Color(0.098, 0.071, 0.047, 0.96)
 
-[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD"]
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD" unique_id=2008757372]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -157,7 +160,8 @@ border_color = Color(0.439, 0.314, 0.2, 1)
 border_width = 2.0
 editor_only = false
 
-[node name="HealthBack" type="ColorRect" parent="Interface/CombatHUD"]
+[node name="HealthBack" type="ColorRect" parent="Interface/CombatHUD" unique_id=705044483]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 9.0
 offset_right = 252.0
@@ -165,13 +169,14 @@ offset_bottom = 29.0
 mouse_filter = 2
 color = Color(0.157, 0.114, 0.078, 1)
 
-[node name="HealthFill" type="ColorRect" parent="Interface/CombatHUD/HealthBack"]
+[node name="HealthFill" type="ColorRect" parent="Interface/CombatHUD/HealthBack" unique_id=18864322]
+layout_mode = 0
 offset_right = 240.0
 offset_bottom = 20.0
 mouse_filter = 2
 color = Color(0.725, 0.278, 0.196, 1)
 
-[node name="HealthBorder" type="ReferenceRect" parent="Interface/CombatHUD/HealthBack"]
+[node name="HealthBorder" type="ReferenceRect" parent="Interface/CombatHUD/HealthBack" unique_id=1929130204]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -180,20 +185,19 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 border_color = Color(0.439, 0.314, 0.2, 1)
-border_width = 1.0
 editor_only = false
 
-[node name="HealthLabel" type="Label" parent="Interface/CombatHUD/HealthBack"]
+[node name="HealthLabel" type="Label" parent="Interface/CombatHUD/HealthBack" unique_id=44815773]
+layout_mode = 0
 offset_right = 240.0
 offset_bottom = 20.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 13
 text = "VIDA  100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="LapadaContainer" type="Control" parent="Interface/CombatHUD"]
+[node name="LapadaContainer" type="Control" parent="Interface/CombatHUD" unique_id=745074931]
 layout_mode = 1
 anchors_preset = 0
 offset_left = 264.0
@@ -202,16 +206,17 @@ offset_right = 444.0
 offset_bottom = 29.0
 mouse_filter = 2
 
-[node name="LapadaLabel" type="Label" parent="Interface/CombatHUD/LapadaContainer"]
+[node name="LapadaLabel" type="Label" parent="Interface/CombatHUD/LapadaContainer" unique_id=1572320047]
+layout_mode = 0
 offset_right = 96.0
 offset_bottom = 20.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.761, 0.659, 0.502, 1)
 theme_override_font_sizes/font_size = 11
 text = "LAPADA SECA"
 vertical_alignment = 1
 
-[node name="Pip1" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+[node name="Pip1" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer" unique_id=1214577040]
+layout_mode = 0
 offset_left = 104.0
 offset_top = 3.0
 offset_right = 120.0
@@ -219,7 +224,7 @@ offset_bottom = 17.0
 mouse_filter = 2
 color = Color(0.157, 0.114, 0.078, 1)
 
-[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip1"]
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip1" unique_id=1611880686]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -228,10 +233,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 border_color = Color(0.439, 0.314, 0.2, 1)
-border_width = 1.0
 editor_only = false
 
-[node name="Pip2" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+[node name="Pip2" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer" unique_id=365881172]
+layout_mode = 0
 offset_left = 128.0
 offset_top = 3.0
 offset_right = 144.0
@@ -239,7 +244,7 @@ offset_bottom = 17.0
 mouse_filter = 2
 color = Color(0.157, 0.114, 0.078, 1)
 
-[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip2"]
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip2" unique_id=529597059]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -248,10 +253,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 border_color = Color(0.439, 0.314, 0.2, 1)
-border_width = 1.0
 editor_only = false
 
-[node name="Pip3" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer"]
+[node name="Pip3" type="ColorRect" parent="Interface/CombatHUD/LapadaContainer" unique_id=1067216128]
+layout_mode = 0
 offset_left = 152.0
 offset_top = 3.0
 offset_right = 168.0
@@ -259,7 +264,7 @@ offset_bottom = 17.0
 mouse_filter = 2
 color = Color(0.157, 0.114, 0.078, 1)
 
-[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip3"]
+[node name="Border" type="ReferenceRect" parent="Interface/CombatHUD/LapadaContainer/Pip3" unique_id=319448131]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -268,20 +273,19 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 border_color = Color(0.439, 0.314, 0.2, 1)
-border_width = 1.0
 editor_only = false
 
-[node name="WeaponLabel" type="Label" parent="Interface/CombatHUD"]
+[node name="WeaponLabel" type="Label" parent="Interface/CombatHUD" unique_id=1013095218]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 33.0
 offset_right = 444.0
 offset_bottom = 53.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.949, 0.875, 0.741, 1)
 theme_override_font_sizes/font_size = 13
 text = "RIFLE  •  BALAS 5 / 5  •  Q PARA TROCAR"
 
-[node name="RealtimeHUD" type="Control" parent="Interface"]
+[node name="RealtimeHUD" type="Control" parent="Interface" unique_id=2045275413]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -291,7 +295,8 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("7_realtime_hud")
 
-[node name="DamageBorder" type="Control" parent="Interface"]
+[node name="DamageBorder" type="Control" parent="Interface" unique_id=1981598414]
+modulate = Color(1, 1, 1, 0)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -299,38 +304,41 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-modulate = Color(1, 1, 1, 0)
 
-[node name="Top" type="ColorRect" parent="Interface/DamageBorder"]
+[node name="Top" type="ColorRect" parent="Interface/DamageBorder" unique_id=2021034357]
+layout_mode = 0
 offset_right = 768.0
 offset_bottom = 8.0
 mouse_filter = 2
 color = Color(0.85, 0.05, 0.02, 1)
 
-[node name="Bottom" type="ColorRect" parent="Interface/DamageBorder"]
+[node name="Bottom" type="ColorRect" parent="Interface/DamageBorder" unique_id=219419048]
+layout_mode = 0
 offset_top = 504.0
 offset_right = 768.0
 offset_bottom = 512.0
 mouse_filter = 2
 color = Color(0.85, 0.05, 0.02, 1)
 
-[node name="Left" type="ColorRect" parent="Interface/DamageBorder"]
+[node name="Left" type="ColorRect" parent="Interface/DamageBorder" unique_id=2089439811]
+layout_mode = 0
 offset_right = 8.0
 offset_bottom = 512.0
 mouse_filter = 2
 color = Color(0.85, 0.05, 0.02, 1)
 
-[node name="Right" type="ColorRect" parent="Interface/DamageBorder"]
+[node name="Right" type="ColorRect" parent="Interface/DamageBorder" unique_id=703040927]
+layout_mode = 0
 offset_left = 760.0
 offset_right = 768.0
 offset_bottom = 512.0
 mouse_filter = 2
 color = Color(0.85, 0.05, 0.02, 1)
 
-[node name="DialogLayer" type="CanvasLayer" parent="."]
+[node name="DialogLayer" type="CanvasLayer" parent="." unique_id=739361063]
 layer = 50
 
-[node name="DungeonPrompt" type="Control" parent="DialogLayer"]
+[node name="DungeonPrompt" type="Control" parent="DialogLayer" unique_id=2101079267]
 visible = false
 layout_mode = 3
 anchors_preset = 15
@@ -340,7 +348,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("3_theme")
 
-[node name="Overlay" type="ColorRect" parent="DialogLayer/DungeonPrompt"]
+[node name="Overlay" type="ColorRect" parent="DialogLayer/DungeonPrompt" unique_id=1935001365]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -349,14 +357,15 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.02, 0.015, 0.01, 0.78)
 
-[node name="Dialog" type="ColorRect" parent="DialogLayer/DungeonPrompt"]
+[node name="Dialog" type="ColorRect" parent="DialogLayer/DungeonPrompt" unique_id=441854752]
+layout_mode = 0
 offset_left = 164.0
 offset_top = 145.0
 offset_right = 604.0
 offset_bottom = 367.0
 color = Color(0.098, 0.071, 0.047, 0.98)
 
-[node name="Border" type="ReferenceRect" parent="DialogLayer/DungeonPrompt/Dialog"]
+[node name="Border" type="ReferenceRect" parent="DialogLayer/DungeonPrompt/Dialog" unique_id=573380960]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -368,7 +377,8 @@ border_color = Color(0.439, 0.314, 0.2, 1)
 border_width = 3.0
 editor_only = false
 
-[node name="Title" type="Label" parent="DialogLayer/DungeonPrompt/Dialog"]
+[node name="Title" type="Label" parent="DialogLayer/DungeonPrompt/Dialog" unique_id=1583476746]
+layout_mode = 0
 offset_left = 28.0
 offset_top = 25.0
 offset_right = 412.0
@@ -378,7 +388,8 @@ theme_override_font_sizes/font_size = 22
 text = "ENTRAR NA MASMORRA?"
 horizontal_alignment = 1
 
-[node name="Message" type="Label" parent="DialogLayer/DungeonPrompt/Dialog"]
+[node name="Message" type="Label" parent="DialogLayer/DungeonPrompt/Dialog" unique_id=1560289161]
+layout_mode = 0
 offset_left = 28.0
 offset_top = 72.0
 offset_right = 412.0
@@ -389,7 +400,8 @@ text = "A sala inicial está vazia nesta versão.
 Sua vida e munição atuais serão mantidas."
 horizontal_alignment = 1
 
-[node name="YesButton" type="Button" parent="DialogLayer/DungeonPrompt/Dialog"]
+[node name="YesButton" type="Button" parent="DialogLayer/DungeonPrompt/Dialog" unique_id=296675789]
+layout_mode = 0
 offset_left = 28.0
 offset_top = 145.0
 offset_right = 238.0
@@ -397,7 +409,8 @@ offset_bottom = 193.0
 theme_override_font_sizes/font_size = 14
 text = "SIM  [ENTER/ESPAÇO]"
 
-[node name="NoButton" type="Button" parent="DialogLayer/DungeonPrompt/Dialog"]
+[node name="NoButton" type="Button" parent="DialogLayer/DungeonPrompt/Dialog" unique_id=391417999]
+layout_mode = 0
 offset_left = 252.0
 offset_top = 145.0
 offset_right = 412.0
@@ -405,12 +418,14 @@ offset_bottom = 193.0
 theme_override_font_sizes/font_size = 16
 text = "NÃO  [ESC]"
 
-[node name="FadeLayer" type="CanvasLayer" parent="."]
+[node name="FadeLayer" type="CanvasLayer" parent="." unique_id=164504600]
 layer = 100
 
-[node name="Fade" type="ColorRect" parent="FadeLayer"]
-offset_right = 768.0
-offset_bottom = 512.0
+[node name="Fade" type="ColorRect" parent="FadeLayer" unique_id=1508476423]
+modulate = Color(1, 1, 1, 0)
+offset_left = -3.0
+offset_top = -3.0
+offset_right = 765.0
+offset_bottom = 509.0
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
-modulate = Color(1, 1, 1, 0)

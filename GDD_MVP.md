@@ -17,7 +17,16 @@ Cabra-Cabriola.
 
 ## 2. Estrutura da partida
 
-- Criação do personagem.
+- Novo Jogo iniciando diretamente na Exploração com o Cangaceiro padrão; a
+  criação personalizada fica reservada para uma versão futura.
+- Página inicial com Novo Jogo, Continuar, Configurações e Sair.
+- Três slots locais de save, mostrando local e data, com confirmação para apagar
+  ou sobrescrever; Continuar permanece desativado sem saves válidos.
+- Checkpoints automáticos somente em transições seguras: encontros concluídos,
+  salas, entrada/saída da masmorra, vitória e derrota.
+- Configurações globais separadas dos slots: Controles, Áudio e Vídeo.
+- O menu de pausa oferece **Sair para o Menu Inicial** após confirmação, sem
+  registrar o estado intermediário desde o último checkpoint seguro.
 - Um mapa pequeno e linear de exploração em tempo real.
 - Mobs comuns enfrentados diretamente no mapa, sem troca para a batalha do chefe.
 - Uma entrada separada para a masmorra, com confirmação **Sim/Não**.

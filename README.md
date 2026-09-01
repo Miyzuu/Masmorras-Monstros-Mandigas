@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.1`
+**Versão atual:** `V.0.3.2`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -122,7 +122,16 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
 - HUD e caixas de diálogo com tema de xilogravura e couro;
 - menu de pausa com Continuar, Configurações, lista completa de Controles e
-  saída da masmorra; as caixas fixas de atalhos foram removidas da tela;
+  saída da masmorra; **Sair para o Menu Inicial** exige confirmação e preserva
+  somente o último checkpoint seguro; as caixas fixas de atalhos foram removidas;
+- página inicial com Novo Jogo, Continuar, Configurações e Sair, além de marca
+  da versão no canto inferior direito;
+- três slots locais compartilhados entre Novo Jogo e Continuar, exibindo apenas
+  local e data do último save, com confirmação antes de apagar ou sobrescrever;
+- checkpoints automáticos após encontros, salas, entrada/saída da masmorra,
+  vitória e derrota, sempre retomando de um início seguro da área;
+- configurações globais separadas dos slots, com Controles, volumes Geral,
+  Música e Efeitos, Tela Cheia e VSync;
 - atlas Sudeste de 640×256 com linhas próprias para Rifle, Capanga, Peixeira e
   Cabra-Cabriola;
 - troca visual imediata entre Rifle e Peixeira, preservando o quadro da animação;
@@ -134,9 +143,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a travessia externa consolidada na `V.0.3.1`, o próximo passo recomendado é
-retomar a definição do salvamento persistente local antes de iniciar sua
-implementação.
+Com o menu e o salvamento local implementados na `V.0.3.2`, o próximo passo
+recomendado é validar manualmente os três slots e o retorno de cada checkpoint
+antes de ampliar conteúdo ou criação de personagem.
 
 ## Como executar
 

@@ -27,6 +27,7 @@ const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
+const TITLE_MENU_SCENE := "res://scenes/title_menu.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
 const GROUND_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caatinga_terra_rachada.png")
 const PATH_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caminho_batido.png")
@@ -271,10 +272,16 @@ func _setup_pause_menu() -> void:
 	pause_menu.name = "PauseMenu"
 	pause_layer.add_child(pause_menu)
 	pause_menu.configure(false, Callable(self, "_can_open_pause_menu"))
+	pause_menu.main_menu_requested.connect(_return_to_title_menu)
 
 
 func _can_open_pause_menu() -> bool:
 	return not scene_transitioning and not dungeon_prompt_visible
+
+
+func _return_to_title_menu() -> void:
+	if is_inside_tree():
+		get_tree().change_scene_to_file(TITLE_MENU_SCENE)
 
 
 func _physics_process(delta: float) -> void:
@@ -507,6 +514,7 @@ func _prepare_dungeon_entry() -> void:
 		rifle_ammo,
 		current_weapon
 	)
+	SaveManager.save_active_slot()
 
 
 func _confirm_dungeon_entry() -> void:
@@ -727,6 +735,7 @@ func _defeat_capanga() -> void:
 	capanga_path.clear()
 	heavy_warning_active = false
 	GameState.mark_encounter_defeated(CAPANGA_ID)
+	SaveManager.save_active_slot()
 	if _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL:
 		door_contact_latched = false
 	_update_status("Capanga derrotado — a porta da masmorra foi liberada.")
@@ -749,6 +758,7 @@ func _damage_player(amount: int) -> bool:
 
 func _handle_player_defeat() -> void:
 	GameState.respawn_player()
+	SaveManager.save_active_slot()
 	player_anchor.position = _cell_to_world(PLAYER_START)
 	movement_path.clear()
 	path_index = 0

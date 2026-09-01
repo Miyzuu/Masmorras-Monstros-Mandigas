@@ -51,6 +51,7 @@ const LAPADA_BOSS_DAMAGE := RIFLE_DAMAGE * 3
 const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
+const TITLE_MENU_SCENE := "res://scenes/title_menu.tscn"
 const BOSS_ROOM_ID := "sala_04"
 
 const RIFLE_RECT := Rect2(416.0, 282.0, 136.0, 42.0)
@@ -208,6 +209,7 @@ func _setup_pause_menu() -> void:
 	pause_layer.add_child(pause_menu)
 	pause_menu.configure(boss_mode, Callable(self, "_can_open_pause_menu"))
 	pause_menu.dungeon_exit_requested.connect(_request_boss_exit_from_pause)
+	pause_menu.main_menu_requested.connect(_return_to_title_menu)
 	pause_menu.resumed.connect(_on_pause_menu_resumed)
 
 
@@ -218,6 +220,11 @@ func _can_open_pause_menu() -> bool:
 		and not boss_defeat_visible
 		and not boss_exit_visible
 	)
+
+
+func _return_to_title_menu() -> void:
+	if is_inside_tree():
+		get_tree().change_scene_to_file(TITLE_MENU_SCENE)
 
 
 func _request_boss_exit_from_pause() -> void:
@@ -997,6 +1004,7 @@ func _complete_encounter(attack_result: String) -> void:
 	encounter_transitioning = true
 	player_turn = false
 	GameState.complete_active_encounter()
+	SaveManager.save_active_slot()
 	notice = "%s Capanga derrotado — retornando à exploração." % attack_result
 
 	var fade_tween := create_tween()
@@ -1017,6 +1025,7 @@ func _complete_boss_encounter(attack_result: String) -> void:
 	failed_parry_turn_pending = false
 	GameState.set_player_hp(hero_hp)
 	var reward_granted := GameState.complete_dungeon()
+	SaveManager.save_active_slot(SaveManager.CHECKPOINT_COMPLETED)
 	victory_visible = true
 	notice = (
 		"%s Cabra-Cabriola derrotada — recompensa de %d ouros."
@@ -1045,6 +1054,7 @@ func _exit_after_boss_victory() -> void:
 		return
 	victory_visible = false
 	GameState.leave_dungeon(hero_hp, GameState.rifle_ammo, GameState.current_weapon)
+	SaveManager.save_active_slot()
 	_start_scene_transition(EXPLORATION_SCENE)
 
 
@@ -1054,6 +1064,7 @@ func _restart_dungeon_after_boss_defeat() -> void:
 	boss_defeat_visible = false
 	GameState.respawn_player()
 	GameState.reset_dungeon_progress()
+	SaveManager.save_active_slot()
 	_start_scene_transition(DUNGEON_SCENE)
 
 
@@ -1067,6 +1078,7 @@ func _exit_after_boss_defeat() -> void:
 		GameState.rifle_ammo,
 		GameState.current_weapon
 	)
+	SaveManager.save_active_slot()
 	_start_scene_transition(EXPLORATION_SCENE)
 
 
@@ -1075,6 +1087,7 @@ func _exit_boss_without_victory() -> void:
 		return
 	boss_exit_visible = false
 	GameState.leave_dungeon(hero_hp, GameState.rifle_ammo, GameState.current_weapon)
+	SaveManager.save_active_slot()
 	_start_scene_transition(EXPLORATION_SCENE)
 
 

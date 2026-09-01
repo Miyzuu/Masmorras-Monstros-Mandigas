@@ -1,5 +1,30 @@
 # Histórico de versões
 
+## V.0.3.2 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.2 — Menu inicial e saves locais`
+
+### Descrição
+
+- adiciona página inicial com Novo Jogo, Continuar, Configurações e Sair, com
+  marca da versão no canto inferior direito e tratamento próprio para Web;
+- implementa três slots locais com local, data brasileira, exclusão e
+  sobrescrita protegidas por confirmação explícita do número do slot;
+- serializa vida, pente, reserva, arma, ouro, cargas da Lapada, encontros
+  derrotados, progresso, sala e conclusão da masmorra a partir do `GameState`;
+- cria checkpoints em transições seguras e retoma Exploração, salas comuns ou
+  chefe sempre no início seguro da área, sem salvar posições intermediárias;
+- adiciona configurações globais e imediatas para Controles, volumes Geral,
+  Música e Efeitos, Tela Cheia e VSync, separadas dos três slots;
+- consome o clique ou a confirmação antes da troca de cena, evitando acesso ao
+  viewport já removido ao iniciar ou sobrescrever um jogo;
+- adiciona **Sair para o Menu Inicial** ao menu de pausa da exploração, salas e
+  chefe, com confirmação e preservação exclusiva do último checkpoint seguro;
+- valida parser, abertura da nova cena, os sete testes existentes e um
+  diagnóstico isolado de criação, leitura, conclusão e exclusão dos saves.
+
 ## V.0.3.1 — 2026-09-01
 
 ### Título do commit

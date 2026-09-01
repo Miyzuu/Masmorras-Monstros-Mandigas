@@ -32,6 +32,7 @@ const FADE_DURATION := 0.5
 const EXPLORATION_SCENE := "res://scenes/exploration.tscn"
 const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
 const BOSS_SCENE := "res://scenes/main.tscn"
+const TITLE_MENU_SCENE := "res://scenes/title_menu.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
@@ -361,10 +362,16 @@ func _setup_pause_menu() -> void:
 	pause_layer.add_child(pause_menu)
 	pause_menu.configure(true, Callable(self, "_can_open_pause_menu"))
 	pause_menu.dungeon_exit_requested.connect(_request_dungeon_exit.bind("Menu de pausa"))
+	pause_menu.main_menu_requested.connect(_return_to_title_menu)
 
 
 func _can_open_pause_menu() -> bool:
 	return not scene_transitioning and not exit_prompt_visible
+
+
+func _return_to_title_menu() -> void:
+	if is_inside_tree():
+		get_tree().change_scene_to_file(TITLE_MENU_SCENE)
 
 
 func _physics_process(delta: float) -> void:
@@ -585,6 +592,7 @@ func _advance_to_next_room() -> bool:
 	if not GameState.advance_dungeon_room():
 		_update_status("A próxima sala ainda não está disponível.")
 		return false
+	SaveManager.save_active_slot()
 
 	scene_transitioning = true
 	movement_path.clear()
@@ -631,6 +639,7 @@ func _cancel_dungeon_exit() -> void:
 
 func _prepare_dungeon_exit() -> void:
 	GameState.leave_dungeon(player_hp, rifle_ammo, current_weapon)
+	SaveManager.save_active_slot()
 
 
 func _confirm_dungeon_exit() -> void:
@@ -672,6 +681,7 @@ func _restore_exit_prompt_text() -> void:
 func _restart_dungeon_after_defeat() -> void:
 	GameState.respawn_player()
 	GameState.reset_dungeon_progress()
+	SaveManager.save_active_slot()
 	exit_prompt_visible = false
 	defeat_prompt_visible = false
 	exit_prompt.visible = false
@@ -936,6 +946,7 @@ func _defeat_capanga() -> void:
 	heavy_warning_active = false
 	heavy_warning_remaining = 0.0
 	GameState.mark_dungeon_room_cleared(dungeon_room_id)
+	SaveManager.save_active_slot()
 	astar.set_point_solid(BLOCKED_STAIRS_CELL, false)
 	stairs_contact_latched = false
 	_update_status("%s derrotado — o selo que bloqueava a escada foi quebrado." % _enemy_name())

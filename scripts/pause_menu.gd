@@ -2,11 +2,13 @@ class_name PauseMenu
 extends Control
 
 signal dungeon_exit_requested
+signal main_menu_requested
 signal resumed(paused_duration_usec: int)
 
 enum MenuScreen {
 	MAIN,
 	CONTROLS,
+	CONFIRM_MAIN_MENU,
 }
 
 const PANEL_SIZE := Vector2(600.0, 424.0)
@@ -108,16 +110,18 @@ func _sync_size() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		var escape_viewport := get_viewport()
+		if escape_viewport != null:
+			escape_viewport.set_input_as_handled()
 		if not menu_open:
 			if not open_menu():
 				return
-		elif current_screen == MenuScreen.CONTROLS:
+		elif current_screen == MenuScreen.CONTROLS or current_screen == MenuScreen.CONFIRM_MAIN_MENU:
 			current_screen = MenuScreen.MAIN
 			_play_ui_sound("click")
 			queue_redraw()
 		else:
 			close_menu()
-		get_viewport().set_input_as_handled()
 		return
 
 	if not menu_open:
@@ -130,23 +134,41 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton:
+		var click_viewport := get_viewport()
+		if click_viewport != null:
+			click_viewport.set_input_as_handled()
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_handle_click(event.position)
-		get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+		var confirms_main_menu: bool = (
+			current_screen == MenuScreen.CONFIRM_MAIN_MENU
+			and event.keycode == KEY_SPACE
+		)
+		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or confirms_main_menu:
+			var key_viewport := get_viewport()
+			if key_viewport != null:
+				key_viewport.set_input_as_handled()
 			if current_screen == MenuScreen.CONTROLS:
 				current_screen = MenuScreen.MAIN
 				_play_ui_sound("click")
 				queue_redraw()
+			elif current_screen == MenuScreen.CONFIRM_MAIN_MENU:
+				_confirm_main_menu()
 			else:
 				close_menu()
-		get_viewport().set_input_as_handled()
 
 
 func _handle_click(click_position: Vector2) -> void:
+	if current_screen == MenuScreen.CONFIRM_MAIN_MENU:
+		var confirmation_rects := _confirmation_button_rects()
+		if confirmation_rects["yes"].has_point(click_position):
+			_confirm_main_menu()
+		elif confirmation_rects["no"].has_point(click_position):
+			_cancel_main_menu_confirmation()
+		return
+
 	if current_screen == MenuScreen.CONTROLS:
 		if _back_button_rect().has_point(click_position):
 			current_screen = MenuScreen.MAIN
@@ -164,6 +186,27 @@ func _handle_click(click_position: Vector2) -> void:
 	elif dungeon_exit_available and button_rects["exit"].has_point(click_position):
 		close_menu()
 		dungeon_exit_requested.emit()
+	elif button_rects["main_menu"].has_point(click_position):
+		current_screen = MenuScreen.CONFIRM_MAIN_MENU
+		_play_ui_sound("click")
+		queue_redraw()
+
+
+func _confirm_main_menu() -> void:
+	if not menu_open:
+		return
+	menu_open = false
+	current_screen = MenuScreen.MAIN
+	visible = false
+	get_tree().paused = tree_was_paused
+	_play_ui_sound("click")
+	main_menu_requested.emit()
+
+
+func _cancel_main_menu_confirmation() -> void:
+	current_screen = MenuScreen.MAIN
+	_play_ui_sound("click")
+	queue_redraw()
 
 
 func _draw() -> void:
@@ -173,10 +216,13 @@ func _draw() -> void:
 	var panel_rect := _panel_rect()
 	draw_rect(panel_rect, COLOR_PANEL, true)
 	draw_rect(panel_rect, COLOR_BORDER, false, 3.0)
-	if current_screen == MenuScreen.CONTROLS:
-		_draw_controls_screen(panel_rect)
-	else:
-		_draw_main_screen(panel_rect)
+	match current_screen:
+		MenuScreen.CONTROLS:
+			_draw_controls_screen(panel_rect)
+		MenuScreen.CONFIRM_MAIN_MENU:
+			_draw_main_menu_confirmation(panel_rect)
+		_:
+			_draw_main_screen(panel_rect)
 
 
 func _draw_main_screen(panel_rect: Rect2) -> void:
@@ -205,6 +251,7 @@ func _draw_main_screen(panel_rect: Rect2) -> void:
 	_draw_button(button_rects["settings"], "CONFIGURAÇÕES")
 	if dungeon_exit_available:
 		_draw_button(button_rects["exit"], "SAIR DA MASMORRA", true)
+	_draw_button(button_rects["main_menu"], "SAIR PARA O MENU INICIAL", true)
 
 	draw_string(
 		font,
@@ -215,6 +262,40 @@ func _draw_main_screen(panel_rect: Rect2) -> void:
 		13,
 		COLOR_TEXT_DIM
 	)
+
+
+func _draw_main_menu_confirmation(panel_rect: Rect2) -> void:
+	var font := ThemeDB.fallback_font
+	draw_string(
+		font,
+		Vector2(panel_rect.position.x, panel_rect.position.y + 92.0),
+		"VOLTAR AO MENU INICIAL?",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel_rect.size.x,
+		27,
+		COLOR_TEXT
+	)
+	draw_string(
+		font,
+		Vector2(panel_rect.position.x, panel_rect.position.y + 142.0),
+		"O jogo retomará do último checkpoint seguro.",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel_rect.size.x,
+		15,
+		COLOR_TEXT_DIM
+	)
+	draw_string(
+		font,
+		Vector2(panel_rect.position.x, panel_rect.position.y + 172.0),
+		"O progresso desde esse ponto não será salvo.",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel_rect.size.x,
+		14,
+		COLOR_TEXT_DIM
+	)
+	var confirmation_rects := _confirmation_button_rects()
+	_draw_button(confirmation_rects["yes"], "SIM  [ENTER]", true)
+	_draw_button(confirmation_rects["no"], "NÃO  [ESC]")
 
 
 func _draw_controls_screen(panel_rect: Rect2) -> void:
@@ -295,14 +376,23 @@ func _main_button_rects() -> Dictionary:
 	var button_x := (size.x - BUTTON_SIZE.x) * 0.5
 	if dungeon_exit_available:
 		return {
-			"continue": Rect2(Vector2(button_x, 166.0), BUTTON_SIZE),
-			"settings": Rect2(Vector2(button_x, 230.0), BUTTON_SIZE),
-			"exit": Rect2(Vector2(button_x, 294.0), BUTTON_SIZE),
+			"continue": Rect2(Vector2(button_x, 154.0), BUTTON_SIZE),
+			"settings": Rect2(Vector2(button_x, 210.0), BUTTON_SIZE),
+			"exit": Rect2(Vector2(button_x, 266.0), BUTTON_SIZE),
+			"main_menu": Rect2(Vector2(button_x, 322.0), BUTTON_SIZE),
 		}
 	return {
-		"continue": Rect2(Vector2(button_x, 198.0), BUTTON_SIZE),
-		"settings": Rect2(Vector2(button_x, 262.0), BUTTON_SIZE),
+		"continue": Rect2(Vector2(button_x, 182.0), BUTTON_SIZE),
+		"settings": Rect2(Vector2(button_x, 244.0), BUTTON_SIZE),
 		"exit": Rect2(),
+		"main_menu": Rect2(Vector2(button_x, 306.0), BUTTON_SIZE),
+	}
+
+
+func _confirmation_button_rects() -> Dictionary:
+	return {
+		"yes": Rect2(Vector2((size.x - 456.0) * 0.5, 286.0), Vector2(220.0, 52.0)),
+		"no": Rect2(Vector2((size.x - 456.0) * 0.5 + 236.0, 286.0), Vector2(220.0, 52.0)),
 	}
 
 
