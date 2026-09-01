@@ -1,5 +1,23 @@
 # Histórico de versões
 
+## V.0.3.3 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.3 — Pipeline de exportação Web`
+
+### Descrição
+
+- versiona o preset de exportação Web 4.7.2 com execução sem threads e canvas
+  adaptável, mantendo o pacote compatível com hospedagem estática simples;
+- mantém `build/` fora do Git e exclui testes, ferramentas e materiais de arte
+  usados apenas como fonte ou QA do pacote distribuído;
+- valida a exportação release pelo terminal e o carregamento real no navegador,
+  sem erros no console;
+- confirma no build Web o menu inicial, Novo Jogo, pausa, retorno ao título,
+  persistência do slot após recarregar a página e retomada por Continuar;
+- preserva toda a jogabilidade e conclui os sete testes automatizados existentes.
+
 ## V.0.3.2 — 2026-09-01
 
 ### Título do commit

@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.2`
+**Versão atual:** `V.0.3.3`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -132,6 +132,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   vitória e derrota, sempre retomando de um início seguro da área;
 - configurações globais separadas dos slots, com Controles, volumes Geral,
   Música e Efeitos, Tela Cheia e VSync;
+- exportação Web 4.7.2 reproduzível pelo preset `Web`, sem threads e com canvas
+  adaptável ao navegador; o diretório local `build/` não é versionado;
 - atlas Sudeste de 640×256 com linhas próprias para Rifle, Capanga, Peixeira e
   Cabra-Cabriola;
 - troca visual imediata entre Rifle e Peixeira, preservando o quadro da animação;
@@ -143,15 +145,23 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o menu e o salvamento local implementados na `V.0.3.2`, o próximo passo
-recomendado é validar manualmente os três slots e o retorno de cada checkpoint
-antes de ampliar conteúdo ou criação de personagem.
+Com a exportação Web validada na `V.0.3.3`, o próximo passo recomendado é
+publicar uma versão de teste em hospedagem estática antes de ampliar conteúdo
+ou criação de personagem.
 
 ## Como executar
 
 1. Abra o Godot 4.
 2. Importe o arquivo `project.godot` desta pasta.
 3. Execute o projeto com **F5** para testar o fluxo completo.
+
+## Como gerar e testar a versão Web
+
+1. Instale no Godot os modelos de exportação da mesma versão do editor.
+2. Execute `Godot_v4.7.2-stable_win64_console.exe --headless --path . --export-release Web build/web/index.html`.
+3. Sirva a pasta com `py -m http.server 8765 --directory build/web`.
+4. Abra `http://127.0.0.1:8765/index.html`; o build Web não deve ser aberto
+   diretamente pelo sistema de arquivos.
 
 ## Controles
 

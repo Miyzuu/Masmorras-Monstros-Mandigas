@@ -4,7 +4,9 @@
 # Compatibilidade com projetos Godot antigos
 .import/
 export.cfg
-export_presets.cfg
+
+# Builds locais gerados pelos presets versionados
+build/
 
 # Traduções importadas
 *.translation
