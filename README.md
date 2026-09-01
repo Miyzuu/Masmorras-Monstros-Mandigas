@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.3`
+**Versão atual:** `V.0.3.4`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -134,6 +134,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   Música e Efeitos, Tela Cheia e VSync;
 - exportação Web 4.7.2 reproduzível pelo preset `Web`, sem threads e com canvas
   adaptável ao navegador; o diretório local `build/` não é versionado;
+- workflow oficial do GitHub Pages que executa os testes, exporta o Web e
+  publica `build/web` a cada atualização da branch `main`;
 - atlas Sudeste de 640×256 com linhas próprias para Rifle, Capanga, Peixeira e
   Cabra-Cabriola;
 - troca visual imediata entre Rifle e Peixeira, preservando o quadro da animação;
@@ -145,9 +147,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com a exportação Web validada na `V.0.3.3`, o próximo passo recomendado é
-publicar uma versão de teste em hospedagem estática antes de ampliar conteúdo
-ou criação de personagem.
+Com o workflow de publicação preparado na `V.0.3.4`, o próximo passo recomendado
+é abrir a URL pública e validar o jogo em uma segunda rede/dispositivo.
 
 ## Como executar
 

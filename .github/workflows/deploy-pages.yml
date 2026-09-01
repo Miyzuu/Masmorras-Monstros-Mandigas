@@ -1,0 +1,80 @@
+name: Publicar Web no GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v6
+
+      - name: Instalar Godot 4.7.2 e modelos Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_version="4.7.2"
+          godot_zip="Godot_v${godot_version}-stable_linux.x86_64.zip"
+          templates_file="Godot_v${godot_version}-stable_export_templates.tpz"
+          curl --fail --location --retry 3 \
+            --output "${godot_zip}" \
+            "https://github.com/godotengine/godot/releases/download/${godot_version}-stable/${godot_zip}"
+          curl --fail --location --retry 3 \
+            --output "${templates_file}" \
+            "https://github.com/godotengine/godot/releases/download/${godot_version}-stable/${templates_file}"
+          unzip -q "${godot_zip}"
+          unzip -q "${templates_file}" -d godot_templates
+          template_dir="${HOME}/.local/share/godot/export_templates/${godot_version}.stable"
+          mkdir -p "${template_dir}"
+          cp -R godot_templates/templates/. "${template_dir}/"
+          chmod +x "Godot_v${godot_version}-stable_linux.x86_64"
+          echo "GODOT_BIN=${GITHUB_WORKSPACE}/Godot_v${godot_version}-stable_linux.x86_64" >> "${GITHUB_ENV}"
+
+      - name: Executar testes automatizados
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/test_*.gd; do
+            "${GODOT_BIN}" --headless --path . -s "${test_file}"
+          done
+
+      - name: Exportar Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/web
+          "${GODOT_BIN}" --headless --path . --export-release Web build/web/index.html
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar artefato do Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

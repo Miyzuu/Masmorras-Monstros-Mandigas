@@ -1,5 +1,20 @@
 # Histórico de versões
 
+## V.0.3.4 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.4 — Publicação Web no GitHub Pages`
+
+### Descrição
+
+- adiciona workflow oficial com `checkout`, `configure-pages`,
+  `upload-pages-artifact` e `deploy-pages`;
+- instala o Godot 4.7.2 e os modelos oficiais no runner, executa os sete
+  testes, exporta o preset Web sem threads e publica apenas `build/web`;
+- mantém o build gerado fora do repositório e dispara a publicação em pushes na
+  `main` ou manualmente pela aba Actions.
+
 ## V.0.3.3 — 2026-09-01
 
 ### Título do commit
