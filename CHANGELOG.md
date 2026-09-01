@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## V.0.3.0 — 2026-08-31
+
+### Título do commit
+
+`V.0.3.0 — Nome oficial 3M`
+
+### Descrição
+
+- define **3M: Monstros Masmorras & Mandingas** como nome oficial do jogo;
+- atualiza o título da janela, cabeçalhos do combate, menu de pausa, README e
+  GDD sem renomear cenas, scripts, pastas ou outros identificadores internos;
+- preserva integralmente jogabilidade, interface funcional, estados e regras;
+- valida o carregamento do Godot e os sete testes automatizados existentes.
+
 ## V.0.2.9 — 2026-08-31
 
 ### Título do commit

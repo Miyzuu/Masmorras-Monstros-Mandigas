@@ -193,7 +193,7 @@ func _draw_main_screen(panel_rect: Rect2) -> void:
 	draw_string(
 		font,
 		Vector2(panel_rect.position.x, panel_rect.position.y + 94.0),
-		"Monstros, Masmorras e Mandingas",
+		"3M: Monstros Masmorras & Mandingas",
 		HORIZONTAL_ALIGNMENT_CENTER,
 		panel_rect.size.x,
 		14,

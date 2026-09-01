@@ -1,4 +1,4 @@
-# Pindorama Fantástica — GDD do MVP
+# 3M: Monstros Masmorras & Mandingas — GDD do MVP
 
 **Status:** escopo revisado; implementação dividida em versões pequenas
 

@@ -1,9 +1,9 @@
-# Monstros, Masmorras e Mandingas
+# 3M: Monstros Masmorras & Mandingas
 
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.2.9`
+**Versão atual:** `V.0.3.0`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -127,9 +127,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o menu de pausa concluído na `V.0.2.9`, o próximo passo recomendado é um
-playtest visual da exploração, masmorra e chefe para confirmar legibilidade,
-navegação e retorno correto ao combate.
+Com o nome oficial aplicado na `V.0.3.0`, o próximo passo recomendado é retomar
+a definição do salvamento persistente local antes de iniciar sua implementação.
 
 ## Como executar
 

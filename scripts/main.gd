@@ -1189,7 +1189,7 @@ func _draw_boss_header() -> void:
 	draw_string(
 		font,
 		Vector2(32.0, 42.0),
-		"MONSTROS, MASMORRAS E MANDINGAS",
+		"3M: MONSTROS MASMORRAS & MANDINGAS",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,
@@ -1544,7 +1544,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(32.0, 42.0),
-		"MONSTROS, MASMORRAS E MANDINGAS",
+		"3M: MONSTROS MASMORRAS & MANDINGAS",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,

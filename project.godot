@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Monstros, Masmorras e Mandingas — Protótipo"
-config/version="V.0.2.9"
+config/name="3M: Monstros Masmorras & Mandingas"
+config/version="V.0.3.0"
 run/main_scene="res://scenes/exploration.tscn"
 config/features=PackedStringArray("4.7")
 
