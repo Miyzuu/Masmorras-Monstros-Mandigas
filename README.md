@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.5`
+**Versão atual:** `V.0.3.6`
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -28,10 +28,29 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - Cangaceiro com 100 HP e Capanga com 150 HP;
 - barra de vida do herói no rodapé e barra inimiga acima do alvo;
 - HUD compartilhada entre exploração e masmorra, centralizada no rodapé;
+- HUD superior minimalista com ouro atual no canto esquerdo e demonstrativos
+  `06:00`, clima `Seco` e região `Sertão`, sem sistema de tempo/clima nesta etapa;
+- avisos temporários de combate no canto superior direito e notificações de
+  espólio organizadas logo abaixo, sem caixas permanentes de dicas;
 - barras Fill numéricas de Vida e Mana, com a Mana ainda apenas visual;
 - hotbar de habilidades com Q para arma, E para Lapada e R para recarga;
-- quatro slots visuais de armadura no canto inferior esquerdo, na ordem cabeça,
-  busto, pernas e pés;
+- quatro slots funcionais de armadura no canto inferior esquerdo, na ordem
+  cabeça, busto, pernas e pés;
+- inventário pausável com 12 slots em grade 4×3, aberto por **I** e fechado por
+  **I/Esc**, com equipamento e consumo por clique;
+- espólios automáticos com 10 moedas garantidas por inimigo comum, além de
+  rolagens independentes de 30% para Poção de Vida e 20% para armadura;
+- autoequipamento em slot vazio ou ao encontrar Defesa superior; itens que não
+  couberem permanecem no chão e desaparecem após 120 segundos;
+- Poção de Vida empilhada até 5 por slot, usada por clique ou **F**, curando 30%
+  da vida máxima sem ser consumida quando a vida já estiver cheia;
+- slot de Poção de Vida ao lado da pilha de armaduras, com ícone, atalho **F**,
+  quantidade total `×N` e aparência escurecida quando estiver vazio;
+- cada armadura concedendo 2 de Defesa e 1 ponto fixo: cabeça/Pontaria,
+  busto/Vigor, pernas/Força e pés/Velocidade;
+- cada ponto de Defesa reduzindo 2% do dano; Pontaria e Força adicionando 5 ao
+  dano correspondente, Vigor adicionando 10 à vida máxima e Pontaria também
+  somando 5 pontos percentuais ao crítico, limitado a 50%;
 - ataques automáticos enquanto o personagem continua andando;
 - troca entre Rifle e Peixeira com **Q** e intervalo de 0,5 segundo;
 - Rifle com pente de 5 balas, reserva inicial de 10, alcance 5 tiles, dano 25 e
@@ -103,14 +122,19 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   **APERTE [ESPAÇO] PARA APARAR**, contagem regressiva e barra de tempo;
 - aparo bem-sucedido anulando a investida e aparo fora da janela causando stun
   de 0,7 segundo e perda da próxima ação, com uma tentativa por golpe;
-- Rifle, Peixeira, munição, recarga tática e Lapada Seca de 75 de dano integrados
-  ao combate do chefe;
+- Rifle, Peixeira, munição, recarga tática e Lapada Seca de 75 de dano-base,
+  ampliada por Pontaria, integrados ao combate do chefe;
 - interface da batalha 1×1 separando arena, recursos, mensagens e ações, com
   botões indisponíveis visualmente desativados;
 - danos com números animados, crítico vermelho destacado, efeito mágico da
   Lapada, flashes de impacto, borda vermelha ao receber dano e **HÁ!** no aparo;
 - tela de vitória com ouro total e saída para o mapa externo; primeira conclusão
   concedendo 250 de ouro sem duplicar a recompensa ao repetir a masmorra;
+- Cabra-Cabriola entregando uma Poção de Vida e uma armadura de pernas
+  garantidas, além do ouro único da primeira conclusão;
+- ação **Poção de Vida [F]** no combate da Cabra-Cabriola, curando 30% da vida
+  máxima uma vez por turno sem encerrá-lo; sem item ou com vida cheia, nenhuma
+  poção é consumida;
 - animação de espera com 4 quadros a 4 FPS e caminhada articulada com 6 quadros a 10 FPS;
 - caminhada com contato, apoio e passagem alternados, mantendo o pé plantado estável;
 - troca imediata entre espera e caminhada conforme o deslocamento real;
@@ -147,8 +171,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Com o workflow de publicação corrigido na `V.0.3.5`, o próximo passo recomendado
-é abrir a URL pública e validar o jogo em uma segunda rede/dispositivo.
+Após validar a `V.0.3.6` no navegador, o próximo passo recomendado é criar a
+primeira variedade real de armadura, permitindo comparar peças melhores sem
+alterar a estrutura do inventário.
 
 ## Como executar
 
@@ -173,6 +198,8 @@ Com o workflow de publicação corrigido na `V.0.3.5`, o próximo passo recomend
 - **Q:** alternar entre Rifle e Peixeira.
 - **E:** disparar instantaneamente a Lapada Seca quando as 3 cargas estiverem prontas.
 - **R:** recarregar manualmente o Rifle usando as balas da reserva.
+- **I:** abrir ou fechar o inventário.
+- **F:** usar uma Poção de Vida; contra o chefe, uma vez por turno sem encerrá-lo.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
 - **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
 - **Esc:** abrir/fechar a pausa ou voltar da tela de Controles; em caixas de

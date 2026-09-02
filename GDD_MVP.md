@@ -118,7 +118,8 @@ máximo de 4 em cada atributo durante a criação.
 - Cada ação válida encerra o turno; ações sem recurso ou condição permanecem no
   menu sem gastar o turno.
 - **Q** alterna Rifle e Peixeira; **Enter** confirma o ataque selecionado;
-  **E** usa a Lapada Seca e **R** transfere balas da reserva para o pente.
+  **E** usa a Lapada Seca, **R** transfere balas da reserva para o pente e
+  **F** usa uma Poção de Vida disponível.
 - A reação por Espaço acontece em tempo real somente durante o turno inimigo.
 - A preparação da Investida apenas anuncia o perigo; durante a janela ativa a
   arena mostra **APERTE [ESPAÇO] PARA APARAR**, contagem e barra de tempo.
@@ -171,6 +172,14 @@ máximo de 4 em cada atributo durante a criação.
 - Buffs e efeitos provenientes de itens, feitiços, magias ou poções ficam fora
   do MVP.
 
+### Poção de Vida contra chefes
+
+- A ação aparece no menu da batalha 1×1 e também responde à tecla **F**.
+- Cura 30% da vida máxima e consome uma Poção de Vida do inventário.
+- Pode ser usada uma vez em cada turno do Cangaceiro e não encerra sua ação;
+  após a cura, o jogador ainda escolhe ataque, Lapada ou Recarga.
+- Sem poção ou com a vida cheia, a ação é recusada sem consumir item ou turno.
+
 ## 7. Inimigos comuns
 
 Os inimigos comuns são enfrentados em tempo real e diferem por atributos,
@@ -194,9 +203,9 @@ ataque básico e comportamento.
 - Ao retornar de outra cena ao mapa externo, mobs comuns derrotados reaparecem
   nas posições iniciais, com vida cheia e patrulha normal. A visão geral com
   **M** não aciona esse renascimento.
-- Derrotar novamente um mob renascido não repete ouro, pontuação nem progresso.
-  As salas concluídas da masmorra permanecem limpas enquanto a sessão interna
-  estiver ativa.
+- Derrotar novamente um mob renascido repete sua tabela comum de espólios, mas
+  não duplica progresso nem a recompensa única do chefe. As salas concluídas
+  da masmorra permanecem limpas enquanto a sessão interna estiver ativa.
 
 ### Aparo contra mobs
 
@@ -222,6 +231,8 @@ ataque básico e comportamento.
 - A Lapada Seca causa 75 de dano, consome 1 bala e zera as 3 cargas.
 - A primeira vitória da sessão concede 250 de ouro. Repetir a masmorra mantém o
   registro da conclusão e não duplica essa recompensa.
+- Cada vitória contra a Cabra-Cabriola entrega uma Poção de Vida e uma armadura
+  de pernas; o autoequipamento e o limite do inventário continuam valendo.
 - A tela final mostra a vitória e o ouro total; sair preserva vida e munição e
   devolve o herói ao mapa externo.
 
@@ -238,8 +249,8 @@ ataque básico e comportamento.
 - A saída voluntária preserva vida, pente e reserva atuais, sem cura ou recarga.
 - A derrota remove 25% do ouro acumulado, representando o saque sofrido.
 - Há checkpoint automático entre os encontros.
-- O checkpoint guarda personagem, vida, pente, reserva, ouro e carga acumulada
-  da Lapada Seca.
+- O checkpoint guarda personagem, vida, pente, reserva, ouro, carga acumulada
+  da Lapada Seca, inventário e equipamentos.
 
 ## 10. Ouro e pontuação
 
@@ -248,7 +259,27 @@ ataque básico e comportamento.
 - O ouro não pode ser gasto no MVP.
 - O total restante ao concluir a caçada é a pontuação final.
 
-## 11. Direção visual
+## 11. Espólios, inventário e equipamentos
+
+- Cada inimigo comum concede 10 moedas e realiza rolagens independentes de 30%
+  para Poção de Vida e 20% para sua armadura: Capanga/busto, Lobo-guará/pés e
+  Rasga-Mortalha/cabeça.
+- A coleta é automática. Armadura equipa sozinha quando o slot está vazio ou
+  quando possui Defesa superior; a peça substituída retorna ao inventário.
+- O inventário possui 12 slots em grade 4×3. **I** abre e pausa o jogo; **I** ou
+  **Esc** fecha; clicar equipa, desequipa ou consome o item.
+- Poções empilham até 5 por slot. Clique ou **F** cura 30% da vida máxima, sem
+  consumo quando a vida já está cheia.
+- Um item sem espaço permanece visível no chão por 120 segundos e volta a tentar
+  a coleta quando o jogador libera espaço.
+- Cada armadura concede 2 de Defesa e 1 ponto do atributo fixo do slot:
+  cabeça/Pontaria, busto/Vigor, pernas/Força e pés/Velocidade.
+- Cada ponto de Defesa reduz 2% do dano, com dano mínimo 1. Cada ponto acima de
+  1 concede: Pontaria +5 no Rifle e +5 pontos percentuais de crítico até 50%;
+  Força +5 na Peixeira; Vigor +10 de vida máxima; Velocidade mantém a iniciativa
+  do Cangaceiro contra chefes e não altera o deslocamento.
+
+## 12. Direção visual
 
 - Pixel art isométrica 2D na exploração.
 - Pixel art em visão 2D lateral na batalha 1×1 do chefe.
@@ -265,8 +296,17 @@ ataque básico e comportamento.
 - A barra de habilidades possui slots **Q**, **E** e **R**: troca de arma,
   Lapada Seca e recarga. O slot R mostra o tempo e o progresso da recarga; o
   aparo continua no Espaço.
-- Quatro slots visuais de armadura ficam no canto inferior esquerdo, em pilha:
-  cabeça, busto, pernas e pés. Eles não equipam itens nem alteram atributos.
+- Quatro slots funcionais de armadura ficam no canto inferior esquerdo, em pilha:
+  cabeça, busto, pernas e pés; o estado equipado é refletido na HUD.
+- Ao lado da pilha, um slot de Poção de Vida mostra o atalho **F** e a quantidade
+  total `×N`, ficando escurecido quando não houver poções.
+- No canto superior esquerdo, uma HUD minimalista mostra o ouro atual e os
+  demonstrativos `06:00`, clima `Seco` e região `Sertão`; tempo e clima ainda
+  não avançam nem alteram a jogabilidade.
+- O canto superior direito recebe avisos temporários de combate, com as
+  notificações de espólio empilhadas logo abaixo.
+- O inventário e seus ícones provisórios são desenhados pelo código com a paleta
+  terrosa existente, sem copiar recursos de outros jogos.
 - A batalha 1×1 separa arena, recursos, mensagens e ações, desativando
   visualmente escolhas indisponíveis.
 - Dano normal, crítico, Lapada Seca, dano recebido e aparo possuem retornos
@@ -274,25 +314,25 @@ ataque básico e comportamento.
 - **Esc** abre o menu de pausa com Continuar e Configurações; dentro da
   masmorra também exibe Sair da Masmorra.
 - Configurações apresenta todos os controles ativos e permite voltar à pausa.
-- As caixas fixas de atalhos ficam ocultas; permanecem apenas HUD, estado da
-  sala e avisos essenciais de combate.
+- As caixas fixas de título, estado e atalhos ficam ocultas nos mapas em tempo
+  real; permanecem apenas as HUDs e os avisos essenciais de combate e espólio.
 
-## 12. Fora do MVP
+## 13. Fora do MVP
 
 - Outras classes, regiões e campanhas.
 - Mapa-múndi, exploração livre, navegação e embarcações.
-- Lojas, equipamentos, inventário e economia de compra.
+- Lojas, economia de compra e fabricação de equipamentos.
 - Buffs de itens, feitiços, magias ou poções.
 - Habilidades especiais para inimigos comuns.
 - Sistema completo de diálogos.
 - Versões para celular, PWA e Windows.
 
-## 13. Pontos ainda não balanceados
+## 14. Pontos ainda não balanceados
 
 Estes itens não alteram o escopo, mas precisam ser decididos antes ou durante o
 protótipo:
 
-- Fórmulas exatas dos cinco atributos e sua relação com os valores-base atuais.
+- Variedades futuras de armadura e comparação entre peças além do modelo-base.
 - Atributos, movimento, alcance e dano de inimigos futuros.
 - Quantidades de ouro, bônus e regra de arredondamento da perda de 25%.
 - Textos narrativos, nome da vila e título definitivo do jogo.

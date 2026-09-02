@@ -2,6 +2,8 @@ extends Node2D
 
 const GridRulesScript = preload("res://scripts/grid_rules.gd")
 const PauseMenuScript = preload("res://scripts/pause_menu.gd")
+const InventoryUIScript = preload("res://scripts/inventory_ui.gd")
+const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
 
 enum AttackType {
 	NONE,
@@ -67,10 +69,11 @@ const OVERLAY_SECONDARY_RECT := Rect2(392.0, 320.0, 152.0, 44.0)
 const OVERLAY_RESTART_RECT := Rect2(224.0, 320.0, 152.0, 44.0)
 const BOSS_BATTLE_RECT := Rect2(32.0, 92.0, 704.0, 238.0)
 const BOSS_MESSAGE_RECT := Rect2(32.0, 346.0, 384.0, 134.0)
-const BOSS_RIFLE_RECT := Rect2(432.0, 346.0, 144.0, 60.0)
-const BOSS_KNIFE_RECT := Rect2(592.0, 346.0, 144.0, 60.0)
-const BOSS_LAPADA_RECT := Rect2(432.0, 420.0, 144.0, 60.0)
-const BOSS_RELOAD_RECT := Rect2(592.0, 420.0, 144.0, 60.0)
+const BOSS_RIFLE_RECT := Rect2(432.0, 346.0, 144.0, 38.0)
+const BOSS_KNIFE_RECT := Rect2(592.0, 346.0, 144.0, 38.0)
+const BOSS_LAPADA_RECT := Rect2(432.0, 394.0, 144.0, 38.0)
+const BOSS_RELOAD_RECT := Rect2(592.0, 394.0, 144.0, 38.0)
+const BOSS_POTION_RECT := Rect2(432.0, 442.0, 304.0, 38.0)
 
 const COLOR_BACKGROUND := Color("17120d")
 const COLOR_PANEL := Color("281d14")
@@ -104,6 +107,7 @@ const COLOR_WARNING := Color("ed3128")
 const COLOR_NORMAL_DAMAGE := Color("f2dfbd")
 const COLOR_CRITICAL_DAMAGE := Color("ef3f35")
 const COLOR_PLAYER_DAMAGE := Color("ff725c")
+const COLOR_HEAL := Color("44d6b3")
 const COLOR_PARRY := Color("f7fbff")
 const COLOR_TELEGRAPH := Color("e3a94f")
 const COLOR_DISABLED_BUTTON := Color("3d3026")
@@ -159,6 +163,7 @@ var boss_pending_charge := false
 var pending_player_result := ""
 var failed_parry_stun_remaining := 0.0
 var failed_parry_turn_pending := false
+var boss_potion_used_this_turn := false
 var victory_visible := false
 var boss_defeat_visible := false
 var boss_exit_visible := false
@@ -170,6 +175,8 @@ var boss_impact_remaining := 0.0
 var boss_impact_position := Vector2.ZERO
 var boss_impact_color := Color.WHITE
 var pause_menu
+var inventory_ui: InventoryUI
+var boss_ground_drops: Array[Dictionary] = []
 
 @onready var fade: ColorRect = $FadeLayer/Fade
 
@@ -191,6 +198,7 @@ func _ready() -> void:
 		)
 		notice = "Escolha uma ação. A Cabra-Cabriola aguarda."
 	_setup_pause_menu()
+	_setup_inventory_ui()
 	fade.modulate.a = 1.0
 	var fade_tween := create_tween()
 	fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
@@ -213,13 +221,47 @@ func _setup_pause_menu() -> void:
 	pause_menu.resumed.connect(_on_pause_menu_resumed)
 
 
+func _setup_inventory_ui() -> void:
+	var inventory_layer := CanvasLayer.new()
+	inventory_layer.name = "InventoryLayer"
+	inventory_layer.layer = 210
+	add_child(inventory_layer)
+	inventory_ui = InventoryUIScript.new()
+	inventory_ui.name = "InventoryUI"
+	inventory_layer.add_child(inventory_ui)
+	inventory_ui.configure(Callable(self, "_can_open_inventory"), boss_mode)
+	inventory_ui.inventory_changed.connect(_on_inventory_action)
+	inventory_ui.health_potion_requested.connect(_attempt_health_potion_boss)
+	inventory_ui.resumed.connect(_on_pause_menu_resumed)
+
+
 func _can_open_pause_menu() -> bool:
 	return (
 		not encounter_transitioning
 		and not victory_visible
 		and not boss_defeat_visible
 		and not boss_exit_visible
+		and (inventory_ui == null or not inventory_ui.is_inventory_open())
 	)
+
+
+func _can_open_inventory() -> bool:
+	return (
+		boss_mode
+		and not encounter_transitioning
+		and not boss_defeat_visible
+		and not boss_exit_visible
+		and (pause_menu == null or not pause_menu.is_menu_open())
+	)
+
+
+func _on_inventory_action(_message: String) -> void:
+	hero_hp = GameState.player_hp
+	_retry_boss_ground_drops()
+	SaveManager.save_active_slot(
+		SaveManager.CHECKPOINT_COMPLETED if victory_visible else SaveManager.CHECKPOINT_DUNGEON
+	)
+	queue_redraw()
 
 
 func _return_to_title_menu() -> void:
@@ -249,6 +291,7 @@ func _process(delta: float) -> void:
 	if not boss_mode:
 		return
 	_advance_boss_visual_effects(delta)
+	_advance_boss_ground_drops(delta)
 	if encounter_transitioning:
 		return
 	var now_usec := Time.get_ticks_usec()
@@ -524,6 +567,8 @@ func _handle_boss_input(event: InputEvent) -> void:
 			_attempt_lapada_boss()
 		elif BOSS_RELOAD_RECT.has_point(event.position):
 			_attempt_reload()
+		elif BOSS_POTION_RECT.has_point(event.position):
+			_attempt_health_potion_boss()
 		queue_redraw()
 		return
 
@@ -534,6 +579,8 @@ func _handle_boss_input(event: InputEvent) -> void:
 			_attempt_lapada_boss()
 		elif event.keycode == KEY_R:
 			_attempt_reload()
+		elif event.keycode == KEY_F:
+			_attempt_health_potion_boss()
 		elif event.keycode == KEY_SPACE:
 			_attempt_failed_parry()
 		elif event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
@@ -594,6 +641,49 @@ func _attempt_reload() -> bool:
 	return true
 
 
+func _attempt_health_potion_boss() -> bool:
+	if not boss_mode or encounter_transitioning or capanga_hp <= 0:
+		return false
+	if not player_turn or boss_phase != BossPhase.PLAYER_CHOICE:
+		notice = "A Poção de Vida só pode ser usada no turno do Cangaceiro."
+		queue_redraw()
+		return false
+	if boss_potion_used_this_turn:
+		notice = "Limite de uma Poção de Vida por turno — escolha outra ação."
+		inventory_ui.show_notification(notice, GameState.ITEM_HEALTH_POTION)
+		queue_redraw()
+		return false
+
+	var potion_result := GameState.use_health_potion()
+	if not bool(potion_result.get("success", false)):
+		match str(potion_result.get("reason", "")):
+			"full_health":
+				notice = "Vida cheia — a Poção não foi consumida e o turno continua."
+			"empty":
+				notice = "Nenhuma Poção de Vida disponível — o turno continua."
+			_:
+				notice = "Não foi possível usar a Poção — o turno continua."
+		inventory_ui.show_notification(notice, GameState.ITEM_HEALTH_POTION)
+		queue_redraw()
+		return false
+
+	var healed := int(potion_result.get("healed", 0))
+	hero_hp = GameState.player_hp
+	boss_potion_used_this_turn = true
+	_retry_boss_ground_drops()
+	inventory_ui.show_notification(
+		"Poção usada: +%d Vida" % healed,
+		GameState.ITEM_HEALTH_POTION
+	)
+	if inventory_ui.is_inventory_open():
+		inventory_ui.close_inventory()
+	_spawn_boss_popup("+%d VIDA" % healed, Vector2(136.0, 194.0), COLOR_HEAL, 22, true)
+	SaveManager.save_active_slot(SaveManager.CHECKPOINT_DUNGEON)
+	notice = "Poção de Vida: +%d HP. Você ainda pode agir neste turno." % healed
+	queue_redraw()
+	return true
+
+
 func _attempt_lapada_boss() -> bool:
 	if (
 		not boss_mode
@@ -615,9 +705,10 @@ func _attempt_lapada_boss() -> bool:
 		return false
 	boss_phase = BossPhase.PLAYER_ACTION
 	GameState.set_rifle_ammo(GameState.rifle_ammo - 1)
-	capanga_hp = maxi(0, capanga_hp - LAPADA_BOSS_DAMAGE)
-	_show_boss_enemy_damage(LAPADA_BOSS_DAMAGE, true, true)
-	var result := "LAPADA SECA: %d de dano." % LAPADA_BOSS_DAMAGE
+	var lapada_damage := GameState.get_rifle_damage(RIFLE_DAMAGE) * 3
+	capanga_hp = maxi(0, capanga_hp - lapada_damage)
+	_show_boss_enemy_damage(lapada_damage, true, true)
+	var result := "LAPADA SECA: %d de dano." % lapada_damage
 	if capanga_hp <= 0:
 		_complete_encounter(result)
 	else:
@@ -674,7 +765,7 @@ func _attempt_boss_attack(
 	):
 		return false
 	if attack_type != AttackType.RIFLE and attack_type != AttackType.KNIFE:
-		notice = "Escolha Rifle, Peixeira, Lapada ou Recarga."
+		notice = "Escolha Rifle, Peixeira, Lapada, Recarga ou Poção."
 		return false
 	if attack_type == AttackType.RIFLE and GameState.rifle_ammo <= 0:
 		notice = "Pente vazio — recarregue ou use a Peixeira."
@@ -700,16 +791,17 @@ func _attempt_boss_attack(
 			_spawn_boss_popup("ERROU", Vector2(548.0, 190.0), COLOR_TEXT_DIM, 18, false)
 		elif bool(rifle_result["critical"]):
 			GameState.add_lapada_charge()
-			result_text = "Rifle crítico: 40 de dano."
-			_show_boss_enemy_damage(RIFLE_CRITICAL_DAMAGE, true)
+			result_text = "Rifle crítico: %d de dano." % rifle_damage
+			_show_boss_enemy_damage(rifle_damage, true)
 		else:
-			result_text = "Rifle: 25 de dano."
-			_show_boss_enemy_damage(RIFLE_DAMAGE)
+			result_text = "Rifle: %d de dano." % rifle_damage
+			_show_boss_enemy_damage(rifle_damage)
 	else:
 		_play_boss_audio("knife")
-		capanga_hp = maxi(0, capanga_hp - KNIFE_DAMAGE)
-		result_text = "Peixeira: 20 de dano."
-		_show_boss_enemy_damage(KNIFE_DAMAGE)
+		var knife_damage := GameState.get_knife_damage(KNIFE_DAMAGE)
+		capanga_hp = maxi(0, capanga_hp - knife_damage)
+		result_text = "Peixeira: %d de dano." % knife_damage
+		_show_boss_enemy_damage(knife_damage)
 
 	if capanga_hp <= 0:
 		_complete_encounter(result_text)
@@ -787,12 +879,13 @@ func _attempt_attack(
 		elif bool(rifle_result["critical"]):
 			if boss_mode:
 				GameState.add_lapada_charge()
-			result_text = "Crítico: 40 de dano."
+			result_text = "Crítico: %d de dano." % rifle_damage
 		else:
-			result_text = "Dano: 25."
+			result_text = "Dano: %d." % rifle_damage
 	else:
-		capanga_hp = maxi(0, capanga_hp - KNIFE_DAMAGE)
-		result_text = "Peixeira: 20 de dano."
+		var knife_damage := GameState.get_knife_damage(KNIFE_DAMAGE)
+		capanga_hp = maxi(0, capanga_hp - knife_damage)
+		result_text = "Peixeira: %d de dano." % knife_damage
 
 	if not boss_mode:
 		selected_attack = AttackType.NONE
@@ -810,9 +903,17 @@ func _resolve_rifle(hit_roll: float = -1.0, critical_roll: float = -1.0) -> Dict
 		return {"hit": false, "critical": false, "damage": 0}
 
 	var resolved_critical_roll := randf() if critical_roll < 0.0 else critical_roll
-	if resolved_critical_roll < RIFLE_CRITICAL_CHANCE:
-		return {"hit": true, "critical": true, "damage": RIFLE_CRITICAL_DAMAGE}
-	return {"hit": true, "critical": false, "damage": RIFLE_DAMAGE}
+	if resolved_critical_roll < GameState.get_player_critical_chance(RIFLE_CRITICAL_CHANCE):
+		return {
+			"hit": true,
+			"critical": true,
+			"damage": GameState.get_rifle_damage(RIFLE_CRITICAL_DAMAGE),
+		}
+	return {
+		"hit": true,
+		"critical": false,
+		"damage": GameState.get_rifle_damage(RIFLE_DAMAGE),
+	}
 
 
 func _end_player_turn(player_result: String) -> void:
@@ -844,6 +945,7 @@ func _finish_round(player_result: String, enemy_result: String) -> void:
 		round_number += 1
 		player_turn = true
 		boss_phase = BossPhase.PLAYER_CHOICE
+		boss_potion_used_this_turn = false
 		notice = "%s %s" % [player_result, enemy_result]
 		queue_redraw()
 		return
@@ -878,8 +980,9 @@ func _run_capanga_action() -> String:
 				capanga_cell = path[moved]
 
 	if _orthogonal_distance(capanga_cell, hero_cell) == 1:
-		hero_hp = maxi(0, hero_hp - CAPANGA_DAMAGE)
-		return "Capanga avançou %d e atacou: 15 de dano." % moved
+		var damage := GameState.reduce_player_damage(CAPANGA_DAMAGE)
+		hero_hp = maxi(0, hero_hp - damage)
+		return "Capanga avançou %d e atacou: %d de dano." % [moved, damage]
 	if moved > 0:
 		return "Capanga avançou %d casa(s)." % moved
 	return "Capanga não encontrou caminho."
@@ -937,12 +1040,13 @@ func _resolve_boss_basic_attack(action_token: int) -> void:
 	boss_resolved_action_token = action_token
 	boss_phase = BossPhase.IMPACT
 	boss_pending_charge = false
-	hero_hp = maxi(0, hero_hp - BOSS_BASIC_DAMAGE)
+	var damage := GameState.reduce_player_damage(BOSS_BASIC_DAMAGE)
+	hero_hp = maxi(0, hero_hp - damage)
 	GameState.set_player_hp(hero_hp)
-	_show_boss_player_damage(BOSS_BASIC_DAMAGE)
+	_show_boss_player_damage(damage)
 	_finish_round(
 		pending_player_result,
-		"Ataque básico: %d de dano." % BOSS_BASIC_DAMAGE
+		"Ataque básico: %d de dano." % damage
 	)
 
 
@@ -973,22 +1077,24 @@ func _resolve_boss_charge(parried: bool, action_token: int = -1) -> void:
 		charge_result = "HÁ — investida aparada; dano anulado."
 		_show_boss_parry_effect()
 	else:
-		hero_hp = maxi(0, hero_hp - BOSS_CHARGE_DAMAGE)
+		var damage := GameState.reduce_player_damage(BOSS_CHARGE_DAMAGE)
+		hero_hp = maxi(0, hero_hp - damage)
 		GameState.set_player_hp(hero_hp)
-		charge_result = "Investida acertou: %d de dano." % BOSS_CHARGE_DAMAGE
-		_show_boss_player_damage(BOSS_CHARGE_DAMAGE)
+		charge_result = "Investida acertou: %d de dano." % damage
+		_show_boss_player_damage(damage)
 	_finish_round(pending_player_result, charge_result)
 
 
 func _reset_combat(message: String) -> void:
 	hero_cell = HERO_START
 	capanga_cell = CAPANGA_START
-	hero_hp = HERO_MAX_HP
+	hero_hp = GameState.get_player_max_hp()
 	capanga_hp = CAPANGA_MAX_HP
 	movement_left = HERO_MOVEMENT
 	round_number = 1
 	selected_attack = AttackType.NONE
 	player_turn = true
+	boss_potion_used_this_turn = false
 	encounter_transitioning = false
 	notice = message
 	_rebuild_reachable()
@@ -1025,6 +1131,7 @@ func _complete_boss_encounter(attack_result: String) -> void:
 	failed_parry_turn_pending = false
 	GameState.set_player_hp(hero_hp)
 	var reward_granted := GameState.complete_dungeon()
+	_grant_boss_loot()
 	SaveManager.save_active_slot(SaveManager.CHECKPOINT_COMPLETED)
 	victory_visible = true
 	notice = (
@@ -1034,6 +1141,68 @@ func _complete_boss_encounter(attack_result: String) -> void:
 		else "%s Cabra-Cabriola derrotada novamente." % attack_result
 	)
 	queue_redraw()
+
+
+func _grant_boss_loot() -> void:
+	var item_index := 0
+	for item_id in GameState.get_boss_loot_items():
+		_collect_or_drop_boss_item(item_id, true, item_index)
+		item_index += 1
+
+
+func _collect_or_drop_boss_item(
+	item_id: String,
+	spawn_on_failure: bool,
+	drop_index: int = 0
+) -> bool:
+	var accepted := false
+	var equipped := false
+	if GameState.get_item_kind(item_id) == "armor":
+		var armor_result := GameState.acquire_armor(item_id)
+		accepted = bool(armor_result.get("accepted", false))
+		equipped = bool(armor_result.get("equipped", false))
+	else:
+		var inventory_result := GameState.add_inventory_item(item_id, 1)
+		accepted = int(inventory_result.get("accepted", 0)) == 1
+
+	if accepted:
+		inventory_ui.show_notification(
+			("Equipado: " if equipped else "Coletado: ") + GameState.get_item_name(item_id),
+			item_id
+		)
+		return true
+	if spawn_on_failure:
+		boss_ground_drops.append({
+			"item_id": item_id,
+			"remaining": GameState.GROUND_DROP_LIFETIME,
+			"index": drop_index,
+		})
+		inventory_ui.show_notification(
+			"Inventário cheio — no chão por 120 s",
+			item_id
+		)
+	return false
+
+
+func _retry_boss_ground_drops() -> void:
+	for index in range(boss_ground_drops.size() - 1, -1, -1):
+		var drop := boss_ground_drops[index]
+		if _collect_or_drop_boss_item(
+			str(drop.get("item_id", "")),
+			false,
+			int(drop.get("index", 0))
+		):
+			boss_ground_drops.remove_at(index)
+
+
+func _advance_boss_ground_drops(delta: float) -> void:
+	for index in range(boss_ground_drops.size() - 1, -1, -1):
+		var drop := boss_ground_drops[index]
+		drop["remaining"] = float(drop.get("remaining", 0.0)) - maxf(0.0, delta)
+		if float(drop["remaining"]) <= 0.0:
+			boss_ground_drops.remove_at(index)
+		else:
+			boss_ground_drops[index] = drop
 
 
 func _show_boss_defeat() -> void:
@@ -1238,7 +1407,7 @@ func _draw_boss_one_on_one() -> void:
 	_draw_battle_health_bar(
 		Rect2(64.0, 126.0, 248.0, 22.0),
 		hero_hp,
-		HERO_MAX_HP,
+		GameState.get_player_max_hp(),
 		COLOR_HEALTH_FILL,
 		"CANGACEIRO"
 	)
@@ -1335,6 +1504,16 @@ func _draw_boss_one_on_one() -> void:
 		and selected_attack == AttackType.RIFLE
 		and GameState.rifle_ammo < GameState.RIFLE_MAGAZINE_CAPACITY
 		and GameState.rifle_reserve_ammo > 0
+	)
+	var potion_count := GameState.get_item_count(GameState.ITEM_HEALTH_POTION)
+	_draw_button(
+		BOSS_POTION_RECT,
+		"POÇÃO DE VIDA [F]  ×%d" % potion_count,
+		false,
+		can_choose
+		and potion_count > 0
+		and hero_hp < GameState.get_player_max_hp()
+		and not boss_potion_used_this_turn
 	)
 
 
@@ -1798,8 +1977,9 @@ func _draw_button(
 
 func _draw_hero_status() -> void:
 	var font := ThemeDB.fallback_font
+	var maximum_hp := GameState.get_player_max_hp()
 	draw_rect(HERO_STATUS_RECT, COLOR_HEALTH_BACKGROUND, true)
-	var health_width := HERO_STATUS_RECT.size.x * float(hero_hp) / float(HERO_MAX_HP)
+	var health_width := HERO_STATUS_RECT.size.x * float(hero_hp) / float(maximum_hp)
 	draw_rect(
 		Rect2(HERO_STATUS_RECT.position, Vector2(health_width, HERO_STATUS_RECT.size.y)),
 		COLOR_HEALTH_FILL,
@@ -1809,7 +1989,7 @@ func _draw_hero_status() -> void:
 	draw_string(
 		font,
 		Vector2(HERO_STATUS_RECT.position.x, HERO_STATUS_RECT.position.y + 18.0),
-		"VIDA DO CANGACEIRO  %d / %d" % [hero_hp, HERO_MAX_HP],
+		"VIDA DO CANGACEIRO  %d / %d" % [hero_hp, maximum_hp],
 		HORIZONTAL_ALIGNMENT_CENTER,
 		HERO_STATUS_RECT.size.x,
 		14,
@@ -1950,7 +2130,9 @@ func _draw_boss_overlay() -> void:
 		draw_string(font, Vector2(144.0, 168.0), "VITÓRIA", HORIZONTAL_ALIGNMENT_CENTER, 480.0, 30, COLOR_TEXT)
 		draw_string(font, Vector2(144.0, 208.0), "A Cabra-Cabriola foi derrotada.", HORIZONTAL_ALIGNMENT_CENTER, 480.0, 18, COLOR_TEXT_DIM)
 		draw_string(font, Vector2(144.0, 242.0), "A vila está protegida.", HORIZONTAL_ALIGNMENT_CENTER, 480.0, 18, COLOR_TEXT_DIM)
-		draw_string(font, Vector2(144.0, 286.0), "OURO FINAL: %d" % GameState.gold_score, HORIZONTAL_ALIGNMENT_CENTER, 480.0, 22, COLOR_TEXT)
+		_draw_boss_ground_drops()
+		var gold_line_y := 302.0 if not boss_ground_drops.is_empty() else 286.0
+		draw_string(font, Vector2(144.0, gold_line_y), "OURO FINAL: %d" % GameState.gold_score, HORIZONTAL_ALIGNMENT_CENTER, 480.0, 22, COLOR_TEXT)
 		_draw_button(OVERLAY_PRIMARY_RECT, "SAIR DA MASMORRA  [ENTER]")
 		return
 
@@ -1967,3 +2149,15 @@ func _draw_boss_overlay() -> void:
 	draw_string(font, Vector2(144.0, 246.0), "Vida e munição atuais serão preservadas.", HORIZONTAL_ALIGNMENT_CENTER, 480.0, 17, COLOR_TEXT_DIM)
 	_draw_button(OVERLAY_RESTART_RECT, "SAIR  [ENTER]")
 	_draw_button(OVERLAY_SECONDARY_RECT, "CONTINUAR  [ESC]")
+
+
+func _draw_boss_ground_drops() -> void:
+	if boss_ground_drops.is_empty():
+		return
+	var start_x := 360.0 - float(boss_ground_drops.size() - 1) * 22.0
+	for index in range(boss_ground_drops.size()):
+		var drop := boss_ground_drops[index]
+		var rect := Rect2(Vector2(start_x + float(index) * 44.0, 250.0), Vector2(34.0, 34.0))
+		draw_rect(rect.grow(3.0), COLOR_BACKGROUND, true)
+		draw_rect(rect.grow(3.0), COLOR_PANEL_BORDER, false, 2.0)
+		ItemVisualsScript.draw_item(self, rect, str(drop.get("item_id", "")))

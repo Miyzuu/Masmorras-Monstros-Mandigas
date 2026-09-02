@@ -1,5 +1,36 @@
 # Histórico de versões
 
+## V.0.3.6 — 2026-09-01
+
+### Título do commit
+
+`V.0.3.6 — Espólios, inventário e armaduras funcionais`
+
+### Descrição
+
+- adiciona inventário pausável de 12 slots, quatro equipamentos funcionais,
+  autoequipamento, uso de Poção de Vida por clique ou **F** e controles por
+  **I/Esc**, usando ícones provisórios originais desenhados pelo código;
+- mostra uma Poção de Vida ao lado da pilha de armaduras na HUD, com atalho
+  **F**, contador `×N` e estado vazio escurecido;
+- adiciona Poção de Vida ao menu do chefe e à tecla **F**, curando 30% da vida
+  máxima sem encerrar a ação e limitando o uso a uma unidade por turno;
+- substitui os painéis superiores permanentes por uma HUD minimalista: ouro e
+  valores demonstrativos de horário, clima e região à esquerda, avisos
+  temporários de combate à direita e notificações de espólio logo abaixo;
+- move a marca da versão para o canto inferior direito, liberando a área de
+  alertas e mantendo instruções de movimentação fora da tela de jogo;
+- implementa moedas, poções e armaduras como espólios dos inimigos, com tabela
+  comum independente, recompensa garantida da Cabra-Cabriola, avisos não
+  bloqueantes e itens excedentes no chão por 120 segundos;
+- aplica Defesa, Vigor, Pontaria, Força e Velocidade aos valores aprovados,
+  preservando integralmente o balanceamento anterior quando nenhum equipamento
+  está vestido;
+- persiste inventário e equipamentos nos três slots de save, mantém saves
+  antigos compatíveis e atualiza a HUD para refletir vida máxima e armaduras;
+- valida parser, regras isoladas de inventário/atributos, interface e fluxo de
+  espólios, os sete testes automatizados e a exportação Web release.
+
 ## V.0.3.5 — 2026-09-01
 
 ### Título do commit

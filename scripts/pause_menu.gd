@@ -32,9 +32,11 @@ const LEFT_CONTROLS := [
 	["M", "alternar visão do mapa"],
 	["Q", "trocar Rifle/Peixeira"],
 	["E", "usar Lapada Seca"],
+	["I", "abrir o inventário"],
 ]
 const RIGHT_CONTROLS := [
 	["R", "recarregar o Rifle"],
+	["F", "usar Poção de Vida"],
 	["ESPAÇO", "aparar ou confirmar"],
 	["ENTER", "confirmar ação/aviso"],
 	["MOUSE ESQ.", "ações do chefe"],
@@ -110,6 +112,8 @@ func _sync_size() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if not menu_open and not _can_open_menu():
+			return
 		var escape_viewport := get_viewport()
 		if escape_viewport != null:
 			escape_viewport.set_input_as_handled()

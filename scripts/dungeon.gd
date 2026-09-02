@@ -1,6 +1,8 @@
 extends Node2D
 
 const PauseMenuScript = preload("res://scripts/pause_menu.gd")
+const InventoryUIScript = preload("res://scripts/inventory_ui.gd")
+const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
 
 enum Weapon {
 	RIFLE,
@@ -306,6 +308,7 @@ var heavy_warning_remaining := 0.0
 var damage_border_remaining := 0.0
 var player_hit_flash_remaining := 0.0
 var capanga_hit_flash_remaining := 0.0
+var last_player_damage_taken := 0
 var combat_popups: Array[Dictionary] = []
 var enemy_projectiles: Array[Dictionary] = []
 
@@ -316,6 +319,8 @@ var stairs_contact_latched := false
 var scene_transitioning := false
 var exit_request_source := ""
 var pause_menu
+var inventory_ui: InventoryUI
+var ground_drops: Array[Dictionary] = []
 var dungeon_room_id: String:
 	get:
 		return GameState.get_current_dungeon_room_id()
@@ -323,6 +328,7 @@ var dungeon_room_id: String:
 
 func _ready() -> void:
 	_setup_pause_menu()
+	_setup_inventory_ui()
 	_refresh_room_title()
 	capanga_anchor = Node2D.new()
 	capanga_anchor.name = "RoomMobAnchor"
@@ -333,6 +339,12 @@ func _ready() -> void:
 	camera.position = player_anchor.position
 	camera.zoom = CLOSE_ZOOM
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
+	version_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	version_label.offset_left = -88.0
+	version_label.offset_top = -28.0
+	version_label.offset_right = -8.0
+	version_label.offset_bottom = -8.0
+	status_label.get_parent().visible = false
 	hint_panel.visible = false
 	exit_prompt.visible = false
 	_restore_exit_prompt_text()
@@ -365,8 +377,39 @@ func _setup_pause_menu() -> void:
 	pause_menu.main_menu_requested.connect(_return_to_title_menu)
 
 
+func _setup_inventory_ui() -> void:
+	var inventory_layer := CanvasLayer.new()
+	inventory_layer.name = "InventoryLayer"
+	inventory_layer.layer = 210
+	add_child(inventory_layer)
+	inventory_ui = InventoryUIScript.new()
+	inventory_ui.name = "InventoryUI"
+	inventory_layer.add_child(inventory_ui)
+	inventory_ui.configure(Callable(self, "_can_open_inventory"))
+	inventory_ui.inventory_changed.connect(_on_inventory_action)
+
+
 func _can_open_pause_menu() -> bool:
-	return not scene_transitioning and not exit_prompt_visible
+	return (
+		not scene_transitioning
+		and not exit_prompt_visible
+		and (inventory_ui == null or not inventory_ui.is_inventory_open())
+	)
+
+
+func _can_open_inventory() -> bool:
+	return (
+		not scene_transitioning
+		and not exit_prompt_visible
+		and (pause_menu == null or not pause_menu.is_menu_open())
+	)
+
+
+func _on_inventory_action(_message: String) -> void:
+	_retry_ground_drops()
+	SaveManager.save_active_slot()
+	_update_hud()
+	queue_redraw()
 
 
 func _return_to_title_menu() -> void:
@@ -392,6 +435,7 @@ func _advance_realtime(
 	critical_roll: float = -1.0
 ) -> void:
 	_advance_timers(delta)
+	_advance_ground_drops(delta)
 	var player_previous_position := player_anchor.position
 	if stun_remaining <= 0.0:
 		_move_player(delta)
@@ -536,7 +580,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			if stun_remaining > 0.0:
-				_update_status("Atordoado — aguarde 0,7 s.")
+				_update_combat_status("Atordoado — aguarde 0,7 s.")
 			else:
 				_set_destination(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
@@ -681,6 +725,7 @@ func _restore_exit_prompt_text() -> void:
 func _restart_dungeon_after_defeat() -> void:
 	GameState.respawn_player()
 	GameState.reset_dungeon_progress()
+	ground_drops.clear()
 	SaveManager.save_active_slot()
 	exit_prompt_visible = false
 	defeat_prompt_visible = false
@@ -758,21 +803,21 @@ func _change_scene(scene_path: String) -> void:
 
 func _toggle_weapon() -> bool:
 	if stun_remaining > 0.0:
-		_update_status("Atordoado — não é possível trocar de arma.")
+		_update_combat_status("Atordoado — não é possível trocar de arma.")
 		return false
 	if is_reloading:
-		_update_status("Recarga ativa — Q bloqueado.")
+		_update_combat_status("Recarga ativa — Q bloqueado.")
 		return false
 	if weapon_switch_cooldown > 0.0:
-		_update_status("Q em recarga por %.1f s." % weapon_switch_cooldown)
+		_update_combat_status("Q em recarga por %.1f s." % weapon_switch_cooldown)
 		return false
 	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
 	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
 	_play_audio("ui_click")
 	if current_weapon == Weapon.RIFLE:
-		_update_status("Rifle equipado — ataques automáticos em até 5 tiles.")
+		_update_combat_status("Rifle equipado — ataques automáticos em até 5 tiles.")
 	else:
-		_update_status("Peixeira equipada — ataques automáticos em 1 tile.")
+		_update_combat_status("Peixeira equipada — ataques automáticos em 1 tile.")
 	_update_hud()
 	return true
 
@@ -781,24 +826,24 @@ func _start_reload() -> bool:
 	if scene_transitioning or exit_prompt_visible:
 		return false
 	if is_reloading:
-		_update_status("O Rifle já está sendo recarregado.")
+		_update_combat_status("O Rifle já está sendo recarregado.")
 		return false
 	if stun_remaining > 0.0:
-		_update_status("Atordoado — não é possível recarregar.")
+		_update_combat_status("Atordoado — não é possível recarregar.")
 		return false
 	if current_weapon != Weapon.RIFLE:
-		_update_status("Equipe o Rifle [Q] para recarregar.")
+		_update_combat_status("Equipe o Rifle [Q] para recarregar.")
 		return false
 	if rifle_ammo >= RIFLE_STARTING_AMMO:
-		_update_status("O pente do Rifle já está cheio.")
+		_update_combat_status("O pente do Rifle já está cheio.")
 		return false
 	if rifle_reserve_ammo <= 0:
-		_update_status("Sem balas na reserva.")
+		_update_combat_status("Sem balas na reserva.")
 		return false
 
 	is_reloading = true
 	reload_remaining = RIFLE_RELOAD_DURATION
-	_update_status("RECARREGANDO — mova; ataque/E/Q bloqueados.")
+	_update_combat_status("RECARREGANDO — mova; ataque/E/Q bloqueados.")
 	_update_hud()
 	return true
 
@@ -811,13 +856,13 @@ func _complete_reload() -> int:
 	var transferred_ammo: int = GameState.reload_rifle_magazine()
 	if transferred_ammo > 0:
 		_play_audio("ui_click")
-		_update_status("Recarga concluída — pente %d/%d, reserva %d." % [
+		_update_combat_status("Recarga concluída — pente %d/%d, reserva %d." % [
 			rifle_ammo,
 			RIFLE_STARTING_AMMO,
 			rifle_reserve_ammo,
 		])
 	else:
-		_update_status("Recarga encerrada sem transferir munição.")
+		_update_combat_status("Recarga encerrada sem transferir munição.")
 	_update_hud()
 	return transferred_ammo
 
@@ -827,7 +872,7 @@ func _cancel_reload(reason: String) -> bool:
 		return false
 	is_reloading = false
 	reload_remaining = 0.0
-	_update_status(reason)
+	_update_combat_status(reason)
 	_update_hud()
 	return true
 
@@ -845,13 +890,13 @@ func _attempt_parry() -> bool:
 		_play_audio("parry")
 		_trigger_screenshake(0.4)
 		_spawn_popup("HÁ", player_anchor.position, Color.WHITE, 22, true, PARRY_TEXT_DURATION)
-		_update_status("HÁ — ataque pesado aparado.")
+		_update_combat_status("HÁ — ataque pesado aparado.")
 		queue_redraw()
 		return true
 
 	stun_remaining = FAILED_PARRY_STUN
 	skip_next_player_attack = true
-	_update_status("Aparo falhou — stun de 0,7 s e próximo ataque perdido.")
+	_update_combat_status("Aparo falhou — stun de 0,7 s e próximo ataque perdido.")
 	return false
 
 
@@ -874,7 +919,7 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 			else "SEM MUNIÇÃO — pressione Q para usar a Peixeira."
 		)
 		if status_label.text != empty_message:
-			_update_status(empty_message)
+			_update_combat_status(empty_message)
 		return false
 
 	player_attack_cooldown = RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
@@ -887,24 +932,30 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	if skip_next_player_attack:
 		skip_next_player_attack = false
 		_spawn_popup("ERROU", capanga_anchor.position, COLOR_NORMAL_DAMAGE, 14, false)
-		_update_status("Aparo mal executado — ataque perdido.")
+		_update_combat_status("Aparo mal executado — ataque perdido.")
 		return true
 
 	var resolved_hit_roll := randf() if hit_roll < 0.0 else hit_roll
 	if current_weapon == Weapon.RIFLE and resolved_hit_roll >= RIFLE_HIT_CHANCE:
 		_spawn_popup("ERROU", capanga_anchor.position, COLOR_NORMAL_DAMAGE, 14, false)
-		_update_status("Disparo errou — %d bala(s) restante(s)." % rifle_ammo)
+		_update_combat_status("Disparo errou — %d bala(s) restante(s)." % rifle_ammo)
 		return true
 
 	var resolved_critical_roll := randf() if critical_roll < 0.0 else critical_roll
-	var critical := resolved_critical_roll < PLAYER_CRITICAL_CHANCE
+	var critical := resolved_critical_roll < GameState.get_player_critical_chance(
+		PLAYER_CRITICAL_CHANCE
+	)
 	var damage := 0
 	if current_weapon == Weapon.RIFLE:
-		damage = RIFLE_CRITICAL_DAMAGE if critical else RIFLE_DAMAGE
+		damage = GameState.get_rifle_damage(
+			RIFLE_CRITICAL_DAMAGE if critical else RIFLE_DAMAGE
+		)
 		if critical:
 			GameState.add_lapada_charge()
 	else:
-		damage = KNIFE_CRITICAL_DAMAGE if critical else KNIFE_DAMAGE
+		damage = GameState.get_knife_damage(
+			KNIFE_CRITICAL_DAMAGE if critical else KNIFE_DAMAGE
+		)
 
 	_damage_capanga(damage, critical)
 	return true
@@ -936,7 +987,7 @@ func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true
 	var result := "CRÍTICO: %d" % amount if critical else "Dano causado: %d" % amount
 	if current_weapon == Weapon.RIFLE:
 		result += " — %d bala(s)." % rifle_ammo
-	_update_status(result)
+	_update_combat_status(result)
 
 
 func _defeat_capanga() -> void:
@@ -946,21 +997,100 @@ func _defeat_capanga() -> void:
 	heavy_warning_active = false
 	heavy_warning_remaining = 0.0
 	GameState.mark_dungeon_room_cleared(dungeon_room_id)
+	_grant_common_enemy_loot(_enemy_armor_drop(), capanga_anchor.position)
 	SaveManager.save_active_slot()
 	astar.set_point_solid(BLOCKED_STAIRS_CELL, false)
 	stairs_contact_latched = false
-	_update_status("%s derrotado — o selo que bloqueava a escada foi quebrado." % _enemy_name())
+	_update_combat_status("%s derrotado — o selo que bloqueava a escada foi quebrado." % _enemy_name())
 	_update_hud()
 	queue_redraw()
 
 
+func _enemy_armor_drop() -> String:
+	match str(_room_profile().get("enemy_id", "")):
+		ENEMY_ID_LOBO:
+			return GameState.ITEM_ARMOR_FEET
+		ENEMY_ID_RASGA:
+			return GameState.ITEM_ARMOR_HEAD
+		_:
+			return GameState.ITEM_ARMOR_CHEST
+
+
+func _grant_common_enemy_loot(armor_item_id: String, drop_position: Vector2) -> void:
+	var loot := GameState.generate_common_enemy_loot(armor_item_id)
+	inventory_ui.show_notification(
+		"+%d moedas" % int(loot.get("gold", 0)),
+		GameState.ITEM_COIN
+	)
+	var item_offset := 0
+	for item_value in loot.get("items", []):
+		var item_id := str(item_value)
+		var item_position := drop_position + Vector2(float(item_offset) * 18.0, 0.0)
+		_collect_or_drop_item(item_id, item_position, true)
+		item_offset += 1
+
+
+func _collect_or_drop_item(
+	item_id: String,
+	drop_position: Vector2,
+	spawn_on_failure: bool
+) -> bool:
+	var accepted := false
+	var equipped := false
+	if GameState.get_item_kind(item_id) == "armor":
+		var armor_result := GameState.acquire_armor(item_id)
+		accepted = bool(armor_result.get("accepted", false))
+		equipped = bool(armor_result.get("equipped", false))
+	else:
+		var inventory_result := GameState.add_inventory_item(item_id, 1)
+		accepted = int(inventory_result.get("accepted", 0)) == 1
+
+	if accepted:
+		inventory_ui.show_notification(
+			("Equipado: " if equipped else "Coletado: ") + GameState.get_item_name(item_id),
+			item_id
+		)
+		return true
+	if spawn_on_failure:
+		ground_drops.append({
+			"item_id": item_id,
+			"position": drop_position,
+			"remaining": GameState.GROUND_DROP_LIFETIME,
+		})
+		inventory_ui.show_notification(
+			"Inventário cheio — no chão por 120 s",
+			item_id
+		)
+	return false
+
+
+func _retry_ground_drops() -> void:
+	for index in range(ground_drops.size() - 1, -1, -1):
+		var drop := ground_drops[index]
+		var drop_position: Vector2 = drop.get("position", Vector2.ZERO)
+		if _collect_or_drop_item(str(drop.get("item_id", "")), drop_position, false):
+			ground_drops.remove_at(index)
+
+
+func _advance_ground_drops(delta: float) -> void:
+	for index in range(ground_drops.size() - 1, -1, -1):
+		var drop := ground_drops[index]
+		drop["remaining"] = float(drop.get("remaining", 0.0)) - maxf(0.0, delta)
+		if float(drop["remaining"]) <= 0.0:
+			ground_drops.remove_at(index)
+		else:
+			ground_drops[index] = drop
+
+
 func _damage_player(amount: int) -> bool:
-	player_hp = maxi(0, player_hp - amount)
+	var reduced_damage := GameState.reduce_player_damage(amount)
+	last_player_damage_taken = reduced_damage
+	player_hp = maxi(0, player_hp - reduced_damage)
 	damage_border_remaining = DAMAGE_BORDER_DURATION
 	player_hit_flash_remaining = HIT_FLASH_DURATION
 	_play_audio("hit")
 	_trigger_screenshake(0.35)
-	_spawn_popup(str(amount), player_anchor.position, COLOR_PLAYER_DAMAGE, 16, true)
+	_spawn_popup(str(reduced_damage), player_anchor.position, COLOR_PLAYER_DAMAGE, 16, true)
 	if player_hp <= 0:
 		_handle_player_defeat()
 		return true
@@ -976,7 +1106,7 @@ func _handle_player_defeat() -> void:
 	reload_remaining = 0.0
 	heavy_warning_active = false
 	heavy_warning_remaining = 0.0
-	_update_status("Derrota — escolha sair ou voltar do início.")
+	_update_combat_status("Derrota — escolha sair ou voltar do início.")
 	_update_hud()
 	_show_defeat_prompt()
 
@@ -1124,9 +1254,9 @@ func _advance_capanga_attack(delta: float) -> void:
 				var heavy_damage := _enemy_heavy_damage()
 				var defeated := _damage_player(heavy_damage)
 				if not defeated:
-					_update_status("Ataque pesado: %d de dano." % heavy_damage)
+					_update_combat_status("Ataque pesado: %d de dano." % last_player_damage_taken)
 			else:
-				_update_status("O ataque pesado não alcançou o Cangaceiro.")
+				_update_combat_status("O ataque pesado não alcançou o Cangaceiro.")
 			capanga_basic_attack_count = 0
 			capanga_attack_cooldown = attack_interval
 		return
@@ -1143,7 +1273,7 @@ func _advance_capanga_attack(delta: float) -> void:
 		var projectile_spawned := _spawn_enemy_projectile()
 		capanga_attack_cooldown = attack_interval
 		if projectile_spawned:
-			_update_status("%s lançou um projétil." % _enemy_name())
+			_update_combat_status("%s lançou um projétil." % _enemy_name())
 		return
 
 	if not _enemy_has_heavy_attack():
@@ -1151,7 +1281,7 @@ func _advance_capanga_attack(delta: float) -> void:
 		var defeated := _damage_player(basic_damage)
 		capanga_attack_cooldown = attack_interval
 		if not defeated:
-			_update_status("%s atacou: %d de dano." % [_enemy_name(), basic_damage])
+			_update_combat_status("%s atacou: %d de dano." % [_enemy_name(), last_player_damage_taken])
 		return
 
 	if capanga_basic_attack_count < 3:
@@ -1160,11 +1290,11 @@ func _advance_capanga_attack(delta: float) -> void:
 		if not defeated:
 			capanga_basic_attack_count += 1
 			capanga_attack_cooldown = attack_interval
-			_update_status("%s atacou: %d de dano." % [_enemy_name(), basic_damage])
+			_update_combat_status("%s atacou: %d de dano." % [_enemy_name(), last_player_damage_taken])
 	else:
 		heavy_warning_active = true
 		heavy_warning_remaining = _enemy_heavy_warning()
-		_update_status("Ataque pesado chegando — pressione Espaço!")
+		_update_combat_status("Ataque pesado chegando — pressione Espaço!")
 
 
 func _spawn_enemy_projectile() -> bool:
@@ -1203,7 +1333,7 @@ func _advance_enemy_projectiles(delta: float) -> void:
 				var damage := int(projectile["damage"])
 				var defeated := _damage_player(damage)
 				if not defeated:
-					_update_status("Projétil da %s: %d de dano." % [_enemy_name(), damage])
+					_update_combat_status("Projétil da %s: %d de dano." % [_enemy_name(), last_player_damage_taken])
 				break
 			sample_start = sample_end
 		if projectile_removed:
@@ -1680,19 +1810,19 @@ func _attempt_lapada_seca() -> bool:
 	if not capanga_active or stun_remaining > 0.0 or scene_transitioning:
 		return false
 	if is_reloading:
-		_update_status("Recarga ativa — Lapada bloqueada.")
+		_update_combat_status("Recarga ativa — Lapada bloqueada.")
 		return false
 	if current_weapon != Weapon.RIFLE:
-		_update_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
+		_update_combat_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
 		return false
 	if rifle_ammo <= 0:
-		_update_status("Sem munição para a Lapada Seca.")
+		_update_combat_status("Sem munição para a Lapada Seca.")
 		return false
 	if not GameState.has_lapada_ready():
-		_update_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
+		_update_combat_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
 		return false
 	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
-		_update_status("%s fora do alcance da Lapada (máx. 5 tiles)." % _enemy_name())
+		_update_combat_status("%s fora do alcance da Lapada (máx. 5 tiles)." % _enemy_name())
 		return false
 
 	if not GameState.consume_lapada_charges():
@@ -1702,7 +1832,7 @@ func _attempt_lapada_seca() -> bool:
 	_trigger_screenshake(0.85)
 	_spawn_popup("LAPADA SECA!", capanga_anchor.position, COLOR_MAGIC, 22, true, 1.2)
 	_damage_capanga(ceili(capanga_hp), true, false)
-	_update_status("LAPADA SECA — %s eliminado." % _enemy_name())
+	_update_combat_status("LAPADA SECA — %s eliminado." % _enemy_name())
 	_update_hud()
 	return true
 
@@ -1711,10 +1841,16 @@ func _update_status(message: String) -> void:
 	status_label.text = message
 
 
+func _update_combat_status(message: String) -> void:
+	_update_status(message)
+	realtime_hud.show_combat_notice(message)
+
+
 func _update_hud() -> void:
-	var ratio := float(player_hp) / float(PLAYER_MAX_HP)
+	var maximum_hp := GameState.get_player_max_hp()
+	var ratio := float(player_hp) / float(maximum_hp)
 	health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
-	health_label.text = "VIDA  %d / %d" % [player_hp, PLAYER_MAX_HP]
+	health_label.text = "VIDA  %d / %d" % [player_hp, maximum_hp]
 	if is_reloading:
 		weapon_label.text = "RECARREGANDO... %.1f s  •  PENTE %d/%d  •  RESERVA %d" % [
 			reload_remaining,
@@ -1741,7 +1877,7 @@ func _update_hud() -> void:
 	weapon_label.text += "  •  %s" % _room_label().to_upper()
 	realtime_hud.set_hud_state(
 		player_hp,
-		PLAYER_MAX_HP,
+		maximum_hp,
 		100,
 		100,
 		"RIFLE" if current_weapon == Weapon.RIFLE else "PEIXEIRA",
@@ -1771,9 +1907,18 @@ func _draw() -> void:
 	_draw_player()
 	if capanga_active and capanga_anchor.position.y > player_anchor.position.y:
 		_draw_capanga()
+	_draw_ground_drops()
 	_draw_enemy_projectiles()
 	_draw_combat_popups()
 	_draw_damage_border()
+
+
+func _draw_ground_drops() -> void:
+	for drop in ground_drops:
+		var drop_position: Vector2 = drop.get("position", Vector2.ZERO)
+		var icon_rect := Rect2(drop_position + Vector2(-12.0, -28.0), Vector2(24.0, 24.0))
+		draw_circle(drop_position + Vector2(0.0, 4.0), 8.0, Color(0.08, 0.05, 0.03, 0.4))
+		ItemVisualsScript.draw_item(self, icon_rect, str(drop.get("item_id", "")))
 
 
 func _draw_tiles() -> void:

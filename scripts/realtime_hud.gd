@@ -1,6 +1,8 @@
 class_name RealtimeHUD
 extends Control
 
+const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
+
 const MAIN_PANEL_SIZE := Vector2(500.0, 108.0)
 const SCREEN_MARGIN := 8.0
 const BAR_SIZE := Vector2(150.0, 22.0)
@@ -8,6 +10,11 @@ const ABILITY_SLOT_SIZE := Vector2(54.0, 54.0)
 const ABILITY_SLOT_GAP := 8.0
 const ARMOR_SLOT_SIZE := Vector2(40.0, 40.0)
 const ARMOR_SLOT_GAP := 4.0
+const POTION_SLOT_GAP := 8.0
+const TOP_INFO_SIZE := Vector2(342.0, 54.0)
+const COMBAT_NOTICE_SIZE := Vector2(330.0, 50.0)
+const COMBAT_NOTICE_DURATION := 2.5
+const NOTICE_LINE_LENGTH := 43
 
 const COLOR_PANEL := Color(0.075, 0.052, 0.034, 0.97)
 const COLOR_PANEL_INNER := Color(0.157, 0.114, 0.078, 1.0)
@@ -36,10 +43,21 @@ var stunned := false
 var reloading := false
 var reload_remaining := 0.0
 var reload_duration := 1.5
+var combat_notice := ""
+var combat_notice_remaining := 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	if combat_notice_remaining <= 0.0:
+		return
+	combat_notice_remaining = maxf(0.0, combat_notice_remaining - maxf(0.0, delta))
+	if combat_notice_remaining <= 0.0:
+		combat_notice = ""
 	queue_redraw()
 
 
@@ -81,6 +99,15 @@ func set_hud_state(
 	queue_redraw()
 
 
+func show_combat_notice(message: String, duration: float = COMBAT_NOTICE_DURATION) -> void:
+	var cleaned_message := message.strip_edges()
+	if cleaned_message.is_empty():
+		return
+	combat_notice = cleaned_message
+	combat_notice_remaining = maxf(0.1, duration)
+	queue_redraw()
+
+
 func _draw() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
@@ -93,6 +120,97 @@ func _draw() -> void:
 	_draw_resources(panel_rect)
 	_draw_abilities(panel_rect)
 	_draw_armor_stack()
+	_draw_potion_slot()
+	_draw_top_info()
+	_draw_combat_notice()
+
+
+func _draw_top_info() -> void:
+	var panel_rect := Rect2(Vector2(SCREEN_MARGIN, SCREEN_MARGIN), TOP_INFO_SIZE)
+	draw_rect(panel_rect, Color(COLOR_PANEL, 0.92), true)
+	draw_rect(panel_rect, COLOR_BORDER, false, 1.0)
+	var separator_x := panel_rect.position.x + 166.0
+	draw_line(
+		Vector2(separator_x, panel_rect.position.y + 7.0),
+		Vector2(separator_x, panel_rect.end.y - 7.0),
+		COLOR_BORDER,
+		1.0
+	)
+	var font := ThemeDB.fallback_font
+	draw_string(
+		font,
+		panel_rect.position + Vector2(10.0, 20.0),
+		"OURO  %d" % GameState.gold_score,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		145.0,
+		12,
+		COLOR_TEXT
+	)
+	draw_string(
+		font,
+		panel_rect.position + Vector2(10.0, 41.0),
+		"HORA  06:00",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		145.0,
+		11,
+		COLOR_MUTED_TEXT
+	)
+	draw_string(
+		font,
+		panel_rect.position + Vector2(178.0, 20.0),
+		"CLIMA  SECO",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		154.0,
+		11,
+		COLOR_TEXT
+	)
+	draw_string(
+		font,
+		panel_rect.position + Vector2(178.0, 41.0),
+		"REGIÃO  SERTÃO",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		154.0,
+		11,
+		COLOR_MUTED_TEXT
+	)
+
+
+func _draw_combat_notice() -> void:
+	if combat_notice.is_empty() or combat_notice_remaining <= 0.0:
+		return
+	var notice_width := minf(COMBAT_NOTICE_SIZE.x, size.x - SCREEN_MARGIN * 2.0)
+	var notice_rect := Rect2(
+		Vector2(size.x - notice_width - SCREEN_MARGIN, SCREEN_MARGIN),
+		Vector2(notice_width, COMBAT_NOTICE_SIZE.y)
+	)
+	draw_rect(notice_rect, Color(COLOR_PANEL, 0.94), true)
+	draw_rect(notice_rect, COLOR_BORDER_BRIGHT, false, 2.0)
+	var lines := _wrap_notice(combat_notice)
+	var font := ThemeDB.fallback_font
+	var first_baseline := notice_rect.position.y + (18.0 if lines.size() > 1 else 30.0)
+	for index in range(lines.size()):
+		draw_string(
+			font,
+			Vector2(notice_rect.position.x + 10.0, first_baseline + float(index) * 17.0),
+			lines[index],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			notice_rect.size.x - 20.0,
+			11,
+			COLOR_TEXT
+		)
+
+
+func _wrap_notice(message: String) -> PackedStringArray:
+	if message.length() <= NOTICE_LINE_LENGTH:
+		return PackedStringArray([message])
+	var split_at := message.rfind(" ", NOTICE_LINE_LENGTH)
+	if split_at <= 0:
+		split_at = NOTICE_LINE_LENGTH
+	var first_line := message.left(split_at).strip_edges()
+	var second_line := message.substr(split_at).strip_edges()
+	if second_line.length() > NOTICE_LINE_LENGTH:
+		second_line = second_line.left(NOTICE_LINE_LENGTH - 3).strip_edges() + "..."
+	return PackedStringArray([first_line, second_line])
 
 
 func _draw_panel(rect: Rect2) -> void:
@@ -215,36 +333,72 @@ func _draw_armor_stack() -> void:
 	var total_height := ARMOR_SLOT_SIZE.y * 4.0 + ARMOR_SLOT_GAP * 3.0
 	var first_position := Vector2(SCREEN_MARGIN + 4.0, size.y - total_height - SCREEN_MARGIN)
 	for index in range(4):
+		var armor_slot := str(GameState.ARMOR_SLOTS[index])
+		var equipped := GameState.is_armor_slot_equipped(armor_slot)
 		var slot_rect := Rect2(
 			first_position + Vector2(0.0, float(index) * (ARMOR_SLOT_SIZE.y + ARMOR_SLOT_GAP)),
 			ARMOR_SLOT_SIZE
 		)
-		draw_rect(slot_rect, COLOR_PANEL, true)
-		draw_rect(slot_rect, COLOR_BORDER, false, 2.0)
-		_draw_armor_silhouette(slot_rect, index)
+		draw_rect(slot_rect, COLOR_PANEL_INNER if equipped else COLOR_PANEL, true)
+		draw_rect(slot_rect, COLOR_BORDER_BRIGHT if equipped else COLOR_BORDER, false, 2.0)
+		_draw_armor_silhouette(
+			slot_rect,
+			index,
+			COLOR_TEXT if equipped else COLOR_ARMOR_ICON
+		)
 
 
-func _draw_armor_silhouette(slot_rect: Rect2, armor_part: int) -> void:
+func _draw_potion_slot() -> void:
+	var potion_count := GameState.get_item_count(GameState.ITEM_HEALTH_POTION)
+	var has_potion := potion_count > 0
+	var slot_rect := Rect2(
+		Vector2(
+			SCREEN_MARGIN + 4.0 + ARMOR_SLOT_SIZE.x + POTION_SLOT_GAP,
+			size.y - ARMOR_SLOT_SIZE.y - SCREEN_MARGIN
+		),
+		ARMOR_SLOT_SIZE
+	)
+	draw_rect(slot_rect, COLOR_PANEL_INNER if has_potion else COLOR_PANEL, true)
+	draw_rect(slot_rect, COLOR_BORDER_BRIGHT if has_potion else COLOR_BORDER, false, 2.0)
+	ItemVisualsScript.draw_item(
+		self,
+		Rect2(slot_rect.position + Vector2(7.0, 5.0), Vector2(26.0, 29.0)),
+		GameState.ITEM_HEALTH_POTION
+	)
+	if not has_potion:
+		draw_rect(slot_rect.grow(-2.0), Color(0.03, 0.02, 0.015, 0.58), true)
+	var key_rect := Rect2(slot_rect.position + Vector2(2.0, 1.0), Vector2(14.0, 13.0))
+	_draw_centered_text(key_rect, "F", 9, COLOR_TEXT if has_potion else COLOR_MUTED_TEXT)
+	var count_rect := Rect2(slot_rect.position + Vector2(15.0, 25.0), Vector2(23.0, 13.0))
+	_draw_centered_text(
+		count_rect,
+		"×%d" % potion_count,
+		10,
+		COLOR_TEXT if has_potion else COLOR_MUTED_TEXT
+	)
+
+
+func _draw_armor_silhouette(slot_rect: Rect2, armor_part: int, icon_color: Color) -> void:
 	var origin := slot_rect.position
 	match armor_part:
 		0:
-			draw_rect(Rect2(origin + Vector2(11.0, 9.0), Vector2(18.0, 5.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(8.0, 14.0), Vector2(24.0, 7.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(11.0, 21.0), Vector2(5.0, 7.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(24.0, 21.0), Vector2(5.0, 7.0)), COLOR_ARMOR_ICON, true)
+			draw_rect(Rect2(origin + Vector2(11.0, 9.0), Vector2(18.0, 5.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(8.0, 14.0), Vector2(24.0, 7.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(11.0, 21.0), Vector2(5.0, 7.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(24.0, 21.0), Vector2(5.0, 7.0)), icon_color, true)
 		1:
-			draw_rect(Rect2(origin + Vector2(8.0, 10.0), Vector2(7.0, 7.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(25.0, 10.0), Vector2(7.0, 7.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(12.0, 12.0), Vector2(16.0, 18.0)), COLOR_ARMOR_ICON, true)
+			draw_rect(Rect2(origin + Vector2(8.0, 10.0), Vector2(7.0, 7.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(25.0, 10.0), Vector2(7.0, 7.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(12.0, 12.0), Vector2(16.0, 18.0)), icon_color, true)
 		2:
-			draw_rect(Rect2(origin + Vector2(10.0, 9.0), Vector2(20.0, 6.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(10.0, 15.0), Vector2(8.0, 17.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(22.0, 15.0), Vector2(8.0, 17.0)), COLOR_ARMOR_ICON, true)
+			draw_rect(Rect2(origin + Vector2(10.0, 9.0), Vector2(20.0, 6.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(10.0, 15.0), Vector2(8.0, 17.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(22.0, 15.0), Vector2(8.0, 17.0)), icon_color, true)
 		3:
-			draw_rect(Rect2(origin + Vector2(8.0, 17.0), Vector2(10.0, 12.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(22.0, 17.0), Vector2(10.0, 12.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(6.0, 27.0), Vector2(12.0, 5.0)), COLOR_ARMOR_ICON, true)
-			draw_rect(Rect2(origin + Vector2(22.0, 27.0), Vector2(12.0, 5.0)), COLOR_ARMOR_ICON, true)
+			draw_rect(Rect2(origin + Vector2(8.0, 17.0), Vector2(10.0, 12.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(22.0, 17.0), Vector2(10.0, 12.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(6.0, 27.0), Vector2(12.0, 5.0)), icon_color, true)
+			draw_rect(Rect2(origin + Vector2(22.0, 27.0), Vector2(12.0, 5.0)), icon_color, true)
 
 
 func _draw_centered_text(rect: Rect2, text: String, font_size: int, color: Color) -> void:
