@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual local preparada:** `V.0.3.7` (commit, tag e publicação ainda pendentes).
+**Versão atual publicada:** `V.0.3.7` (main, tag e GitHub Pages).
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -174,9 +174,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Após o commit manual e a tag local de `V.0.3.7`, a próxima fatia proposta é
-uma única variedade real de armadura para comparação, sem alterar a estrutura
-do inventário. Ela ainda requer aprovação própria.
+Após a publicação da `V.0.3.7`, a próxima fatia proposta é uma única variedade
+real de armadura para comparação, sem alterar a estrutura do inventário. Ela
+ainda requer aprovação própria.
 
 ## Como executar
 
