@@ -4,6 +4,7 @@ const GridRulesScript = preload("res://scripts/grid_rules.gd")
 const PauseMenuScript = preload("res://scripts/pause_menu.gd")
 const InventoryUIScript = preload("res://scripts/inventory_ui.gd")
 const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
+const GodModePanelScript = preload("res://scripts/god_mode_panel.gd")
 
 enum AttackType {
 	NONE,
@@ -176,6 +177,7 @@ var boss_impact_position := Vector2.ZERO
 var boss_impact_color := Color.WHITE
 var pause_menu
 var inventory_ui: InventoryUI
+var god_mode_panel
 var boss_ground_drops: Array[Dictionary] = []
 
 @onready var fade: ColorRect = $FadeLayer/Fade
@@ -199,6 +201,7 @@ func _ready() -> void:
 		notice = "Escolha uma ação. A Cabra-Cabriola aguarda."
 	_setup_pause_menu()
 	_setup_inventory_ui()
+	_setup_god_mode_panel()
 	fade.modulate.a = 1.0
 	var fade_tween := create_tween()
 	fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
@@ -233,6 +236,13 @@ func _setup_inventory_ui() -> void:
 	inventory_ui.inventory_changed.connect(_on_inventory_action)
 	inventory_ui.health_potion_requested.connect(_attempt_health_potion_boss)
 	inventory_ui.resumed.connect(_on_pause_menu_resumed)
+
+
+func _setup_god_mode_panel() -> void:
+	if god_mode_panel != null:
+		return
+	god_mode_panel = GodModePanelScript.new()
+	add_child(god_mode_panel)
 
 
 func _can_open_pause_menu() -> bool:
@@ -289,6 +299,13 @@ func _on_pause_menu_resumed(paused_duration_usec: int) -> void:
 
 func _process(delta: float) -> void:
 	if not boss_mode:
+		return
+	if god_mode_panel != null and god_mode_panel.is_panel_open():
+		if boss_phase == BossPhase.ENEMY_TELEGRAPH or boss_phase == BossPhase.PARRY_WINDOW:
+			var paused_usec := int(delta * 1000000.0)
+			boss_phase_deadline_usec += paused_usec
+			if boss_phase == BossPhase.PARRY_WINDOW:
+				boss_parry_window_open_usec += paused_usec
 		return
 	_advance_boss_visual_effects(delta)
 	_advance_boss_ground_drops(delta)
@@ -422,6 +439,9 @@ func _play_boss_audio(sound_name: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if god_mode_panel != null and god_mode_panel.is_panel_open():
+		get_viewport().set_input_as_handled()
+		return
 	if encounter_transitioning:
 		return
 	if victory_visible:
@@ -695,7 +715,7 @@ func _attempt_lapada_boss() -> bool:
 	if selected_attack != AttackType.RIFLE:
 		notice = "Equipe o Rifle [Q] para usar a Lapada Seca."
 		return false
-	if GameState.rifle_ammo <= 0:
+	if not GameState.can_fire_rifle():
 		notice = "Sem bala no pente para usar a Lapada Seca."
 		return false
 	if not GameState.has_lapada_ready():
@@ -704,7 +724,7 @@ func _attempt_lapada_boss() -> bool:
 	if not GameState.consume_lapada_charges():
 		return false
 	boss_phase = BossPhase.PLAYER_ACTION
-	GameState.set_rifle_ammo(GameState.rifle_ammo - 1)
+	GameState.consume_rifle_round()
 	var lapada_damage := GameState.get_rifle_damage(RIFLE_DAMAGE) * 3
 	capanga_hp = maxi(0, capanga_hp - lapada_damage)
 	_show_boss_enemy_damage(lapada_damage, true, true)
@@ -767,7 +787,7 @@ func _attempt_boss_attack(
 	if attack_type != AttackType.RIFLE and attack_type != AttackType.KNIFE:
 		notice = "Escolha Rifle, Peixeira, Lapada, Recarga ou Poção."
 		return false
-	if attack_type == AttackType.RIFLE and GameState.rifle_ammo <= 0:
+	if attack_type == AttackType.RIFLE and not GameState.can_fire_rifle():
 		notice = "Pente vazio — recarregue ou use a Peixeira."
 		return false
 
@@ -782,7 +802,7 @@ func _attempt_boss_attack(
 	var result_text := ""
 	if attack_type == AttackType.RIFLE:
 		_play_boss_audio("shoot")
-		GameState.set_rifle_ammo(GameState.rifle_ammo - 1)
+		GameState.consume_rifle_round()
 		var rifle_result := _resolve_rifle(hit_roll, critical_roll)
 		var rifle_damage := int(rifle_result["damage"])
 		capanga_hp = maxi(0, capanga_hp - rifle_damage)
@@ -1479,7 +1499,7 @@ func _draw_boss_one_on_one() -> void:
 		BOSS_RIFLE_RECT,
 		"RIFLE %d/%d" % [GameState.rifle_ammo, GameState.RIFLE_MAGAZINE_CAPACITY],
 		selected_attack == AttackType.RIFLE,
-		can_choose and GameState.rifle_ammo > 0
+		can_choose and GameState.can_fire_rifle()
 	)
 	_draw_button(
 		BOSS_KNIFE_RECT,
@@ -1493,7 +1513,7 @@ func _draw_boss_one_on_one() -> void:
 		false,
 		can_choose
 		and selected_attack == AttackType.RIFLE
-		and GameState.rifle_ammo > 0
+		and GameState.can_fire_rifle()
 		and GameState.has_lapada_ready()
 	)
 	_draw_button(

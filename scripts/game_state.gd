@@ -112,6 +112,8 @@ var player_hp := DEFAULT_PLAYER_HP
 var rifle_ammo := DEFAULT_RIFLE_AMMO
 var rifle_reserve_ammo := DEFAULT_RIFLE_RESERVE_AMMO
 var current_weapon := DEFAULT_WEAPON
+var god_mode_no_damage := false
+var god_mode_infinite_ammo := false
 var gold_score := DEFAULT_GOLD_SCORE
 var lapada_charges := 0
 var inventory: Array[Dictionary] = []
@@ -168,6 +170,31 @@ func set_rifle_ammo(new_rifle_ammo: int) -> void:
 
 func set_rifle_reserve_ammo(new_rifle_reserve_ammo: int) -> void:
 	rifle_reserve_ammo = maxi(0, new_rifle_reserve_ammo)
+
+
+func reset_god_mode() -> void:
+	god_mode_no_damage = false
+	god_mode_infinite_ammo = false
+
+
+func set_god_mode_no_damage(enabled: bool) -> void:
+	god_mode_no_damage = enabled
+
+
+func set_god_mode_infinite_ammo(enabled: bool) -> void:
+	god_mode_infinite_ammo = enabled
+
+
+func can_fire_rifle() -> bool:
+	return god_mode_infinite_ammo or rifle_ammo > 0
+
+
+func consume_rifle_round() -> bool:
+	if not can_fire_rifle():
+		return false
+	if not god_mode_infinite_ammo:
+		set_rifle_ammo(rifle_ammo - 1)
+	return true
 
 
 func reload_rifle_magazine() -> int:
@@ -418,7 +445,7 @@ func get_player_critical_chance(base_chance: float = 0.25) -> float:
 
 
 func reduce_player_damage(raw_damage: int) -> int:
-	if raw_damage <= 0:
+	if raw_damage <= 0 or god_mode_no_damage:
 		return 0
 	var reduction := clampf(float(get_defense_points()) * DEFENSE_REDUCTION_PER_POINT, 0.0, 0.99)
 	return maxi(1, roundi(float(raw_damage) * (1.0 - reduction)))
@@ -607,23 +634,24 @@ func export_save_data() -> Dictionary:
 
 
 func import_save_data(data: Dictionary) -> void:
+	reset_god_mode()
 	inventory = _sanitize_inventory(data.get("inventory", []))
 	equipped_armor = _sanitize_equipped_armor(data.get("equipped_armor", {}))
-	set_player_hp(int(data.get("player_hp", DEFAULT_PLAYER_HP)))
-	set_rifle_ammo(int(data.get("rifle_ammo", DEFAULT_RIFLE_AMMO)))
-	set_rifle_reserve_ammo(int(data.get("rifle_reserve_ammo", DEFAULT_RIFLE_RESERVE_AMMO)))
-	set_current_weapon(int(data.get("current_weapon", DEFAULT_WEAPON)))
-	gold_score = maxi(0, int(data.get("gold_score", DEFAULT_GOLD_SCORE)))
-	lapada_charges = clampi(int(data.get("lapada_charges", 0)), 0, MAX_LAPADA_CHARGES)
+	set_player_hp(_saved_int(data.get("player_hp"), DEFAULT_PLAYER_HP))
+	set_rifle_ammo(_saved_int(data.get("rifle_ammo"), DEFAULT_RIFLE_AMMO))
+	set_rifle_reserve_ammo(_saved_int(data.get("rifle_reserve_ammo"), DEFAULT_RIFLE_RESERVE_AMMO))
+	set_current_weapon(_saved_int(data.get("current_weapon"), DEFAULT_WEAPON))
+	gold_score = maxi(0, _saved_int(data.get("gold_score"), DEFAULT_GOLD_SCORE))
+	lapada_charges = clampi(_saved_int(data.get("lapada_charges"), 0), 0, MAX_LAPADA_CHARGES)
 	defeated_encounters = _sanitize_boolean_dictionary(data.get("defeated_encounters", {}))
-	dungeon_active = bool(data.get("dungeon_active", false))
+	dungeon_active = data.get("dungeon_active") is bool and data["dungeon_active"]
 	dungeon_progress = _sanitize_boolean_dictionary(data.get("dungeon_progress", {}))
 	dungeon_room_index = clampi(
-		int(data.get("dungeon_room_index", 0)),
+		_saved_int(data.get("dungeon_room_index"), 0),
 		0,
 		DUNGEON_ROOM_IDS.size() - 1
 	)
-	dungeon_completed = bool(data.get("dungeon_completed", false))
+	dungeon_completed = data.get("dungeon_completed") is bool and data["dungeon_completed"]
 
 	active_encounter_id = ""
 	return_position = Vector2.ZERO
@@ -632,12 +660,20 @@ func import_save_data(data: Dictionary) -> void:
 	returning_from_dungeon = false
 
 
+func _saved_int(value: Variant, fallback: int) -> int:
+	if value is int:
+		return value
+	if value is float and is_finite(value):
+		return int(value)
+	return fallback
+
+
 func _sanitize_boolean_dictionary(value: Variant) -> Dictionary:
 	var sanitized: Dictionary = {}
 	if not value is Dictionary:
 		return sanitized
 	for key in value:
-		if bool(value[key]):
+		if value[key] is bool and value[key]:
 			sanitized[str(key)] = true
 	return sanitized
 
@@ -656,7 +692,7 @@ func _sanitize_inventory(value: Variant) -> Array[Dictionary]:
 		if definition.is_empty() or item_id == ITEM_COIN:
 			continue
 		var stack_limit := maxi(1, int(definition.get("stack_limit", 1)))
-		var raw_quantity := int(raw_entry.get("quantity", 0))
+		var raw_quantity := _saved_int(raw_entry.get("quantity"), 0)
 		if raw_quantity <= 0:
 			continue
 		var quantity := mini(raw_quantity, stack_limit)
@@ -685,6 +721,7 @@ func _sanitize_equipped_armor(value: Variant) -> Dictionary:
 
 
 func reset_session() -> void:
+	reset_god_mode()
 	defeated_encounters.clear()
 	active_encounter_id = ""
 	return_position = Vector2.ZERO

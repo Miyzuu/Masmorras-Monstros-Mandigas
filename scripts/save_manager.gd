@@ -228,8 +228,9 @@ func _location_label(save_data: Dictionary, game_state_data: Dictionary) -> Stri
 	if checkpoint == CHECKPOINT_COMPLETED:
 		return "Concluída"
 	if checkpoint == CHECKPOINT_DUNGEON:
+		var saved_room: Variant = game_state_data.get("dungeon_room_index", 0)
 		var room_index := clampi(
-			int(game_state_data.get("dungeon_room_index", 0)),
+			int(saved_room) if saved_room is int or saved_room is float else 0,
 			0,
 			GameState.get_implemented_dungeon_room_count() - 1
 		)
@@ -262,11 +263,20 @@ func _settings_path() -> String:
 func _write_slot_data(slot: int, save_data: Dictionary) -> bool:
 	if not _ensure_storage_directory():
 		return false
-	var file := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
+	# Só substitui o checkpoint anterior depois de gravar e fechar a cópia completa.
+	var save_path := ProjectSettings.globalize_path(_slot_path(slot))
+	var temporary_path := save_path + ".tmp"
+	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string(JSON.stringify(save_data, "\t"))
-	return file.get_error() == OK
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	if write_error == OK and DirAccess.rename_absolute(temporary_path, save_path) == OK:
+		return true
+	DirAccess.remove_absolute(temporary_path)
+	return false
 
 
 func _read_slot_data(slot: int) -> Dictionary:
@@ -276,7 +286,14 @@ func _read_slot_data(slot: int) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if not parsed is Dictionary:
 		return {}
-	if int(parsed.get("schema_version", 0)) != SAVE_SCHEMA_VERSION:
+	var schema_version: Variant = parsed.get("schema_version", 0)
+	if not (schema_version is int or schema_version is float) or schema_version != SAVE_SCHEMA_VERSION:
+		return {}
+	if not parsed.get("game_state") is Dictionary:
+		return {}
+	if str(parsed.get("checkpoint", CHECKPOINT_EXPLORATION)) not in [
+		CHECKPOINT_EXPLORATION, CHECKPOINT_DUNGEON, CHECKPOINT_COMPLETED,
+	]:
 		return {}
 	return parsed
 

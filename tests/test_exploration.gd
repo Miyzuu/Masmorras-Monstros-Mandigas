@@ -22,7 +22,11 @@ func _run() -> void:
 	if character_atlas != null:
 		_expect(character_atlas.get_size() == Vector2(640.0, 256.0), "O atlas deve conter 10 colunas e 4 linhas de 64x64.")
 	_test_environment_assets()
-	var script_constants: Dictionary = exploration.get_script().get_script_constant_map()
+	var script_constants: Dictionary = {}
+	var current_script: Script = exploration.get_script()
+	while current_script != null:
+		script_constants.merge(current_script.get_script_constant_map())
+		current_script = current_script.get_base_script()
 	_expect(
 		int(script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
 		and int(script_constants.get("CHARACTER_ATLAS_ROWS", 0)) == 4,

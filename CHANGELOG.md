@@ -1,5 +1,29 @@
 # Histórico de versões
 
+## V.0.3.7 — 2026-09-08 (preparada localmente)
+
+### Título do commit
+
+`V.0.3.7 — Estabilidade, GOD Mode e validação do protótipo`
+
+### Descrição
+
+- adiciona GOD Mode transitório por **Ctrl+Shift+C**, limitado a
+  invulnerabilidade e munição infinita; o painel pausa a simulação de
+  exploração, masmorra e os prazos reativos da Cabra-Cabriola, sem serializar
+  as opções nos saves;
+- torna os saves mais defensivos: valida envelope e tipos, grava por arquivo
+  temporário antes da substituição e preserva checkpoints quando a escrita
+  falha; corrige autosave, derrota por projéteis e layout responsivo da pausa;
+- reincorpora a exploração em `exploration.gd`, removendo a base especulativa
+  `RealtimeWorld` e caminhos mortos sem alterar os valores do Capanga;
+- atualiza testes, CI de PR e teardown de áudio; a QA registrou 10 suítes,
+  exportação Web e vitória real contra a Cabra-Cabriola (modal VITÓRIA, ouro
+  290 e slot Concluída).
+
+**Estado:** documentação e versão preparados no checkout local. Commit, tag,
+push, publicação e backup ainda não foram executados.
+
 ## V.0.3.6 — 2026-09-01
 
 ### Título do commit

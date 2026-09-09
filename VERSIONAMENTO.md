@@ -11,13 +11,23 @@ protótipo, o primeiro número permanece em `0`.
 
 ## Fechamento de uma alteração de código
 
-Ao concluir uma alteração:
+Somente no fechamento de uma release aprovada:
 
 1. atualizar `VERSION` e `application/config/version` em `project.godot`;
 2. exibir a versão atual no protótipo;
 3. registrar a entrega no `CHANGELOG.md`;
-4. criar o commit com título e descrição;
-5. criar uma tag Git anotada usando exatamente a mesma versão.
+4. fornecer título e descrição para o usuário criar o commit manualmente;
+5. registrar uma tag Git anotada usando exatamente a mesma versão, quando autorizada.
+
+A preferência atual do usuário é fazer os commits manualmente. Não executar
+commit, tag ou push por inferência desta convenção. Uma tarefa de revisão ou
+correção local não fecha automaticamente uma release nem altera a versão.
+Se o usuário autorizar explicitamente o fechamento por Codex, limitar a operação
+aos arquivos aprovados; push continua exigindo autorização própria.
+
+Depois de um novo commit confirmado, realizar o backup conforme `AGENTS.md` e
+registrar SHA, data e links no Obsidian. Isso não significa que exista um monitor
+automático instalado para detectar commits feitos fora de uma tarefa ativa.
 
 ## Formato do commit
 

@@ -378,30 +378,32 @@ func _panel_rect() -> Rect2:
 
 func _main_button_rects() -> Dictionary:
 	var button_x := (size.x - BUTTON_SIZE.x) * 0.5
+	var panel_y := _panel_rect().position.y
 	if dungeon_exit_available:
 		return {
-			"continue": Rect2(Vector2(button_x, 154.0), BUTTON_SIZE),
-			"settings": Rect2(Vector2(button_x, 210.0), BUTTON_SIZE),
-			"exit": Rect2(Vector2(button_x, 266.0), BUTTON_SIZE),
-			"main_menu": Rect2(Vector2(button_x, 322.0), BUTTON_SIZE),
+			"continue": Rect2(Vector2(button_x, panel_y + 110.0), BUTTON_SIZE),
+			"settings": Rect2(Vector2(button_x, panel_y + 166.0), BUTTON_SIZE),
+			"exit": Rect2(Vector2(button_x, panel_y + 222.0), BUTTON_SIZE),
+			"main_menu": Rect2(Vector2(button_x, panel_y + 278.0), BUTTON_SIZE),
 		}
 	return {
-		"continue": Rect2(Vector2(button_x, 182.0), BUTTON_SIZE),
-		"settings": Rect2(Vector2(button_x, 244.0), BUTTON_SIZE),
+		"continue": Rect2(Vector2(button_x, panel_y + 138.0), BUTTON_SIZE),
+		"settings": Rect2(Vector2(button_x, panel_y + 200.0), BUTTON_SIZE),
 		"exit": Rect2(),
-		"main_menu": Rect2(Vector2(button_x, 306.0), BUTTON_SIZE),
+		"main_menu": Rect2(Vector2(button_x, panel_y + 262.0), BUTTON_SIZE),
 	}
 
 
 func _confirmation_button_rects() -> Dictionary:
+	var button_y := _panel_rect().position.y + 242.0
 	return {
-		"yes": Rect2(Vector2((size.x - 456.0) * 0.5, 286.0), Vector2(220.0, 52.0)),
-		"no": Rect2(Vector2((size.x - 456.0) * 0.5 + 236.0, 286.0), Vector2(220.0, 52.0)),
+		"yes": Rect2(Vector2((size.x - 456.0) * 0.5, button_y), Vector2(220.0, 52.0)),
+		"no": Rect2(Vector2((size.x - 456.0) * 0.5 + 236.0, button_y), Vector2(220.0, 52.0)),
 	}
 
 
 func _back_button_rect() -> Rect2:
-	return Rect2(Vector2((size.x - 240.0) * 0.5, 414.0), Vector2(240.0, 42.0))
+	return Rect2(Vector2((size.x - 240.0) * 0.5, _panel_rect().position.y + 370.0), Vector2(240.0, 42.0))
 
 
 func _play_ui_sound(sound_name: String) -> void:

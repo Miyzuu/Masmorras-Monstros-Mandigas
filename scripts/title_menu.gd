@@ -35,9 +35,11 @@ const CONTROLS_LEFT := [
 	["M", "alternar visão do mapa"],
 	["Q", "trocar Rifle/Peixeira"],
 	["E", "usar Lapada Seca"],
+	["I", "abrir o inventário"],
 ]
 const CONTROLS_RIGHT := [
 	["R", "recarregar o Rifle"],
+	["F", "usar Poção de Vida"],
 	["ESPAÇO", "aparar ou confirmar"],
 	["ENTER", "confirmar ação/aviso"],
 	["MOUSE ESQ.", "ações do chefe"],

@@ -3,7 +3,7 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual:** `V.0.3.6`
+**Versão atual local preparada:** `V.0.3.7` (commit, tag e publicação ainda pendentes).
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -150,6 +150,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   somente o último checkpoint seguro; as caixas fixas de atalhos foram removidas;
 - página inicial com Novo Jogo, Continuar, Configurações e Sair, além de marca
   da versão no canto inferior direito;
+- painel de GOD Mode aberto por **Ctrl+Shift+C**, com opções independentes de
+  invulnerabilidade e munição infinita, transitórias e fora dos saves; enquanto
+  aberto, congela exploração, IA, projéteis e prazos reativos da chefe;
 - três slots locais compartilhados entre Novo Jogo e Continuar, exibindo apenas
   local e data do último save, com confirmação antes de apagar ou sobrescrever;
 - checkpoints automáticos após encontros, salas, entrada/saída da masmorra,
@@ -171,9 +174,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Após validar a `V.0.3.6` no navegador, o próximo passo recomendado é criar a
-primeira variedade real de armadura, permitindo comparar peças melhores sem
-alterar a estrutura do inventário.
+Após o commit manual e a tag local de `V.0.3.7`, a próxima fatia proposta é
+uma única variedade real de armadura para comparação, sem alterar a estrutura
+do inventário. Ela ainda requer aprovação própria.
 
 ## Como executar
 
@@ -200,6 +203,7 @@ alterar a estrutura do inventário.
 - **R:** recarregar manualmente o Rifle usando as balas da reserva.
 - **I:** abrir ou fechar o inventário.
 - **F:** usar uma Poção de Vida; contra o chefe, uma vez por turno sem encerrá-lo.
+- **Ctrl+Shift+C:** abrir ou fechar o painel de GOD Mode transitório.
 - **Espaço:** tentar aparar o ataque pesado durante o alerta **!**.
 - **Enter ou Espaço:** confirmar uma caixa de entrada ou saída.
 - **Esc:** abrir/fechar a pausa ou voltar da tela de Controles; em caixas de

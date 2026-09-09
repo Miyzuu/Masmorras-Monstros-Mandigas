@@ -1,8 +1,70 @@
 extends Node2D
 
+const GROUND_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caatinga_terra_rachada.png")
+const PATH_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caminho_batido.png")
+const DUNGEON_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_masmorra_pedra.png")
+const VEGETATION_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_vegetacao_caatinga.png")
+const TAIPA_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_paredes_taipa.png")
+const TERRAIN_TILE_FRAME_SIZE := Vector2(64.0, 32.0)
+const ENVIRONMENT_PROP_FRAME_SIZE := Vector2(64.0, 64.0)
+const VEGETATION_FOOT_ANCHOR := Vector2(32.0, 60.0)
+const TAIPA_FOOT_ANCHOR := Vector2(32.0, 48.0)
+
+const CAPANGA_NAME := "Capanga"
+const CAPANGA_MAX_HP := 150.0
+const CAPANGA_PATROL_SPEED := 70.0
+const CAPANGA_CHASE_SPEED := 150.0
+const CAPANGA_DETECTION_RANGE := 6
+const CAPANGA_DISENGAGE_RANGE := 10
+const CAPANGA_ATTACK_RANGE := 1
+const CAPANGA_ATTACK_INTERVAL := 1.5
+const CAPANGA_BASIC_DAMAGE := 15
+const CAPANGA_HEAVY_DAMAGE := 30
+const CAPANGA_HEAVY_WARNING := 0.7
+const CAPANGA_REGEN_PER_SECOND := 5.0
+const CAPANGA_REPATH_INTERVAL := 0.2
+const CAPANGA_PATROL_PAUSE := 0.6
+const PLAYER_START := Vector2i(1, 10)
+const CAPANGA_ID := "capanga_01"
+const DUNGEON_DOOR_CELL := Vector2i(15, 3)
+const DUNGEON_ENTRY_CELL := Vector2i(14, 3)
+const START_LANDMARK_CELL := Vector2i(5, 11)
+const COMBAT_LANDMARK_CELL := Vector2i(9, 5)
+const DUNGEON_LANDMARK_CELL := Vector2i(12, 3)
+const CAPANGA_PATROL_CELLS := [
+	Vector2i(8, 6),
+	Vector2i(11, 4),
+]
+const ROAD_OBSTACLES = [
+	Vector2i(5, 9),
+	Vector2i(5, 11),
+	Vector2i(6, 8),
+	Vector2i(9, 5),
+	Vector2i(12, 3),
+]
+
+const COLOR_VOID := Color("17120d")
+const COLOR_GROUND_A := Color("a97945")
+const COLOR_GROUND_B := Color("9b693d")
+const COLOR_PATH_A := Color("c49a61")
+const COLOR_PATH_B := Color("b98d55")
+const COLOR_TEXT := Color("f2dfbd")
+const COLOR_DOOR_FRAME := Color("3f3028")
+const COLOR_DOOR_LOCKED := Color("5e493c")
+const COLOR_DOOR_OPEN := Color("31977f")
+const COLOR_LOCK := Color("d7b56d")
+
+var dungeon_prompt: Control
+var dungeon_yes_button: Button
+var dungeon_no_button: Button
+var dungeon_prompt_visible := false
+var door_contact_latched := false
+
+
 const PauseMenuScript = preload("res://scripts/pause_menu.gd")
 const InventoryUIScript = preload("res://scripts/inventory_ui.gd")
 const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
+const GodModePanelScript = preload("res://scripts/god_mode_panel.gd")
 
 enum Weapon {
 	RIFLE,
@@ -23,31 +85,19 @@ const PLAYER_COLLISION_STEP := 4.0
 const MOVEMENT_EPSILON := 0.001
 const PLAYER_FOOTPRINT_RADIUS := Vector2(7.0, 3.0)
 const PLAYER_PATH_REPLAN_INTERVAL := 0.15
-const PLAYER_MAX_HP := 100
 const CLOSE_ZOOM := Vector2(1.45, 1.45)
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_TRANSITION_TIME := 0.28
 const FADE_DURATION := 0.5
-const DUNGEON_SCENE := "res://scenes/dungeon.tscn"
 const TITLE_MENU_SCENE := "res://scenes/title_menu.tscn"
 const CHARACTER_ATLAS: Texture2D = preload("res://assets/art/characters/animations/personagens_completo_se_animacoes_640x256_16c.png")
-const GROUND_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caatinga_terra_rachada.png")
-const PATH_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_caminho_batido.png")
-const DUNGEON_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_masmorra_pedra.png")
-const VEGETATION_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_vegetacao_caatinga.png")
-const TAIPA_TILESET: Texture2D = preload("res://assets/art/tilesets/tileset_paredes_taipa.png")
 const CHARACTER_FRAME_SIZE := Vector2(64.0, 64.0)
 const CHARACTER_FOOT_ANCHOR := Vector2(32.0, 60.0)
-const TERRAIN_TILE_FRAME_SIZE := Vector2(64.0, 32.0)
-const ENVIRONMENT_PROP_FRAME_SIZE := Vector2(64.0, 64.0)
-const VEGETATION_FOOT_ANCHOR := Vector2(32.0, 60.0)
-const TAIPA_FOOT_ANCHOR := Vector2(32.0, 48.0)
 const CHARACTER_ATLAS_COLUMNS := 10
 const CHARACTER_ATLAS_ROWS := 4
 const PLAYER_RIFLE_ROW := 0
 const CAPANGA_ATLAS_ROW := 1
 const PLAYER_KNIFE_ROW := 2
-const CABRA_CABRIOLA_ROW := 3
 const ANIMATION_IDLE := 0
 const ANIMATION_WALK := 1
 const IDLE_FIRST_COLUMN := 0
@@ -56,6 +106,7 @@ const IDLE_FPS := 4.0
 const WALK_FIRST_COLUMN := 4
 const WALK_FRAME_COUNT := 6
 const WALK_FPS := 10.0
+const STEP_DISTANCE := 42.0
 
 const RIFLE_STARTING_AMMO := 5
 const RIFLE_RELOAD_DURATION := 1.5
@@ -71,87 +122,40 @@ const KNIFE_CRITICAL_DAMAGE := 30
 const PLAYER_CRITICAL_CHANCE := 0.25
 const WEAPON_SWITCH_COOLDOWN := 0.5
 
-const CAPANGA_MAX_HP := 150.0
-const CAPANGA_PATROL_SPEED := 70.0
-const CAPANGA_CHASE_SPEED := 150.0
-const CAPANGA_DETECTION_RANGE := 6
-const CAPANGA_DISENGAGE_RANGE := 10
-const CAPANGA_ATTACK_RANGE := 1
-const CAPANGA_ATTACK_INTERVAL := 1.5
-const CAPANGA_BASIC_DAMAGE := 15
-const CAPANGA_HEAVY_DAMAGE := 30
-const CAPANGA_HEAVY_WARNING := 0.7
-const CAPANGA_REGEN_PER_SECOND := 5.0
-const CAPANGA_REPATH_INTERVAL := 0.2
-const CAPANGA_PATROL_PAUSE := 0.6
-
 const FAILED_PARRY_STUN := 0.7
 const DAMAGE_NUMBER_DURATION := 0.8
 const PARRY_TEXT_DURATION := 0.5
 const DAMAGE_BORDER_DURATION := 0.15
 const HIT_FLASH_DURATION := 0.12
-const STEP_DISTANCE := 42.0
 
-const COLOR_VOID := Color("17120d")
-const COLOR_GROUND_A := Color("a97945")
-const COLOR_GROUND_B := Color("9b693d")
-const COLOR_PATH_A := Color("c49a61")
-const COLOR_PATH_B := Color("b98d55")
 const COLOR_MAGIC := Color("44d6b3")
 const COLOR_ROUTE := Color(0.27, 0.84, 0.70, 0.45)
-const COLOR_TEXT := Color("f2dfbd")
 const COLOR_NORMAL_DAMAGE := Color("f2dfbd")
 const COLOR_CRITICAL_DAMAGE := Color("df3328")
 const COLOR_PLAYER_DAMAGE := Color("ef6a52")
 const COLOR_HEALTH_BACKGROUND := Color("3b211b")
 const COLOR_ENEMY_HEALTH := Color("d15a3f")
 const COLOR_ALERT := Color("ed3128")
-const COLOR_DOOR_FRAME := Color("3f3028")
-const COLOR_DOOR_LOCKED := Color("5e493c")
-const COLOR_DOOR_OPEN := Color("31977f")
-const COLOR_LOCK := Color("d7b56d")
 
-const PLAYER_START := Vector2i(1, 10)
-const CAPANGA_ID := "capanga_01"
-const DUNGEON_DOOR_CELL := Vector2i(15, 3)
-const DUNGEON_ENTRY_CELL := Vector2i(14, 3)
-const START_LANDMARK_CELL := Vector2i(5, 11)
-const COMBAT_LANDMARK_CELL := Vector2i(9, 5)
-const DUNGEON_LANDMARK_CELL := Vector2i(12, 3)
-const CAPANGA_PATROL_CELLS := [
-	Vector2i(8, 6),
-	Vector2i(11, 4),
-]
-const ROAD_OBSTACLES = [
-	Vector2i(5, 9),
-	Vector2i(5, 11),
-	Vector2i(6, 8),
-	Vector2i(9, 5),
-	Vector2i(12, 3),
-]
-
-@onready var player_anchor: Node2D = $PlayerAnchor
-@onready var capanga_anchor: Node2D = $CapangaAnchor
-@onready var camera: Camera2D = $Camera2D
-@onready var player_hit_flash: Sprite2D = $PlayerAnchor/HitFlash
-@onready var capanga_hit_flash: Sprite2D = $CapangaAnchor/HitFlash
-@onready var dust_particles: CPUParticles2D = $PlayerAnchor/DustParticles
-@onready var rifle_muzzle_flash: Node2D = $PlayerAnchor/RifleMuzzleFlash
-@onready var status_label: Label = $Interface/TopPanel/Status
-@onready var hint_panel: ColorRect = $Interface/HintPanel
-@onready var version_label: Label = $Interface/Version
-@onready var health_fill: ColorRect = $Interface/CombatHUD/HealthBack/HealthFill
-@onready var health_label: Label = $Interface/CombatHUD/HealthBack/HealthLabel
-@onready var weapon_label: Label = $Interface/CombatHUD/WeaponLabel
-@onready var lapada_pip1: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip1
-@onready var lapada_pip2: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip2
-@onready var lapada_pip3: ColorRect = $Interface/CombatHUD/LapadaContainer/Pip3
-@onready var realtime_hud: RealtimeHUD = $Interface/RealtimeHUD
-@onready var damage_border: Control = $Interface/DamageBorder
-@onready var dungeon_prompt: Control = $DialogLayer/DungeonPrompt
-@onready var dungeon_yes_button: Button = $DialogLayer/DungeonPrompt/Dialog/YesButton
-@onready var dungeon_no_button: Button = $DialogLayer/DungeonPrompt/Dialog/NoButton
-@onready var fade: ColorRect = $FadeLayer/Fade
+var player_anchor: Node2D
+var capanga_anchor: Node2D
+var camera: Camera2D
+var player_hit_flash: Sprite2D
+var capanga_hit_flash: Sprite2D
+var dust_particles: CPUParticles2D
+var rifle_muzzle_flash: Node2D
+var status_label: Label
+var hint_panel: ColorRect
+var version_label: Label
+var health_fill: ColorRect
+var health_label: Label
+var weapon_label: Label
+var lapada_pip1: ColorRect
+var lapada_pip2: ColorRect
+var lapada_pip3: ColorRect
+var realtime_hud: RealtimeHUD
+var damage_border: Control
+var fade: ColorRect
 
 var astar := AStarGrid2D.new()
 var movement_path := PackedVector2Array()
@@ -192,6 +196,7 @@ var current_weapon: int:
 		return GameState.current_weapon
 	set(value):
 		GameState.set_current_weapon(value)
+
 var player_attack_cooldown := 0.0
 var weapon_switch_cooldown := 0.0
 var is_reloading := false
@@ -200,7 +205,7 @@ var stun_remaining := 0.0
 var skip_next_player_attack := false
 
 var capanga_active := true
-var capanga_hp := CAPANGA_MAX_HP
+var capanga_hp := 0.0
 var capanga_state := EnemyState.PATROL
 var capanga_patrol_target_index := 1
 var capanga_return_target_index := 0
@@ -208,7 +213,7 @@ var capanga_path := PackedVector2Array()
 var capanga_path_index := 0
 var capanga_repath_remaining := 0.0
 var capanga_patrol_pause_remaining := 0.0
-var capanga_attack_cooldown := CAPANGA_ATTACK_INTERVAL
+var capanga_attack_cooldown := 0.0
 var capanga_basic_attack_count := 0
 var heavy_warning_active := false
 var heavy_warning_remaining := 0.0
@@ -218,61 +223,63 @@ var player_hit_flash_remaining := 0.0
 var capanga_hit_flash_remaining := 0.0
 var last_player_damage_taken := 0
 var combat_popups: Array[Dictionary] = []
-var dungeon_prompt_visible := false
-var door_contact_latched := false
 var scene_transitioning := false
 var pause_menu
 var inventory_ui: InventoryUI
+var god_mode_panel
 var ground_drops: Array[Dictionary] = []
 
 
-func _ready() -> void:
-	_setup_pause_menu()
-	_setup_inventory_ui()
-	_setup_pathfinding()
-	var start_position := _cell_to_world(PLAYER_START)
-	var returned_from_combat: bool = GameState.returning_from_combat
-	var returned_from_dungeon: bool = GameState.returning_from_dungeon
-	var returned_to_exploration := returned_from_combat or returned_from_dungeon
-	player_anchor.position = GameState.consume_return_position(start_position)
-	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
-	capanga_active = returned_to_exploration or not GameState.is_encounter_defeated(CAPANGA_ID)
-	door_contact_latched = returned_from_dungeon
-	camera.zoom = CLOSE_ZOOM
-	camera.position = _clamp_camera_position(player_anchor.position, camera.zoom)
+func _bind_shared_nodes() -> void:
+	player_anchor = $PlayerAnchor
+	camera = $Camera2D
+	dust_particles = get_node_or_null("PlayerAnchor/DustParticles")
+	rifle_muzzle_flash = get_node_or_null("PlayerAnchor/RifleMuzzleFlash")
+	player_hit_flash = get_node_or_null("PlayerAnchor/HitFlash")
+	capanga_hit_flash = get_node_or_null("CapangaAnchor/HitFlash")
+	status_label = get_node_or_null("Interface/TopPanel/Status")
+	hint_panel = get_node_or_null("Interface/HintPanel")
+	version_label = get_node_or_null("Interface/Version")
+	realtime_hud = get_node_or_null("Interface/RealtimeHUD")
+	damage_border = get_node_or_null("Interface/DamageBorder")
+	fade = get_node_or_null("FadeLayer/Fade")
+	health_fill = get_node_or_null("Interface/CombatHUD/HealthBack/HealthFill")
+	if health_fill == null:
+		health_fill = get_node_or_null("Interface/StatusHUD/HealthBack/HealthFill")
+	health_label = get_node_or_null("Interface/CombatHUD/HealthBack/HealthLabel")
+	if health_label == null:
+		health_label = get_node_or_null("Interface/StatusHUD/HealthBack/HealthLabel")
+	weapon_label = get_node_or_null("Interface/CombatHUD/WeaponLabel")
+	if weapon_label == null:
+		weapon_label = get_node_or_null("Interface/StatusHUD/WeaponLabel")
+	lapada_pip1 = get_node_or_null("Interface/CombatHUD/LapadaContainer/Pip1")
+	lapada_pip2 = get_node_or_null("Interface/CombatHUD/LapadaContainer/Pip2")
+	lapada_pip3 = get_node_or_null("Interface/CombatHUD/LapadaContainer/Pip3")
+	if capanga_anchor == null:
+		capanga_anchor = get_node_or_null("CapangaAnchor")
+	_setup_god_mode_panel()
+
+
+func _setup_god_mode_panel() -> void:
+	if god_mode_panel != null:
+		return
+	god_mode_panel = GodModePanelScript.new()
+	add_child(god_mode_panel)
+
+
+func _place_version_label() -> void:
+	if version_label == null:
+		return
 	version_label.text = str(ProjectSettings.get_setting("application/config/version", "V.0.0.0"))
 	version_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	version_label.offset_left = -88.0
 	version_label.offset_top = -28.0
 	version_label.offset_right = -8.0
 	version_label.offset_bottom = -8.0
-	status_label.get_parent().visible = false
-	hint_panel.visible = false
-	dungeon_prompt.visible = false
-	dungeon_yes_button.pressed.connect(_confirm_dungeon_entry)
-	dungeon_no_button.pressed.connect(_cancel_dungeon_entry)
-
-	if returned_to_exploration:
-		scene_transitioning = true
-		fade.mouse_filter = Control.MOUSE_FILTER_STOP
-		fade.modulate.a = 1.0
-		fade_tween = create_tween()
-		fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
-		fade_tween.finished.connect(_finish_entry_fade, CONNECT_ONE_SHOT)
-		GameState.acknowledge_return()
-	else:
-		fade.modulate.a = 0.0
-
-	if returned_to_exploration and GameState.is_encounter_defeated(CAPANGA_ID):
-		_update_status("Capanga renasceu — progresso mantido.")
-	elif capanga_active:
-		_update_status("Capanga patrulhando adiante.")
-	else:
-		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
-	_update_hud()
-	_update_damage_border()
-	_update_hit_flash_overlays()
-	queue_redraw()
+	if status_label != null and status_label.get_parent() != null:
+		status_label.get_parent().visible = false
+	if hint_panel != null:
+		hint_panel.visible = false
 
 
 func _setup_pause_menu() -> void:
@@ -302,7 +309,7 @@ func _setup_inventory_ui() -> void:
 func _can_open_pause_menu() -> bool:
 	return (
 		not scene_transitioning
-		and not dungeon_prompt_visible
+		and not _is_prompt_blocking()
 		and (inventory_ui == null or not inventory_ui.is_inventory_open())
 	)
 
@@ -310,7 +317,7 @@ func _can_open_pause_menu() -> bool:
 func _can_open_inventory() -> bool:
 	return (
 		not scene_transitioning
-		and not dungeon_prompt_visible
+		and not _is_prompt_blocking()
 		and (pause_menu == null or not pause_menu.is_menu_open())
 	)
 
@@ -328,14 +335,16 @@ func _return_to_title_menu() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if dungeon_prompt_visible or scene_transitioning:
+	if _is_prompt_blocking() or scene_transitioning or (god_mode_panel != null and god_mode_panel.is_panel_open()):
 		return
 
 	_advance_realtime(delta)
 
 	if not overview_enabled and not camera_transitioning:
 		var follow_weight := 1.0 - exp(-CAMERA_FOLLOW_SPEED * delta)
-		var camera_target := _clamp_camera_position(player_anchor.position, camera.zoom)
+		var camera_target := player_anchor.position
+		if _should_clamp_follow_camera():
+			camera_target = _clamp_camera_position(player_anchor.position, camera.zoom)
 		camera.position = camera.position.lerp(camera_target, follow_weight)
 
 
@@ -350,7 +359,7 @@ func _advance_realtime(
 	if stun_remaining <= 0.0:
 		_move_player(delta)
 	_update_player_animation(delta, player_previous_position)
-	if _check_dungeon_door_contact():
+	if _handle_world_contacts():
 		_update_hud()
 		queue_redraw()
 		return
@@ -452,17 +461,14 @@ func _reset_character_animations_to_idle() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if god_mode_panel != null and god_mode_panel.is_panel_open():
+		get_viewport().set_input_as_handled()
+		return
 	if scene_transitioning:
 		get_viewport().set_input_as_handled()
 		return
 
-	if dungeon_prompt_visible:
-		if event is InputEventKey and event.pressed and not event.echo:
-			if _handle_dungeon_prompt_key(event.keycode):
-				get_viewport().set_input_as_handled()
-				return
-		if event is InputEventMouseButton:
-			get_viewport().set_input_as_handled()
+	if _handle_blocking_prompt_input(event):
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -494,81 +500,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_set_destination(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
-
-
-func _handle_dungeon_prompt_key(keycode: int) -> bool:
-	if keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE:
-		_confirm_dungeon_entry()
-		return true
-	if keycode == KEY_ESCAPE:
-		_cancel_dungeon_entry()
-		return true
-	return false
-
-
-func _check_dungeon_door_contact() -> bool:
-	var touching_entry := _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL
-	if not touching_entry:
-		door_contact_latched = false
-		return false
-	if door_contact_latched:
-		return false
-
-	door_contact_latched = true
-	movement_path.clear()
-	path_index = 0
-	has_destination = false
-	if not _is_dungeon_door_unlocked():
-		_update_status("Porta trancada — derrote o Capanga para entrar.")
-		return false
-
-	_open_dungeon_prompt()
-	return true
-
-
-func _is_dungeon_door_unlocked() -> bool:
-	return GameState.is_encounter_defeated(CAPANGA_ID)
-
-
-func _open_dungeon_prompt() -> void:
-	if dungeon_prompt_visible or scene_transitioning:
-		return
-	dungeon_prompt_visible = true
-	dungeon_prompt.visible = true
-	movement_path.clear()
-	path_index = 0
-	has_destination = false
-	_reset_character_animations_to_idle()
-	_update_status("Entrar na masmorra?")
-	dungeon_yes_button.grab_focus()
-
-
-func _cancel_dungeon_entry() -> void:
-	if not dungeon_prompt_visible or scene_transitioning:
-		return
-	dungeon_prompt_visible = false
-	dungeon_prompt.visible = false
-	_update_status("Entrada cancelada — afaste-se da porta para tentar novamente.")
-
-
-func _prepare_dungeon_entry() -> void:
-	GameState.begin_dungeon(
-		_cell_to_world(DUNGEON_ENTRY_CELL),
-		player_hp,
-		rifle_ammo,
-		current_weapon
-	)
-	SaveManager.save_active_slot()
-
-
-func _confirm_dungeon_entry() -> void:
-	if not dungeon_prompt_visible or scene_transitioning or not _is_dungeon_door_unlocked():
-		return
-	dungeon_prompt_visible = false
-	dungeon_prompt.visible = false
-	scene_transitioning = true
-	_prepare_dungeon_entry()
-	_start_scene_transition(DUNGEON_SCENE)
 
 
 func _start_scene_transition(scene_path: String) -> void:
@@ -612,7 +543,7 @@ func _toggle_weapon() -> bool:
 
 
 func _start_reload() -> bool:
-	if scene_transitioning or dungeon_prompt_visible:
+	if scene_transitioning or _is_prompt_blocking():
 		return false
 	if is_reloading:
 		_update_combat_status("O Rifle já está sendo recarregado.")
@@ -701,20 +632,19 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	var attack_range := RIFLE_RANGE if current_weapon == Weapon.RIFLE else KNIFE_RANGE
 	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > attack_range:
 		return false
-	if current_weapon == Weapon.RIFLE and rifle_ammo <= 0:
+	if current_weapon == Weapon.RIFLE and not GameState.can_fire_rifle():
 		var empty_message := (
 			"PENTE VAZIO — pressione R para recarregar."
 			if rifle_reserve_ammo > 0
 			else "SEM MUNIÇÃO — pressione Q para usar a Peixeira."
 		)
-		if status_label.text != empty_message:
+		if status_label != null and status_label.text != empty_message:
 			_update_combat_status(empty_message)
 		return false
 
-	var attack_interval := RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
-	player_attack_cooldown = attack_interval
+	player_attack_cooldown = RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
 	if current_weapon == Weapon.RIFLE:
-		rifle_ammo -= 1
+		GameState.consume_rifle_round()
 		_play_audio("shoot")
 		_emit_rifle_muzzle_flash()
 	else:
@@ -753,6 +683,8 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 
 
 func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true) -> void:
+	if not capanga_active:
+		return
 	capanga_hp = maxf(0.0, capanga_hp - float(amount))
 	capanga_hit_flash_remaining = HIT_FLASH_DURATION
 	_update_hit_flash_overlays()
@@ -784,20 +716,21 @@ func _defeat_capanga() -> void:
 	capanga_active = false
 	capanga_path.clear()
 	heavy_warning_active = false
-	GameState.mark_encounter_defeated(CAPANGA_ID)
+	heavy_warning_remaining = 0.0
 	_grant_common_enemy_loot(GameState.ITEM_ARMOR_CHEST, capanga_anchor.position)
+	_on_enemy_defeated()
 	SaveManager.save_active_slot()
-	if _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL:
-		door_contact_latched = false
-	_update_combat_status("Capanga derrotado — a porta da masmorra foi liberada.")
+	_update_hud()
+	queue_redraw()
 
 
 func _grant_common_enemy_loot(armor_item_id: String, drop_position: Vector2) -> void:
 	var loot := GameState.generate_common_enemy_loot(armor_item_id)
-	inventory_ui.show_notification(
-		"+%d moedas" % int(loot.get("gold", 0)),
-		GameState.ITEM_COIN
-	)
+	if inventory_ui != null:
+		inventory_ui.show_notification(
+			"+%d moedas" % int(loot.get("gold", 0)),
+			GameState.ITEM_COIN
+		)
 	var item_offset := 0
 	for item_value in loot.get("items", []):
 		var item_id := str(item_value)
@@ -822,10 +755,11 @@ func _collect_or_drop_item(
 		accepted = int(inventory_result.get("accepted", 0)) == 1
 
 	if accepted:
-		inventory_ui.show_notification(
-			("Equipado: " if equipped else "Coletado: ") + GameState.get_item_name(item_id),
-			item_id
-		)
+		if inventory_ui != null:
+			inventory_ui.show_notification(
+				("Equipado: " if equipped else "Coletado: ") + GameState.get_item_name(item_id),
+				item_id
+			)
 		return true
 	if spawn_on_failure:
 		ground_drops.append({
@@ -833,10 +767,11 @@ func _collect_or_drop_item(
 			"position": drop_position,
 			"remaining": GameState.GROUND_DROP_LIFETIME,
 		})
-		inventory_ui.show_notification(
-			"Inventário cheio — no chão por 120 s",
-			item_id
-		)
+		if inventory_ui != null:
+			inventory_ui.show_notification(
+				"Inventário cheio — no chão por 120 s",
+				item_id
+			)
 	return false
 
 
@@ -878,29 +813,6 @@ func _damage_player(amount: int) -> bool:
 	return false
 
 
-func _handle_player_defeat() -> void:
-	GameState.respawn_player()
-	SaveManager.save_active_slot()
-	player_anchor.position = _cell_to_world(PLAYER_START)
-	movement_path.clear()
-	path_index = 0
-	has_destination = false
-	is_reloading = false
-	reload_remaining = 0.0
-	stun_remaining = 0.0
-	skip_next_player_attack = false
-	player_attack_cooldown = 0.0
-	heavy_warning_active = false
-	heavy_warning_remaining = 0.0
-	capanga_basic_attack_count = 0
-	capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
-	_reset_character_animations_to_idle()
-	if capanga_active:
-		capanga_return_target_index = _nearest_patrol_index()
-		_set_capanga_state(EnemyState.RETURN)
-	_update_combat_status("Derrota — retorno com 40% de vida e munição preservada.")
-
-
 func _advance_capanga_ai(delta: float) -> void:
 	if not capanga_active or heavy_warning_active:
 		return
@@ -908,24 +820,21 @@ func _advance_capanga_ai(delta: float) -> void:
 	var distance := _tile_distance_between_positions(capanga_anchor.position, player_anchor.position)
 	match capanga_state:
 		EnemyState.PATROL:
-			capanga_hp = minf(CAPANGA_MAX_HP, capanga_hp + CAPANGA_REGEN_PER_SECOND * delta)
+			if CAPANGA_REGEN_PER_SECOND > 0.0:
+				capanga_hp = minf(CAPANGA_MAX_HP, capanga_hp + CAPANGA_REGEN_PER_SECOND * delta)
 			if distance <= CAPANGA_DETECTION_RANGE:
 				_set_capanga_state(EnemyState.CHASE)
 				return
-			_advance_patrol(delta)
+			_advance_capanga_patrol(delta)
 		EnemyState.CHASE:
 			if distance > CAPANGA_DISENGAGE_RANGE:
-				capanga_return_target_index = _nearest_patrol_index()
+				capanga_return_target_index = _nearest_capanga_patrol_index()
 				_set_capanga_state(EnemyState.RETURN)
 				return
 			if distance > CAPANGA_ATTACK_RANGE:
-				_move_capanga_toward(
-					_world_to_cell(player_anchor.position),
-					CAPANGA_CHASE_SPEED,
-					delta
-				)
+				_move_capanga_toward(_world_to_cell(player_anchor.position), CAPANGA_CHASE_SPEED, delta)
 		EnemyState.RETURN:
-			var return_cell: Vector2i = CAPANGA_PATROL_CELLS[capanga_return_target_index]
+			var return_cell := _capanga_patrol_cell(capanga_return_target_index)
 			_move_capanga_toward(return_cell, CAPANGA_PATROL_SPEED, delta)
 			if capanga_anchor.position.distance_to(_cell_to_world(return_cell)) <= 1.0:
 				capanga_anchor.position = _cell_to_world(return_cell)
@@ -933,12 +842,12 @@ func _advance_capanga_ai(delta: float) -> void:
 				_set_capanga_state(EnemyState.PATROL)
 
 
-func _advance_patrol(delta: float) -> void:
+func _advance_capanga_patrol(delta: float) -> void:
 	if capanga_patrol_pause_remaining > 0.0:
 		capanga_patrol_pause_remaining = maxf(0.0, capanga_patrol_pause_remaining - delta)
 		return
 
-	var target_cell: Vector2i = CAPANGA_PATROL_CELLS[capanga_patrol_target_index]
+	var target_cell := _capanga_patrol_cell(capanga_patrol_target_index)
 	_move_capanga_toward(target_cell, CAPANGA_PATROL_SPEED, delta)
 	if capanga_anchor.position.distance_to(_cell_to_world(target_cell)) <= 1.0:
 		capanga_anchor.position = _cell_to_world(target_cell)
@@ -988,8 +897,9 @@ func _set_capanga_state(new_state: int) -> void:
 
 
 func _advance_capanga_attack(delta: float) -> void:
-	if not capanga_active:
+	if not capanga_active or _is_prompt_blocking():
 		return
+	var attack_interval := CAPANGA_ATTACK_INTERVAL
 
 	if heavy_warning_active:
 		heavy_warning_remaining = maxf(0.0, heavy_warning_remaining - delta)
@@ -1002,11 +912,11 @@ func _advance_capanga_attack(delta: float) -> void:
 			else:
 				_update_combat_status("O ataque pesado não alcançou o Cangaceiro.")
 			capanga_basic_attack_count = 0
-			capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+			capanga_attack_cooldown = attack_interval
 		return
 
 	if capanga_state != EnemyState.CHASE or not _capanga_can_attack_player():
-		capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+		capanga_attack_cooldown = attack_interval
 		return
 
 	capanga_attack_cooldown = maxf(0.0, capanga_attack_cooldown - delta)
@@ -1017,8 +927,8 @@ func _advance_capanga_attack(delta: float) -> void:
 		var defeated := _damage_player(CAPANGA_BASIC_DAMAGE)
 		if not defeated:
 			capanga_basic_attack_count += 1
-			capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
-			_update_combat_status("Capanga atacou: %d de dano." % last_player_damage_taken)
+			capanga_attack_cooldown = attack_interval
+			_update_combat_status("%s atacou: %d de dano." % [CAPANGA_NAME, last_player_damage_taken])
 	else:
 		heavy_warning_active = true
 		heavy_warning_remaining = CAPANGA_HEAVY_WARNING
@@ -1032,46 +942,21 @@ func _capanga_can_attack_player() -> bool:
 	) <= CAPANGA_ATTACK_RANGE
 
 
-func _nearest_patrol_index() -> int:
-	var distance_a := capanga_anchor.position.distance_to(_cell_to_world(CAPANGA_PATROL_CELLS[0]))
-	var distance_b := capanga_anchor.position.distance_to(_cell_to_world(CAPANGA_PATROL_CELLS[1]))
+func _nearest_capanga_patrol_index() -> int:
+	var distance_a := capanga_anchor.position.distance_to(_cell_to_world(_capanga_patrol_cell(0)))
+	var distance_b := capanga_anchor.position.distance_to(_cell_to_world(_capanga_patrol_cell(1)))
 	return 0 if distance_a <= distance_b else 1
 
 
-func _setup_pathfinding() -> void:
-	astar.region = Rect2i(Vector2i.ZERO, MAP_SIZE)
-	astar.cell_size = Vector2.ONE
-	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
-	astar.update()
-
-	for y in range(MAP_SIZE.y):
-		for x in range(MAP_SIZE.x):
-			var cell := Vector2i(x, y)
-			if not _is_road(cell):
-				astar.set_point_solid(cell)
-
-	for obstacle in ROAD_OBSTACLES:
-		astar.set_point_solid(obstacle)
-	astar.set_point_solid(DUNGEON_DOOR_CELL)
-
-
-func _is_road(cell: Vector2i) -> bool:
-	var lower_path := cell.x <= 6 and cell.y >= 9
-	var first_turn := cell.x >= 4 and cell.x <= 7 and cell.y >= 6 and cell.y <= 10
-	var middle_path := cell.x >= 6 and cell.x <= 12 and cell.y >= 4 and cell.y <= 7
-	var upper_path := cell.x >= 10 and cell.y >= 1 and cell.y <= 5
-	return lower_path or first_turn or middle_path or upper_path
-
-
 func _set_destination(clicked_world_position: Vector2) -> void:
-	var target_cell := _world_to_cell(clicked_world_position)
-	if target_cell == DUNGEON_DOOR_CELL or _is_dungeon_door_click(clicked_world_position):
-		target_cell = DUNGEON_ENTRY_CELL
+	var target_cell := _remap_destination_cell(_world_to_cell(clicked_world_position), clicked_world_position)
 	if not astar.is_in_boundsv(target_cell):
-		_update_status("Destino fora do mapa.")
+		_update_status(_destination_out_of_bounds_message())
+		return
+	if not _can_target_destination_cell(target_cell):
 		return
 	if astar.is_point_solid(target_cell):
-		_update_status("Esse terreno está bloqueado.")
+		_update_status(_blocked_destination_message())
 		return
 
 	var final_position := _position_inside_cell(clicked_world_position, target_cell)
@@ -1085,6 +970,18 @@ func _set_destination(clicked_world_position: Vector2) -> void:
 		_update_status("Não há caminho até esse ponto.")
 		return
 	_update_status("Caminhando — ataques automáticos não interrompem o movimento.")
+
+
+func _can_target_destination_cell(_target_cell: Vector2i) -> bool:
+	return true
+
+
+func _destination_out_of_bounds_message() -> String:
+	return "Destino fora do mapa."
+
+
+func _blocked_destination_message() -> String:
+	return "Esse terreno está bloqueado."
 
 
 func _rebuild_player_path() -> bool:
@@ -1135,11 +1032,6 @@ func _wait_for_player_path() -> void:
 	path_index = 0
 	player_repath_remaining = PLAYER_PATH_REPLAN_INTERVAL
 	_update_status("Passagem ocupada — ajustando a rota.")
-
-
-func _is_dungeon_door_click(world_position: Vector2) -> bool:
-	var door_position := _cell_to_world(DUNGEON_DOOR_CELL)
-	return Rect2(door_position + Vector2(-24.0, -46.0), Vector2(48.0, 50.0)).has_point(world_position)
 
 
 func _move_player(delta: float) -> void:
@@ -1314,12 +1206,8 @@ func _emit_step_feedback(distance: float) -> void:
 	step_distance_accumulator += distance
 	while step_distance_accumulator >= STEP_DISTANCE:
 		step_distance_accumulator -= STEP_DISTANCE
-		_emit_step_dust()
+		_restart_one_shot_particles(dust_particles)
 		_play_audio("step")
-
-
-func _emit_step_dust() -> void:
-	_restart_one_shot_particles(dust_particles)
 
 
 func _emit_rifle_muzzle_flash() -> void:
@@ -1423,8 +1311,10 @@ func _toggle_overview() -> void:
 	if camera_tween != null and camera_tween.is_valid():
 		camera_tween.kill()
 
-	var target_position := _clamp_camera_position(player_anchor.position, CLOSE_ZOOM)
+	var target_position := player_anchor.position
 	var target_zoom := CLOSE_ZOOM
+	if _should_clamp_follow_camera():
+		target_position = _clamp_camera_position(player_anchor.position, CLOSE_ZOOM)
 	if overview_enabled:
 		target_position = _map_bounds().get_center()
 		var viewport_size := get_viewport_rect().size
@@ -1455,7 +1345,7 @@ func _nearest_walkable_cell(world_position: Vector2) -> Vector2i:
 				var candidate := Vector2i(x, y)
 				if astar.is_in_boundsv(candidate) and not astar.is_point_solid(candidate):
 					return candidate
-	return PLAYER_START
+	return _player_start_cell()
 
 
 func _position_inside_cell(clicked_position: Vector2, cell: Vector2i) -> Vector2:
@@ -1524,56 +1414,99 @@ func _spawn_popup(
 	})
 
 
+func _attempt_lapada_seca() -> bool:
+	if not capanga_active or stun_remaining > 0.0 or scene_transitioning:
+		return false
+	if is_reloading:
+		_update_combat_status("Recarga ativa — Lapada bloqueada.")
+		return false
+	if current_weapon != Weapon.RIFLE:
+		_update_combat_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
+		return false
+	if not GameState.can_fire_rifle():
+		_update_combat_status("Sem munição para a Lapada Seca.")
+		return false
+	if not GameState.has_lapada_ready():
+		_update_combat_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
+		return false
+	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
+		_update_combat_status("%s fora do alcance da Lapada (máx. 5 tiles)." % CAPANGA_NAME)
+		return false
+
+	if not GameState.consume_lapada_charges():
+		return false
+	GameState.consume_rifle_round()
+	_emit_rifle_muzzle_flash()
+	_play_audio("lapada_seca")
+	_trigger_screenshake(0.85)
+	_spawn_popup("LAPADA SECA!", capanga_anchor.position, COLOR_MAGIC, 22, true, 1.2)
+	_damage_capanga(ceili(capanga_hp), true, false)
+	_update_combat_status("LAPADA SECA — %s foi eliminado." % CAPANGA_NAME)
+	_update_hud()
+	return true
+
+
 func _update_status(message: String) -> void:
-	status_label.text = message
+	if status_label != null:
+		status_label.text = message
 
 
 func _update_combat_status(message: String) -> void:
 	_update_status(message)
-	realtime_hud.show_combat_notice(message)
+	if realtime_hud != null:
+		realtime_hud.show_combat_notice(message)
 
 
 func _update_hud() -> void:
 	var maximum_hp := GameState.get_player_max_hp()
 	var ratio := float(player_hp) / float(maximum_hp)
-	health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
-	health_label.text = "VIDA  %d / %d" % [player_hp, maximum_hp]
-	if is_reloading:
-		weapon_label.text = "RECARREGANDO... %.1f s  •  PENTE %d/%d  •  RESERVA %d" % [
-			reload_remaining,
-			rifle_ammo,
-			RIFLE_STARTING_AMMO,
-			rifle_reserve_ammo,
-		]
-	elif current_weapon == Weapon.RIFLE:
-		weapon_label.text = "RIFLE  •  PENTE %d/%d  •  RESERVA %d  •  [R] RECARREGAR" % [
-			rifle_ammo,
-			RIFLE_STARTING_AMMO,
-			rifle_reserve_ammo,
-		]
-		if GameState.has_lapada_ready():
-			weapon_label.text += "  •  [E] LAPADA PRONTA"
-	else:
-		weapon_label.text = "PEIXEIRA  •  Q PARA TROCAR"
-	if stun_remaining > 0.0:
-		weapon_label.text += "  •  ATORDOADO"
+	if health_fill != null:
+		health_fill.size.x = 240.0 * clampf(ratio, 0.0, 1.0)
+	if health_label != null:
+		health_label.text = "VIDA  %d / %d" % [player_hp, maximum_hp]
+	if weapon_label != null:
+		if is_reloading:
+			weapon_label.text = "RECARREGANDO... %.1f s  •  PENTE %d/%d  •  RESERVA %d" % [
+				reload_remaining,
+				rifle_ammo,
+				RIFLE_STARTING_AMMO,
+				rifle_reserve_ammo,
+			]
+		elif current_weapon == Weapon.RIFLE:
+			weapon_label.text = "RIFLE  •  PENTE %d/%d  •  RESERVA %d  •  [R] RECARREGAR" % [
+				rifle_ammo,
+				RIFLE_STARTING_AMMO,
+				rifle_reserve_ammo,
+			]
+			if GameState.has_lapada_ready():
+				weapon_label.text += "  •  [E] LAPADA PRONTA"
+		else:
+			weapon_label.text = "PEIXEIRA  •  Q PARA TROCAR"
+		if stun_remaining > 0.0:
+			weapon_label.text += "  •  ATORDOADO"
+		weapon_label.text += _hud_status_suffix()
 	_update_lapada_pips()
-	realtime_hud.set_hud_state(
-		player_hp,
-		maximum_hp,
-		100,
-		100,
-		"RIFLE" if current_weapon == Weapon.RIFLE else "PEIXEIRA",
-		rifle_ammo,
-		RIFLE_STARTING_AMMO,
-		rifle_reserve_ammo,
-		GameState.lapada_charges,
-		GameState.has_lapada_ready(),
-		stun_remaining > 0.0,
-		is_reloading,
-		reload_remaining,
-		RIFLE_RELOAD_DURATION
-	)
+	if realtime_hud != null:
+		realtime_hud.set_hud_state(
+			player_hp,
+			maximum_hp,
+			100,
+			100,
+			"RIFLE" if current_weapon == Weapon.RIFLE else "PEIXEIRA",
+			rifle_ammo,
+			RIFLE_STARTING_AMMO,
+			rifle_reserve_ammo,
+			GameState.lapada_charges,
+			GameState.has_lapada_ready(),
+			stun_remaining > 0.0,
+			is_reloading,
+			reload_remaining,
+			RIFLE_RELOAD_DURATION
+		)
+
+
+func _hud_status_suffix() -> String:
+	return ""
 
 
 func _update_lapada_pips() -> void:
@@ -1587,38 +1520,6 @@ func _update_lapada_pips() -> void:
 	lapada_pip3.color = charged_color if charges >= 3 else uncharged_color
 
 
-func _attempt_lapada_seca() -> bool:
-	if not capanga_active or stun_remaining > 0.0 or scene_transitioning:
-		return false
-	if is_reloading:
-		_update_combat_status("Recarga ativa — Lapada bloqueada.")
-		return false
-	if current_weapon != Weapon.RIFLE:
-		_update_combat_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
-		return false
-	if rifle_ammo <= 0:
-		_update_combat_status("Sem munição para a Lapada Seca.")
-		return false
-	if not GameState.has_lapada_ready():
-		_update_combat_status("Lapada Seca exige 3 críticos acumulados (%d/3)." % GameState.lapada_charges)
-		return false
-	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > RIFLE_RANGE:
-		_update_combat_status("Capanga fora do alcance da Lapada (máx. 5 tiles).")
-		return false
-
-	if not GameState.consume_lapada_charges():
-		return false
-	rifle_ammo -= 1
-	_emit_rifle_muzzle_flash()
-	_play_audio("lapada_seca")
-	_trigger_screenshake(0.85)
-	_spawn_popup("LAPADA SECA!", capanga_anchor.position, COLOR_MAGIC, 22, true, 1.2)
-	_damage_capanga(ceili(capanga_hp), true, false)
-	_update_combat_status("LAPADA SECA — o Capanga foi eliminado.")
-	_update_hud()
-	return true
-
-
 func _update_damage_border() -> void:
 	if damage_border == null:
 		return
@@ -1626,6 +1527,305 @@ func _update_damage_border() -> void:
 	if damage_border_remaining > 0.0:
 		alpha = clampf(damage_border_remaining / DAMAGE_BORDER_DURATION, 0.0, 1.0)
 	damage_border.modulate.a = alpha
+
+
+func _draw_ground_drops() -> void:
+	for drop in ground_drops:
+		var drop_position: Vector2 = drop.get("position", Vector2.ZERO)
+		var icon_rect := Rect2(drop_position + Vector2(-12.0, -28.0), Vector2(24.0, 24.0))
+		draw_circle(drop_position + Vector2(0.0, 4.0), 8.0, Color(0.08, 0.05, 0.03, 0.4))
+		ItemVisualsScript.draw_item(self, icon_rect, str(drop.get("item_id", "")))
+
+
+func _draw_route_preview() -> void:
+	if path_index >= movement_path.size():
+		return
+	var route_points := PackedVector2Array([player_anchor.position])
+	for index in range(path_index, movement_path.size()):
+		route_points.append(movement_path[index])
+	if route_points.size() >= 2:
+		draw_polyline(route_points, COLOR_ROUTE, 2.0, true)
+
+
+func _draw_destination() -> void:
+	if not has_destination:
+		return
+	draw_circle(destination_marker, 9.0, Color(0.27, 0.84, 0.70, 0.16))
+	draw_arc(destination_marker, 9.0, 0.0, TAU, 24, COLOR_MAGIC, 2.0, true)
+
+
+func _character_draw_rect(position: Vector2) -> Rect2:
+	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
+
+
+func _character_sprite_region(row: int, animation_state: int, animation_frame: int) -> Rect2:
+	var first_column := WALK_FIRST_COLUMN if animation_state == ANIMATION_WALK else IDLE_FIRST_COLUMN
+	var frame_count := WALK_FRAME_COUNT if animation_state == ANIMATION_WALK else IDLE_FRAME_COUNT
+	var normalized_frame := posmod(animation_frame, frame_count)
+	return Rect2(
+		float(first_column + normalized_frame) * CHARACTER_FRAME_SIZE.x,
+		float(row) * CHARACTER_FRAME_SIZE.y,
+		CHARACTER_FRAME_SIZE.x,
+		CHARACTER_FRAME_SIZE.y
+	)
+
+
+func _draw_player() -> void:
+	var position := player_anchor.position
+	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
+	var player_row := PLAYER_KNIFE_ROW if current_weapon == Weapon.KNIFE else PLAYER_RIFLE_ROW
+	draw_texture_rect_region(
+		CHARACTER_ATLAS,
+		_character_draw_rect(position),
+		_character_sprite_region(player_row, player_animation_state, player_animation_frame),
+		_player_draw_modulate()
+	)
+	if heavy_warning_active:
+		var font := ThemeDB.fallback_font
+		draw_string(font, position + Vector2(-20.0, -58.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)
+
+
+func _player_draw_modulate() -> Color:
+	if player_hit_flash != null:
+		return Color.WHITE
+	return Color("ffd8d0") if player_hit_flash_remaining > 0.0 else Color.WHITE
+
+
+func _draw_combat_popups() -> void:
+	var font := ThemeDB.fallback_font
+	for popup in combat_popups:
+		var duration := float(popup["duration"])
+		var progress := clampf(float(popup["elapsed"]) / duration, 0.0, 1.0)
+		var popup_position: Vector2 = popup["position"] + Vector2(-40.0, -60.0 - progress * 24.0)
+		var popup_color: Color = popup["color"]
+		popup_color.a = 1.0 - progress
+		var popup_text := str(popup["text"])
+		var popup_size := int(popup["font_size"])
+		if bool(popup["bold"]):
+			for offset in [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0)]:
+				draw_string(font, popup_position + offset, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)
+		draw_string(font, popup_position, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)
+
+func _ready() -> void:
+	_bind_shared_nodes()
+	dungeon_prompt = $DialogLayer/DungeonPrompt
+	dungeon_yes_button = $DialogLayer/DungeonPrompt/Dialog/YesButton
+	dungeon_no_button = $DialogLayer/DungeonPrompt/Dialog/NoButton
+	_setup_pause_menu()
+	_setup_inventory_ui()
+	_setup_pathfinding()
+	var start_position := _cell_to_world(PLAYER_START)
+	var returned_from_combat: bool = GameState.returning_from_combat
+	var returned_from_dungeon: bool = GameState.returning_from_dungeon
+	var returned_to_exploration := returned_from_combat or returned_from_dungeon
+	player_anchor.position = GameState.consume_return_position(start_position)
+	capanga_anchor.position = _cell_to_world(CAPANGA_PATROL_CELLS[0])
+	capanga_active = returned_to_exploration or not GameState.is_encounter_defeated(CAPANGA_ID)
+	capanga_hp = CAPANGA_MAX_HP
+	capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+	door_contact_latched = returned_from_dungeon
+	camera.zoom = CLOSE_ZOOM
+	camera.position = _clamp_camera_position(player_anchor.position, camera.zoom)
+	_place_version_label()
+	dungeon_prompt.visible = false
+	dungeon_yes_button.pressed.connect(_confirm_dungeon_entry)
+	dungeon_no_button.pressed.connect(_cancel_dungeon_entry)
+
+	if returned_to_exploration:
+		scene_transitioning = true
+		fade.mouse_filter = Control.MOUSE_FILTER_STOP
+		fade.modulate.a = 1.0
+		fade_tween = create_tween()
+		fade_tween.tween_property(fade, "modulate:a", 0.0, FADE_DURATION)
+		fade_tween.finished.connect(_finish_entry_fade, CONNECT_ONE_SHOT)
+		GameState.acknowledge_return()
+	else:
+		fade.modulate.a = 0.0
+
+	if returned_to_exploration and GameState.is_encounter_defeated(CAPANGA_ID):
+		_update_status("Capanga renasceu — progresso mantido.")
+	elif capanga_active:
+		_update_status("Capanga patrulhando adiante.")
+	else:
+		_update_status("Capanga derrotado — a porta da masmorra está liberada.")
+	_update_hud()
+	_update_damage_border()
+	_update_hit_flash_overlays()
+	queue_redraw()
+
+
+func _is_prompt_blocking() -> bool:
+	return dungeon_prompt_visible
+
+
+func _should_clamp_follow_camera() -> bool:
+	return true
+
+
+func _player_start_cell() -> Vector2i:
+	return PLAYER_START
+
+
+func _handle_world_contacts() -> bool:
+	return _check_dungeon_door_contact()
+
+
+func _handle_blocking_prompt_input(event: InputEvent) -> bool:
+	if not dungeon_prompt_visible:
+		return false
+	if event is InputEventKey and event.pressed and not event.echo:
+		if _handle_dungeon_prompt_key(event.keycode):
+			get_viewport().set_input_as_handled()
+			return true
+	if event is InputEventMouseButton:
+		get_viewport().set_input_as_handled()
+	return true
+
+
+func _handle_dungeon_prompt_key(keycode: int) -> bool:
+	if keycode == KEY_ENTER or keycode == KEY_KP_ENTER or keycode == KEY_SPACE:
+		_confirm_dungeon_entry()
+		return true
+	if keycode == KEY_ESCAPE:
+		_cancel_dungeon_entry()
+		return true
+	return false
+
+
+func _check_dungeon_door_contact() -> bool:
+	var touching_entry := _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL
+	if not touching_entry:
+		door_contact_latched = false
+		return false
+	if door_contact_latched:
+		return false
+
+	door_contact_latched = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	if not _is_dungeon_door_unlocked():
+		_update_status("Porta trancada — derrote o Capanga para entrar.")
+		return false
+
+	_open_dungeon_prompt()
+	return true
+
+
+func _is_dungeon_door_unlocked() -> bool:
+	return GameState.is_encounter_defeated(CAPANGA_ID)
+
+
+func _open_dungeon_prompt() -> void:
+	if dungeon_prompt_visible or scene_transitioning:
+		return
+	dungeon_prompt_visible = true
+	dungeon_prompt.visible = true
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	_reset_character_animations_to_idle()
+	_update_status("Entrar na masmorra?")
+	dungeon_yes_button.grab_focus()
+
+
+func _cancel_dungeon_entry() -> void:
+	if not dungeon_prompt_visible or scene_transitioning:
+		return
+	dungeon_prompt_visible = false
+	dungeon_prompt.visible = false
+	_update_status("Entrada cancelada — afaste-se da porta para tentar novamente.")
+
+
+func _prepare_dungeon_entry() -> void:
+	GameState.begin_dungeon(
+		_cell_to_world(DUNGEON_ENTRY_CELL),
+		player_hp,
+		rifle_ammo,
+		current_weapon
+	)
+	SaveManager.save_active_slot()
+
+
+func _confirm_dungeon_entry() -> void:
+	if not dungeon_prompt_visible or scene_transitioning or not _is_dungeon_door_unlocked():
+		return
+	dungeon_prompt_visible = false
+	dungeon_prompt.visible = false
+	scene_transitioning = true
+	_prepare_dungeon_entry()
+	_start_scene_transition("res://scenes/dungeon.tscn")
+
+
+func _on_enemy_defeated() -> void:
+	GameState.mark_encounter_defeated(CAPANGA_ID)
+	if _world_to_cell(player_anchor.position) == DUNGEON_ENTRY_CELL:
+		door_contact_latched = false
+	_update_combat_status("Capanga derrotado — a porta da masmorra foi liberada.")
+
+
+func _handle_player_defeat() -> void:
+	GameState.respawn_player()
+	SaveManager.save_active_slot()
+	player_anchor.position = _cell_to_world(PLAYER_START)
+	movement_path.clear()
+	path_index = 0
+	has_destination = false
+	is_reloading = false
+	reload_remaining = 0.0
+	stun_remaining = 0.0
+	skip_next_player_attack = false
+	player_attack_cooldown = 0.0
+	heavy_warning_active = false
+	heavy_warning_remaining = 0.0
+	capanga_basic_attack_count = 0
+	capanga_attack_cooldown = CAPANGA_ATTACK_INTERVAL
+	_reset_character_animations_to_idle()
+	if capanga_active:
+		capanga_return_target_index = _nearest_capanga_patrol_index()
+		_set_capanga_state(EnemyState.RETURN)
+	_update_combat_status("Derrota — retorno com 40% de vida e munição preservada.")
+
+
+func _setup_pathfinding() -> void:
+	astar.region = Rect2i(Vector2i.ZERO, MAP_SIZE)
+	astar.cell_size = Vector2.ONE
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	astar.update()
+
+	for y in range(MAP_SIZE.y):
+		for x in range(MAP_SIZE.x):
+			var cell := Vector2i(x, y)
+			if not _is_road(cell):
+				astar.set_point_solid(cell)
+
+	for obstacle in ROAD_OBSTACLES:
+		astar.set_point_solid(obstacle)
+	astar.set_point_solid(DUNGEON_DOOR_CELL)
+
+
+func _is_road(cell: Vector2i) -> bool:
+	var lower_path := cell.x <= 6 and cell.y >= 9
+	var first_turn := cell.x >= 4 and cell.x <= 7 and cell.y >= 6 and cell.y <= 10
+	var middle_path := cell.x >= 6 and cell.x <= 12 and cell.y >= 4 and cell.y <= 7
+	var upper_path := cell.x >= 10 and cell.y >= 1 and cell.y <= 5
+	return lower_path or first_turn or middle_path or upper_path
+
+
+func _remap_destination_cell(target_cell: Vector2i, clicked_world_position: Vector2) -> Vector2i:
+	if target_cell == DUNGEON_DOOR_CELL or _is_dungeon_door_click(clicked_world_position):
+		return DUNGEON_ENTRY_CELL
+	return target_cell
+
+
+func _is_dungeon_door_click(world_position: Vector2) -> bool:
+	var door_position := _cell_to_world(DUNGEON_DOOR_CELL)
+	return Rect2(door_position + Vector2(-24.0, -46.0), Vector2(48.0, 50.0)).has_point(world_position)
+
+
+func _capanga_patrol_cell(index: int) -> Vector2i:
+	var safe_index := clampi(index, 0, CAPANGA_PATROL_CELLS.size() - 1)
+	return CAPANGA_PATROL_CELLS[safe_index]
 
 
 func _draw() -> void:
@@ -1637,14 +1837,6 @@ func _draw() -> void:
 	_draw_depth_sorted_world()
 	_draw_ground_drops()
 	_draw_combat_popups()
-
-
-func _draw_ground_drops() -> void:
-	for drop in ground_drops:
-		var drop_position: Vector2 = drop.get("position", Vector2.ZERO)
-		var icon_rect := Rect2(drop_position + Vector2(-12.0, -28.0), Vector2(24.0, 24.0))
-		draw_circle(drop_position + Vector2(0.0, 4.0), 8.0, Color(0.08, 0.05, 0.03, 0.4))
-		ItemVisualsScript.draw_item(self, icon_rect, str(drop.get("item_id", "")))
 
 
 func _draw_tiles() -> void:
@@ -1773,39 +1965,6 @@ func _draw_dungeon_door() -> void:
 		draw_arc(position + Vector2(0.0, -18.0), 5.0, PI, TAU, 12, COLOR_LOCK, 2.0)
 
 
-func _draw_route_preview() -> void:
-	if path_index >= movement_path.size():
-		return
-	var route_points := PackedVector2Array([player_anchor.position])
-	for index in range(path_index, movement_path.size()):
-		route_points.append(movement_path[index])
-	if route_points.size() >= 2:
-		draw_polyline(route_points, COLOR_ROUTE, 2.0, true)
-
-
-func _draw_destination() -> void:
-	if not has_destination:
-		return
-	draw_circle(destination_marker, 9.0, Color(0.27, 0.84, 0.70, 0.16))
-	draw_arc(destination_marker, 9.0, 0.0, TAU, 24, COLOR_MAGIC, 2.0, true)
-
-
-func _character_draw_rect(position: Vector2) -> Rect2:
-	return Rect2(position - CHARACTER_FOOT_ANCHOR, CHARACTER_FRAME_SIZE)
-
-
-func _character_sprite_region(row: int, animation_state: int, animation_frame: int) -> Rect2:
-	var first_column := WALK_FIRST_COLUMN if animation_state == ANIMATION_WALK else IDLE_FIRST_COLUMN
-	var frame_count := WALK_FRAME_COUNT if animation_state == ANIMATION_WALK else IDLE_FRAME_COUNT
-	var normalized_frame := posmod(animation_frame, frame_count)
-	return Rect2(
-		float(first_column + normalized_frame) * CHARACTER_FRAME_SIZE.x,
-		float(row) * CHARACTER_FRAME_SIZE.y,
-		CHARACTER_FRAME_SIZE.x,
-		CHARACTER_FRAME_SIZE.y
-	)
-
-
 func _draw_capanga() -> void:
 	if not capanga_active:
 		return
@@ -1823,34 +1982,3 @@ func _draw_capanga() -> void:
 	var health_width := health_rect.size.x * capanga_hp / CAPANGA_MAX_HP
 	draw_rect(Rect2(health_rect.position, Vector2(health_width, health_rect.size.y)), COLOR_ENEMY_HEALTH, true)
 	draw_rect(health_rect, COLOR_VOID, false, 1.0)
-
-
-func _draw_player() -> void:
-	var position := player_anchor.position
-	draw_circle(position + Vector2(0.0, 7.0), 9.0, Color(0.08, 0.05, 0.03, 0.35))
-	var player_row := PLAYER_KNIFE_ROW if current_weapon == Weapon.KNIFE else PLAYER_RIFLE_ROW
-	draw_texture_rect_region(
-		CHARACTER_ATLAS,
-		_character_draw_rect(position),
-		_character_sprite_region(player_row, player_animation_state, player_animation_frame),
-		Color.WHITE
-	)
-	if heavy_warning_active:
-		var font := ThemeDB.fallback_font
-		draw_string(font, position + Vector2(-20.0, -58.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 40.0, 28, COLOR_ALERT)
-
-
-func _draw_combat_popups() -> void:
-	var font := ThemeDB.fallback_font
-	for popup in combat_popups:
-		var duration := float(popup["duration"])
-		var progress := clampf(float(popup["elapsed"]) / duration, 0.0, 1.0)
-		var popup_position: Vector2 = popup["position"] + Vector2(-40.0, -60.0 - progress * 24.0)
-		var popup_color: Color = popup["color"]
-		popup_color.a = 1.0 - progress
-		var popup_text := str(popup["text"])
-		var popup_size := int(popup["font_size"])
-		if bool(popup["bold"]):
-			for offset in [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0)]:
-				draw_string(font, popup_position + offset, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)
-		draw_string(font, popup_position, popup_text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, popup_size, popup_color)

@@ -1,6 +1,9 @@
 name: Publicar Web no GitHub Pages
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -10,12 +13,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: web-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Baixar código
         uses: actions/checkout@v6
@@ -48,11 +52,18 @@ jobs:
           "${GODOT_BIN}" --headless --editor --quit --path .
 
       - name: Executar testes automatizados
+        timeout-minutes: 5
         shell: bash
         run: |
           set -euo pipefail
           for test_file in tests/test_*.gd; do
-            "${GODOT_BIN}" --headless --path . -s "${test_file}"
+            test_log="${RUNNER_TEMP}/$(basename "${test_file}").log"
+            timeout 60 "${GODOT_BIN}" --headless --path . -s "${test_file}" 2>&1 | tee "${test_log}"
+            grep -qE '^TESTE_[A-Z_]+_OK$' "${test_log}"
+            if grep -qE 'SCRIPT ERROR:|Parse Error:|Failed to load script' "${test_log}"; then
+              echo "Erro de script durante ${test_file}."
+              exit 1
+            fi
           done
 
       - name: Exportar Web
@@ -63,14 +74,17 @@ jobs:
           "${GODOT_BIN}" --headless --path . --export-release Web build/web/index.html
 
       - name: Configurar GitHub Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Enviar artefato do Pages
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: build/web
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

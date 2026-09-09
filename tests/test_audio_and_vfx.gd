@@ -8,8 +8,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	_test_audio_manager()
-	_test_screenshake()
+	await _test_audio_manager()
+	await _test_screenshake()
 	_test_shaders_and_vfx()
 	_test_woodcut_theme()
 	_finish()
@@ -61,7 +61,15 @@ func _test_audio_manager() -> void:
 			"O efeito da Lapada Seca deve usar o volume próprio de +4 dB."
 		)
 
+	for player_value in [shoot_player, knife_player, step_player, parry_player, hit_player, crit_player, lapada_player]:
+		var player := player_value as AudioStreamPlayer
+		if player != null:
+			player.stop()
+			player.stream = null
+	await process_frame
+	await create_timer(0.75).timeout
 	audio_mgr.queue_free()
+	await process_frame
 	await process_frame
 
 

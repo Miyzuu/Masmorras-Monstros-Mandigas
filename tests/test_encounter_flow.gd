@@ -33,7 +33,7 @@ func _run() -> void:
 	_expect(exploration.is_inside_tree(), "O combate em tempo real não deve trocar a cena de exploração.")
 	_expect(str(game_state.get("active_encounter_id")).is_empty(), "O combate em tempo real não deve abrir um encontro separado.")
 
-	exploration.call("_damage_capanga", 150, false)
+	_test_victory_autosave(exploration)
 	_expect(not bool(exploration.get("capanga_active")), "O Capanga derrotado deve desaparecer imediatamente.")
 	_expect(bool(game_state.call("is_encounter_defeated", "capanga_01")), "A vitória deve ser persistida no estado da sessão.")
 	exploration.queue_free()
@@ -49,6 +49,24 @@ func _run() -> void:
 
 	returned_exploration.queue_free()
 	_finish(game_state)
+
+
+func _test_victory_autosave(exploration: Node) -> void:
+	var save_manager := root.get_node("SaveManager")
+	var previous_storage_root: String = save_manager.get("storage_root")
+	var previous_slot: int = save_manager.get("active_slot")
+	var test_storage := "res://.godot/encounter_autosave_test_%d" % Time.get_ticks_usec()
+	save_manager.set("storage_root", test_storage)
+	save_manager.set("active_slot", 1)
+	exploration.call("_damage_capanga", 150, false)
+	var saved: Dictionary = save_manager.call("_read_slot_data", 1)
+	var saved_state: Dictionary = saved.get("game_state", {})
+	var defeated: Dictionary = saved_state.get("defeated_encounters", {})
+	_expect(bool(defeated.get("capanga_01", false)), "O autosave da vitória deve guardar a porta já desbloqueada.")
+	save_manager.call("delete_slot", 1)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_storage))
+	save_manager.set("storage_root", previous_storage_root)
+	save_manager.set("active_slot", previous_slot)
 
 
 func _expect(condition: bool, message: String) -> void:

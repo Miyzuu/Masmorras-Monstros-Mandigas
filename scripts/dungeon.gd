@@ -3,6 +3,7 @@ extends Node2D
 const PauseMenuScript = preload("res://scripts/pause_menu.gd")
 const InventoryUIScript = preload("res://scripts/inventory_ui.gd")
 const ItemVisualsScript = preload("res://scripts/item_visuals.gd")
+const GodModePanelScript = preload("res://scripts/god_mode_panel.gd")
 
 enum Weapon {
 	RIFLE,
@@ -320,6 +321,7 @@ var scene_transitioning := false
 var exit_request_source := ""
 var pause_menu
 var inventory_ui: InventoryUI
+var god_mode_panel
 var ground_drops: Array[Dictionary] = []
 var dungeon_room_id: String:
 	get:
@@ -329,6 +331,7 @@ var dungeon_room_id: String:
 func _ready() -> void:
 	_setup_pause_menu()
 	_setup_inventory_ui()
+	_setup_god_mode_panel()
 	_refresh_room_title()
 	capanga_anchor = Node2D.new()
 	capanga_anchor.name = "RoomMobAnchor"
@@ -389,6 +392,13 @@ func _setup_inventory_ui() -> void:
 	inventory_ui.inventory_changed.connect(_on_inventory_action)
 
 
+func _setup_god_mode_panel() -> void:
+	if god_mode_panel != null:
+		return
+	god_mode_panel = GodModePanelScript.new()
+	add_child(god_mode_panel)
+
+
 func _can_open_pause_menu() -> bool:
 	return (
 		not scene_transitioning
@@ -418,7 +428,7 @@ func _return_to_title_menu() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if exit_prompt_visible or scene_transitioning:
+	if exit_prompt_visible or scene_transitioning or (god_mode_panel != null and god_mode_panel.is_panel_open()):
 		return
 
 	_advance_realtime(delta)
@@ -542,6 +552,9 @@ func _reset_player_animation_to_idle() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if god_mode_panel != null and god_mode_panel.is_panel_open():
+		get_viewport().set_input_as_handled()
+		return
 	if scene_transitioning:
 		get_viewport().set_input_as_handled()
 		return
@@ -912,7 +925,7 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	var attack_range := RIFLE_RANGE if current_weapon == Weapon.RIFLE else KNIFE_RANGE
 	if _tile_distance_between_positions(player_anchor.position, capanga_anchor.position) > attack_range:
 		return false
-	if current_weapon == Weapon.RIFLE and rifle_ammo <= 0:
+	if current_weapon == Weapon.RIFLE and not GameState.can_fire_rifle():
 		var empty_message := (
 			"PENTE VAZIO — pressione R para recarregar."
 			if rifle_reserve_ammo > 0
@@ -924,7 +937,7 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 
 	player_attack_cooldown = RIFLE_INTERVAL if current_weapon == Weapon.RIFLE else KNIFE_INTERVAL
 	if current_weapon == Weapon.RIFLE:
-		rifle_ammo -= 1
+		GameState.consume_rifle_round()
 		_play_audio("shoot")
 	else:
 		_play_audio("knife")
@@ -1332,8 +1345,9 @@ func _advance_enemy_projectiles(delta: float) -> void:
 				projectile_removed = true
 				var damage := int(projectile["damage"])
 				var defeated := _damage_player(damage)
-				if not defeated:
-					_update_combat_status("Projétil da %s: %d de dano." % [_enemy_name(), last_player_damage_taken])
+				if defeated:
+					return
+				_update_combat_status("Projétil da %s: %d de dano." % [_enemy_name(), last_player_damage_taken])
 				break
 			sample_start = sample_end
 		if projectile_removed:
@@ -1815,7 +1829,7 @@ func _attempt_lapada_seca() -> bool:
 	if current_weapon != Weapon.RIFLE:
 		_update_combat_status("Equipe o Rifle [Q] para usar a Lapada Seca.")
 		return false
-	if rifle_ammo <= 0:
+	if not GameState.can_fire_rifle():
 		_update_combat_status("Sem munição para a Lapada Seca.")
 		return false
 	if not GameState.has_lapada_ready():
@@ -1827,7 +1841,7 @@ func _attempt_lapada_seca() -> bool:
 
 	if not GameState.consume_lapada_charges():
 		return false
-	rifle_ammo -= 1
+	GameState.consume_rifle_round()
 	_play_audio("lapada_seca")
 	_trigger_screenshake(0.85)
 	_spawn_popup("LAPADA SECA!", capanga_anchor.position, COLOR_MAGIC, 22, true, 1.2)

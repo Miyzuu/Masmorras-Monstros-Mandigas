@@ -264,8 +264,24 @@ func _run() -> void:
 	_expect(int(reentered_dungeon.get("rifle_ammo")) == 1, "Reentrar deve preservar a munição atual.")
 	_expect(int(reentered_dungeon.get("rifle_reserve_ammo")) == 5, "Reentrar deve preservar a reserva atual.")
 	_expect((game_state.get("dungeon_progress") as Dictionary).is_empty(), "Reentrar deve começar sem progresso interno.")
+	_test_fatal_projectile_clears_remaining(reentered_dungeon)
 	reentered_dungeon.queue_free()
 	_finish(game_state)
+
+
+func _test_fatal_projectile_clears_remaining(dungeon: Node) -> void:
+	var player := dungeon.get_node("PlayerAnchor") as Node2D
+	dungeon.set("scene_transitioning", false)
+	dungeon.set("player_hp", 1)
+	var projectiles: Array[Dictionary] = [
+		{"position": player.position, "velocity": Vector2.RIGHT, "damage": 100},
+		{"position": player.position, "velocity": Vector2.RIGHT, "damage": 100},
+	]
+	dungeon.set("enemy_projectiles", projectiles)
+	dungeon.call("_advance_enemy_projectiles", 0.01)
+	_expect(int(dungeon.get("player_hp")) == 0, "O projétil fatal deve registrar a derrota.")
+	_expect((dungeon.get("enemy_projectiles") as Array).is_empty(), "A derrota deve limpar todos os projéteis sem continuar a iterar índices antigos.")
+	_expect(bool(dungeon.get("defeat_prompt_visible")), "O projétil fatal deve abrir a escolha de recuperação.")
 
 
 func _expect(condition: bool, message: String) -> void:
