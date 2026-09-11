@@ -1,5 +1,11 @@
 extends SceneTree
 
+const SFX_DUNGEON_OPEN := "res://assets/art/audio/abrindo_masmorra.wav"
+const SFX_EQUIP_RIFLE := "res://assets/art/audio/equipando_rifle.wav"
+const SFX_RELOAD := "res://assets/art/audio/recarregar.wav"
+const SFX_COIN := "res://assets/art/audio/moeda_popup.wav"
+const SFX_DUNGEON_DEATH := "res://assets/art/audio/morte_jogador_masmorra.wav"
+
 var failures: Array[String] = []
 
 
@@ -39,6 +45,7 @@ func _run() -> void:
 	)
 	exterior_player.position = exterior_entry
 	exploration.set("door_contact_latched", false)
+	_clear_sfx_players()
 	_expect(
 		not bool(exploration.call("_check_dungeon_door_contact")),
 		"A porta deve permanecer bloqueada enquanto o Capanga estiver vivo."
@@ -47,6 +54,7 @@ func _run() -> void:
 		not bool(exploration.get("dungeon_prompt_visible")),
 		"A porta bloqueada não deve abrir o modal."
 	)
+	_expect(_count_sfx(SFX_DUNGEON_OPEN) == 0, "Porta bloqueada não deve tocar a abertura da masmorra.")
 
 	exploration.call("_damage_capanga", 150, false)
 	_expect(
@@ -64,6 +72,7 @@ func _run() -> void:
 		"Esc deve ser reconhecido pelo modal de entrada."
 	)
 	_expect(not bool(exploration.get("dungeon_prompt_visible")), "Esc deve cancelar a entrada.")
+	_expect(_count_sfx(SFX_DUNGEON_OPEN) == 0, "Cancelar o modal deve permanecer silencioso.")
 
 	exploration.set("door_contact_latched", false)
 	exploration.set("player_hp", 73)
@@ -74,6 +83,7 @@ func _run() -> void:
 	_expect(bool(exploration.call("_start_reload")), "A recarga deve poder começar antes da troca de mapa.")
 	exploration.call("_advance_timers", 0.50)
 	exploration.call("_check_dungeon_door_contact")
+	_clear_sfx_players()
 	_expect(
 		bool(exploration.call("_handle_dungeon_prompt_key", KEY_SPACE)),
 		"Espaço deve confirmar o modal de entrada."
@@ -85,6 +95,7 @@ func _run() -> void:
 	_expect(int(game_state.get("rifle_reserve_ammo")) == 8, "A troca de mapa deve preservar as 8 balas da reserva.")
 	_expect(game_state.get("return_position") == exterior_entry, "O retorno deve ser guardado diante da porta.")
 	_expect(bool(exploration.get("scene_transitioning")), "Confirmar com Espaço deve iniciar o fade.")
+	_expect(_count_sfx(SFX_DUNGEON_OPEN) == 1, "Entrada confirmada deve tocar a abertura da masmorra uma vez.")
 
 	exploration.queue_free()
 	await process_frame
@@ -109,6 +120,7 @@ func _run() -> void:
 	enter_exploration.queue_free()
 	await process_frame
 
+	_clear_sfx_players()
 	var dungeon := dungeon_scene.instantiate()
 	root.add_child(dungeon)
 	dungeon.set_physics_process(false)
@@ -118,6 +130,7 @@ func _run() -> void:
 		dungeon.queue_free()
 		_finish(game_state)
 		return
+	_test_realtime_hud_contract(dungeon, "masmorra")
 	var dungeon_script_constants: Dictionary = dungeon.get_script().get_script_constant_map()
 	_expect(
 		int(dungeon_script_constants.get("CHARACTER_ATLAS_COLUMNS", 0)) == 10
@@ -160,15 +173,31 @@ func _run() -> void:
 	_expect(int(dungeon.get("current_weapon")) == 1, "A arma equipada também deve ser preservada.")
 	_expect(not bool(dungeon.get("is_reloading")), "Trocar de mapa deve cancelar a recarga em andamento.")
 	_expect(dungeon_astar.is_point_solid(Vector2i(14, 1)), "A escada ao fundo deve estar bloqueada.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 0, "Carregar a sala não deve tocar o equipamento do Rifle.")
+	_clear_sfx_players()
+	_expect(bool(dungeon.call("_toggle_weapon")), "Q deve trocar da Peixeira para o Rifle dentro da masmorra.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 1, "Troca válida na masmorra deve tocar o Rifle uma vez.")
+	_clear_sfx_players()
+	_expect(not bool(dungeon.call("_toggle_weapon")), "Cooldown deve bloquear uma segunda troca imediata.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 0, "Troca bloqueada na masmorra deve permanecer silenciosa.")
+	_clear_sfx_players()
+	var gold_before_dungeon_loot := int(game_state.get("gold_score"))
+	dungeon.call("_grant_common_enemy_loot", "", Vector2.ZERO)
+	_expect(int(game_state.get("gold_score")) == gold_before_dungeon_loot + 10, "Espólio da sala deve aplicar moedas positivas.")
+	_expect(_count_sfx(SFX_COIN) == 1, "Notificação positiva da sala deve tocar a moeda uma vez.")
 
 	dungeon.set("current_weapon", 0)
 	dungeon.set("rifle_ammo", 2)
+	_clear_sfx_players()
 	_expect(bool(dungeon.call("_start_reload")), "R também deve recarregar durante o combate em tempo real da masmorra.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "A recarga interna deve tocar o WAV uma vez ao iniciar a barra.")
 	dungeon.call("_advance_timers", 1.49)
 	_expect(int(dungeon.get("rifle_ammo")) == 2, "A recarga interna não deve transferir balas antes de 1,5 s.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "A barra interna não deve repetir o WAV durante a recarga.")
 	dungeon.call("_advance_timers", 0.02)
 	_expect(int(dungeon.get("rifle_ammo")) == 5, "A recarga interna deve completar o pente.")
 	_expect(int(dungeon.get("rifle_reserve_ammo")) == 5, "A recarga interna deve consumir somente 3 balas da reserva.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "Concluir a recarga interna não deve repetir o WAV.")
 
 	var exit_front: Vector2 = dungeon.call("_cell_to_world", Vector2i(1, 10))
 	var exit_door_top: Vector2 = dungeon.call("_cell_to_world", Vector2i(0, 10)) + Vector2(0.0, -25.0)
@@ -219,6 +248,7 @@ func _run() -> void:
 	root.add_child(returned_exploration)
 	returned_exploration.set_physics_process(false)
 	await process_frame
+	_test_realtime_hud_contract(returned_exploration, "retorno à exploração")
 
 	var returned_player := returned_exploration.get_node("PlayerAnchor") as Node2D
 	_expect(bool(returned_exploration.get("scene_transitioning")), "O fade de retorno deve bloquear comandos.")
@@ -269,6 +299,30 @@ func _run() -> void:
 	_finish(game_state)
 
 
+func _test_realtime_hud_contract(scene: Node, context: String) -> void:
+	var hud := scene.get_node_or_null("Interface/RealtimeHUD") as Control
+	_expect(hud != null, "O HUD deve existir na %s." % context)
+	if hud == null:
+		return
+	hud.size = Vector2(768.0, 512.0)
+	_expect(hud.mouse_filter == Control.MOUSE_FILTER_IGNORE, "O HUD não deve capturar mouse na %s." % context)
+	_expect(hud.focus_mode == Control.FOCUS_NONE, "O HUD não deve receber foco na %s." % context)
+	_expect(hud.get_child_count() == 0, "O HUD v5 não deve criar filhos interativos na %s." % context)
+	var constants: Dictionary = hud.get_script().get_script_constant_map()
+	_expect(constants.get("MEDALLION_PLACEHOLDER", "") == "—", "O medalhão deve ficar estático na %s." % context)
+	_expect(int(constants.get("PLACEHOLDER_SLOT_COUNT", 0)) == 6, "Os seis slots devem permanecer estáticos na %s." % context)
+	_expect(constants.get("MINIMAP_SIZE", Vector2.ZERO) == Vector2(128.0, 142.0), "O painel de minimapa deve permanecer estático em 128x142 px na %s." % context)
+	var chrome_atlas := constants.get("HUD_CHROME_ATLAS") as Texture2D
+	var content_atlas := constants.get("HUD_CONTENT_ATLAS") as Texture2D
+	_expect(chrome_atlas != null and chrome_atlas.get_size() == Vector2(768.0, 256.0), "O atlas chrome deve carregar em 768x256 px na %s." % context)
+	_expect(content_atlas != null and content_atlas.get_size() == Vector2(768.0, 256.0), "O atlas de conteúdo deve carregar em 768x256 px na %s." % context)
+	_expect(hud.call("_main_panel_rect") == Rect2(220.0, 346.0, 280.0, 142.0), "O painel de combate deve manter 280x142 px na %s." % context)
+	_expect(hud.call("_next_weapon_name", "RIFLE") == "PEIXEIRA", "A próxima arma do Rifle deve ser Peixeira na %s." % context)
+	_expect(hud.call("_next_weapon_name", "PEIXEIRA") == "RIFLE", "A próxima arma da Peixeira deve ser Rifle na %s." % context)
+	hud.call("set_hud_state", 41, 100, 100, 100, "PEIXEIRA", 1, 5, 5, 2, false, false, false, 0.0, 1.5)
+	_expect(int(hud.get("player_hp")) == 41 and str(hud.get("weapon_name")) == "PEIXEIRA", "O HUD deve manter os dados de combate na %s." % context)
+
+
 func _test_fatal_projectile_clears_remaining(dungeon: Node) -> void:
 	var player := dungeon.get_node("PlayerAnchor") as Node2D
 	dungeon.set("scene_transitioning", false)
@@ -278,10 +332,29 @@ func _test_fatal_projectile_clears_remaining(dungeon: Node) -> void:
 		{"position": player.position, "velocity": Vector2.RIGHT, "damage": 100},
 	]
 	dungeon.set("enemy_projectiles", projectiles)
+	_clear_sfx_players()
 	dungeon.call("_advance_enemy_projectiles", 0.01)
 	_expect(int(dungeon.get("player_hp")) == 0, "O projétil fatal deve registrar a derrota.")
 	_expect((dungeon.get("enemy_projectiles") as Array).is_empty(), "A derrota deve limpar todos os projéteis sem continuar a iterar índices antigos.")
 	_expect(bool(dungeon.get("defeat_prompt_visible")), "O projétil fatal deve abrir a escolha de recuperação.")
+	_expect(_count_sfx(SFX_DUNGEON_DEATH) == 1, "Entrar em derrota na masmorra deve tocar a morte uma vez.")
+	dungeon.call("_handle_player_defeat")
+	_expect(_count_sfx(SFX_DUNGEON_DEATH) == 1, "Repetir o estado de derrota não deve repetir o som.")
+
+
+func _clear_sfx_players() -> void:
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SFXPlayer_"):
+			child.stop()
+			child.stream = null
+
+
+func _count_sfx(resource_path: String) -> int:
+	var count := 0
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.stream != null and child.stream.resource_path == resource_path:
+			count += 1
+	return count
 
 
 func _expect(condition: bool, message: String) -> void:

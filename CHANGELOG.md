@@ -1,5 +1,35 @@
 # Histórico de versões
 
+## V.0.3.9 — 2026-09-11 (release local)
+
+### Título do commit
+
+`V.0.3.9 — HUD v5 e SFX integrados`
+
+### Descrição
+
+- integra a HUD v5 modular aprovada, composta em tempo real pelos atlas de
+  chrome e conteúdo, preservando vida, mana, armas, munição, Lapada, recarga,
+  armaduras, poção e ouro reais;
+- mantém medalhão, seis slots e minimapa como elementos estritamente visuais e
+  inativos, sem captura de mouse, foco ou novo estado de gameplay;
+- substitui os SFX aprovados de combate e eventos por WAVs PCM e liga os
+  gatilhos de Rifle, Peixeira, recarga, crítico, Lapada, morte, poção,
+  equipamento, entrada na masmorra, moeda e vitória do chefe;
+- mantém `abrir_loja.wav` e seu método no gerenciador como recurso preparado,
+  sem implementar Loja, UI, tecla, compra ou venda;
+- cobre os gatilhos e bloqueios nos testes de áudio/VFX, combate em tempo real,
+  exploração, inventário/equipamento, Lapada, masmorra e combate legado.
+
+**Validação:** importação/parser e as sete suítes afetadas concluíram com exit 0
+e marcadores esperados; `git diff --check` permaneceu limpo. O saque da
+Peixeira corresponde ao SHA-256 aprovado e a recarga de 1,325782 s toca uma
+vez no início da barra, sem repetição na conclusão.
+
+**Estado:** release local sem tag, push, PR, merge, publicação ou deploy. A
+versão avançou para V.0.3.9 porque a tag local V.0.3.8 já pertence ao commit
+histórico `0750c653b8d57df3570ff58badc9e552eefd1584`.
+
 ## V.0.3.7 — 2026-09-08 (preparada localmente)
 
 ### Título do commit

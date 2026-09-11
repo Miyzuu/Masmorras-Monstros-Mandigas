@@ -5,6 +5,13 @@ const WEAPON_KNIFE := 1
 const STATE_PATROL := 0
 const STATE_CHASE := 1
 const STATE_RETURN := 2
+const SFX_RIFLE := "res://assets/art/audio/rifle_tiro.wav"
+const SFX_RELOAD := "res://assets/art/audio/recarregar.wav"
+const SFX_CRITICAL := "res://assets/art/audio/critical_hit.wav"
+const SFX_PEIXEIRA_DRAW := "res://assets/art/audio/peixeira_draw.wav"
+const SFX_PEIXEIRA_HIT := "res://assets/art/audio/peixeira_hit.wav"
+const SFX_EQUIP_RIFLE := "res://assets/art/audio/equipando_rifle.wav"
+const SFX_COIN := "res://assets/art/audio/moeda_popup.wav"
 
 var failures: Array[String] = []
 
@@ -36,6 +43,7 @@ func _run() -> void:
 		return
 
 	_test_initial_state_and_weapon_switch(exploration)
+	_test_realtime_hud_contract(exploration)
 	_test_reload_rules(exploration)
 	_test_auto_attack_while_moving(exploration)
 	_test_rifle_rules(exploration)
@@ -61,14 +69,51 @@ func _test_initial_state_and_weapon_switch(exploration: Node) -> void:
 	_expect(int(exploration.get("rifle_reserve_ammo")) == 10, "A reserva deve começar com 10 balas.")
 	_expect(int(exploration.get("current_weapon")) == WEAPON_RIFLE, "O Rifle deve ser a arma inicial.")
 
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_toggle_weapon")), "Q deve trocar do Rifle para a Peixeira.")
+	_expect(_count_sfx(SFX_PEIXEIRA_DRAW) == 1, "Trocar para Peixeira deve tocar o saque uma vez.")
 	_expect(int(exploration.get("current_weapon")) == WEAPON_KNIFE, "A Peixeira deve ficar equipada.")
+	_clear_sfx_players()
 	_expect(not bool(exploration.call("_toggle_weapon")), "Q não deve trocar novamente durante o cooldown.")
+	_expect(_count_sfx(SFX_PEIXEIRA_DRAW) == 0, "Troca bloqueada não deve repetir o saque da Peixeira.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 0, "Troca bloqueada não deve tocar o equipamento do Rifle.")
 	exploration.call("_advance_timers", 0.49)
 	_expect(not bool(exploration.call("_toggle_weapon")), "O cooldown de troca deve durar pelo menos 0,5 s.")
 	exploration.call("_advance_timers", 0.02)
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_toggle_weapon")), "Q deve voltar a funcionar após 0,5 s.")
+	_expect(_count_sfx(SFX_PEIXEIRA_DRAW) == 0, "Trocar para Rifle não deve tocar o saque da Peixeira.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 1, "Trocar da Peixeira para Rifle deve tocar o equipamento uma vez.")
 	_expect(int(exploration.get("current_weapon")) == WEAPON_RIFLE, "A segunda troca válida deve reequipar o Rifle.")
+
+
+func _test_realtime_hud_contract(exploration: Node) -> void:
+	var hud := exploration.get_node_or_null("Interface/RealtimeHUD") as Control
+	_expect(hud != null, "A exploração deve manter o RealtimeHUD compartilhado.")
+	if hud == null:
+		return
+	hud.size = Vector2(768.0, 512.0)
+	_expect(hud.mouse_filter == Control.MOUSE_FILTER_IGNORE, "O HUD não deve capturar mouse.")
+	_expect(hud.focus_mode == Control.FOCUS_NONE, "O HUD não deve receber foco.")
+	_expect(hud.get_child_count() == 0, "O HUD v5 não deve criar filhos interativos.")
+	var constants: Dictionary = hud.get_script().get_script_constant_map()
+	_expect(constants.get("MEDALLION_PLACEHOLDER", "") == "—", "O medalhão deve permanecer sem nível numérico.")
+	_expect(int(constants.get("PLACEHOLDER_SLOT_COUNT", 0)) == 6, "A grade visual deve conter seis slots vazios.")
+	_expect(constants.get("MINIMAP_SIZE", Vector2.ZERO) == Vector2(128.0, 142.0), "O painel de minimapa estático deve ocupar 128x142 px.")
+	var chrome_atlas := constants.get("HUD_CHROME_ATLAS") as Texture2D
+	var content_atlas := constants.get("HUD_CONTENT_ATLAS") as Texture2D
+	_expect(chrome_atlas != null and chrome_atlas.get_size() == Vector2(768.0, 256.0), "O atlas chrome modular deve carregar em 768x256 px.")
+	_expect(content_atlas != null and content_atlas.get_size() == Vector2(768.0, 256.0), "O atlas de conteúdo modular deve carregar em 768x256 px.")
+	_expect(hud.call("_main_panel_rect") == Rect2(220.0, 346.0, 280.0, 142.0), "O painel de combate deve respeitar 280x142 px no canvas 768x512.")
+	_expect(hud.call("_next_weapon_name", "RIFLE") == "PEIXEIRA", "Q deve derivar Peixeira como a próxima arma do Rifle.")
+	_expect(hud.call("_next_weapon_name", "PEIXEIRA") == "RIFLE", "Q deve derivar Rifle como a próxima arma da Peixeira.")
+	hud.call("set_hud_state", 73, 110, 100, 100, "RIFLE", 2, 5, 8, 3, true, false, true, 0.5, 1.5)
+	_expect(int(hud.get("player_hp")) == 73 and int(hud.get("player_max_hp")) == 110, "Vida do HUD deve preservar os dados recebidos.")
+	_expect(int(hud.get("rifle_ammo")) == 2 and int(hud.get("rifle_reserve_ammo")) == 8, "Munição do HUD deve preservar pente e reserva.")
+	_expect(int(hud.get("lapada_charges")) == 3 and bool(hud.get("lapada_ready")), "Lapada deve preservar cargas e estado pronto.")
+	_expect(bool(hud.get("reloading")) and is_equal_approx(float(hud.get("reload_remaining")), 0.5), "Recarga deve preservar o tempo restante.")
+	hud.call("set_hud_state", 73, 110, 100, 100, "PEIXEIRA", 2, 5, 8, 3, true, false, false, 0.0, 1.5)
+	_expect(str(hud.get("weapon_name")) == "PEIXEIRA" and not bool(hud.get("reloading")), "Peixeira deve atualizar a apresentação sem estado de recarga.")
 
 
 func _test_reload_rules(exploration: Node) -> void:
@@ -77,7 +122,9 @@ func _test_reload_rules(exploration: Node) -> void:
 	var capanga := exploration.get_node("CapangaAnchor") as Node2D
 	exploration.set("rifle_ammo", 2)
 	exploration.set("rifle_reserve_ammo", 10)
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_start_reload")), "R deve iniciar a recarga manual de um pente incompleto.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "Iniciar a recarga deve tocar o WAV uma vez durante a barra.")
 	_expect(bool(exploration.get("is_reloading")), "A recarga deve permanecer ativa por 1,5 s.")
 	_expect(not bool(exploration.call("_toggle_weapon")), "Q deve ser bloqueado durante a recarga.")
 	_expect(not bool(exploration.call("_attempt_lapada_seca")), "A Lapada deve ser bloqueada durante a recarga.")
@@ -92,7 +139,9 @@ func _test_reload_rules(exploration: Node) -> void:
 	_expect(bool(exploration.get("is_reloading")), "Dano comum não deve interromper a recarga.")
 	exploration.call("_advance_timers", 0.99)
 	_expect(int(exploration.get("rifle_ammo")) == 2, "As balas só devem entrar no pente ao final dos 1,5 s.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "A recarga em andamento não deve repetir o WAV.")
 	exploration.call("_advance_timers", 0.02)
+	_expect(_count_sfx(SFX_RELOAD) == 1, "Concluir a recarga não deve repetir o WAV iniciado com a barra.")
 	_expect(not bool(exploration.get("is_reloading")), "A recarga deve terminar após 1,5 s.")
 	_expect(int(exploration.get("rifle_ammo")) == 5, "A recarga deve completar o pente até 5 balas.")
 	_expect(int(exploration.get("rifle_reserve_ammo")) == 7, "Somente 3 balas devem sair da reserva.")
@@ -101,12 +150,31 @@ func _test_reload_rules(exploration: Node) -> void:
 	exploration.set("rifle_ammo", 0)
 	exploration.set("rifle_reserve_ammo", 4)
 	exploration.set("heavy_warning_active", true)
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_start_reload")), "A recarga deve iniciar com pente vazio e reserva disponível.")
 	exploration.call("_advance_timers", 0.70)
 	_expect(bool(exploration.call("_attempt_parry")), "Espaço deve cancelar a recarga e executar um aparo válido.")
 	_expect(not bool(exploration.get("is_reloading")), "O aparo deve cancelar o temporizador de recarga.")
 	_expect(int(exploration.get("rifle_ammo")) == 0, "Cancelar antes do fim não deve inserir balas no pente.")
 	_expect(int(exploration.get("rifle_reserve_ammo")) == 4, "Cancelar antes do fim não deve gastar a reserva.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "Cancelar a recarga não deve iniciar uma segunda reprodução.")
+
+	_reset_state(exploration)
+	_clear_sfx_players()
+	_expect(not bool(exploration.call("_start_reload")), "Pente cheio deve recusar a recarga.")
+	_expect(_count_sfx(SFX_RELOAD) == 0, "Pente cheio deve permanecer silencioso.")
+	exploration.set("rifle_ammo", 2)
+	exploration.set("rifle_reserve_ammo", 0)
+	_expect(not bool(exploration.call("_start_reload")), "Reserva vazia deve recusar a recarga.")
+	_expect(_count_sfx(SFX_RELOAD) == 0, "Reserva vazia deve permanecer silenciosa.")
+	exploration.set("rifle_reserve_ammo", 3)
+	exploration.set("current_weapon", WEAPON_KNIFE)
+	_expect(not bool(exploration.call("_start_reload")), "Peixeira equipada deve recusar a recarga.")
+	_expect(_count_sfx(SFX_RELOAD) == 0, "Arma errada deve permanecer silenciosa.")
+	exploration.set("current_weapon", WEAPON_RIFLE)
+	exploration.set("stun_remaining", 0.7)
+	_expect(not bool(exploration.call("_start_reload")), "Atordoamento deve recusar a recarga.")
+	_expect(_count_sfx(SFX_RELOAD) == 0, "Estado bloqueado deve permanecer silencioso.")
 
 	_reset_state(exploration)
 	exploration.set("rifle_ammo", 0)
@@ -142,7 +210,9 @@ func _test_rifle_rules(exploration: Node) -> void:
 	_reset_state(exploration)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(6, 10))
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "O Rifle deve alcançar exatamente 5 tiles.")
+	_expect(_count_sfx(SFX_RIFLE) == 1, "Um disparo efetuado deve tocar o WAV do Rifle uma vez.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 125.0), "Disparo normal deve causar 25 de dano.")
 	exploration.call("_advance_timers", 1.19)
 	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "O Rifle não deve atacar antes de 1,2 s.")
@@ -152,13 +222,18 @@ func _test_rifle_rules(exploration: Node) -> void:
 	_reset_state(exploration)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(7, 10))
+	_clear_sfx_players()
 	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "O Rifle não deve alcançar 6 tiles.")
+	_expect(_count_sfx(SFX_RIFLE) == 0, "Ataque fora do alcance não deve tocar o Rifle.")
 	_expect(int(exploration.get("rifle_ammo")) == 5, "Ataque fora do alcance não deve gastar munição.")
 
 	_reset_state(exploration)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(6, 10))
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_attempt_auto_attack", 0.10, 0.10)), "O Rifle deve aceitar um roll crítico determinístico.")
+	_expect(_count_sfx(SFX_CRITICAL) == 1, "Crítico confirmado deve tocar o novo WAV uma vez.")
+	_expect(_count_synth_sfx("hit") == 1, "Crítico de Rifle deve manter o impacto básico como camada.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 110.0), "Crítico de Rifle deve causar 40 de dano.")
 	var critical_popup := _last_popup(exploration)
 	_expect(bool(critical_popup.get("bold", false)), "O número crítico deve ser desenhado em negrito.")
@@ -168,7 +243,9 @@ func _test_rifle_rules(exploration: Node) -> void:
 	_reset_state(exploration)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(6, 10))
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_attempt_auto_attack", 0.95, 0.10)), "Um disparo dentro do alcance deve ser executado mesmo quando erra.")
+	_expect(_count_sfx(SFX_CRITICAL) == 0, "Disparo errado não deve tocar o crítico.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 150.0), "Disparo errado não deve causar dano.")
 	_expect(int(exploration.get("rifle_ammo")) == 4, "Disparo errado também deve consumir uma bala.")
 
@@ -179,7 +256,9 @@ func _test_rifle_rules(exploration: Node) -> void:
 		exploration.set("player_attack_cooldown", 0.0)
 		exploration.call("_attempt_auto_attack", 0.95, 0.50)
 	_expect(int(exploration.get("rifle_ammo")) == 0, "Cinco disparos devem esgotar o Rifle.")
+	_clear_sfx_players()
 	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.50)), "O Rifle não deve atacar sem munição.")
+	_expect(_count_sfx(SFX_RIFLE) == 0, "Rifle sem munição não deve tocar o disparo.")
 
 
 func _test_knife_rules(exploration: Node) -> void:
@@ -190,7 +269,9 @@ func _test_knife_rules(exploration: Node) -> void:
 	exploration.set("current_weapon", WEAPON_KNIFE)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(2, 10))
+	_clear_sfx_players()
 	_expect(bool(exploration.call("_attempt_auto_attack", 0.95, 0.50)), "A Peixeira deve alcançar exatamente 1 tile.")
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 1, "Contato da Peixeira deve tocar o golpe uma vez.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 130.0), "Peixeira normal deve causar 20 de dano e sempre acertar.")
 	exploration.call("_advance_timers", 0.79)
 	_expect(not bool(exploration.call("_attempt_auto_attack", 0.95, 0.50)), "A Peixeira não deve atacar antes de 0,8 s.")
@@ -201,13 +282,18 @@ func _test_knife_rules(exploration: Node) -> void:
 	exploration.set("current_weapon", WEAPON_KNIFE)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(3, 10))
+	_clear_sfx_players()
 	_expect(not bool(exploration.call("_attempt_auto_attack", 0.10, 0.10)), "A Peixeira não deve alcançar 2 tiles.")
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 0, "Golpe no vazio não deve tocar o impacto da Peixeira.")
 
 	_reset_state(exploration)
 	exploration.set("current_weapon", WEAPON_KNIFE)
 	player.position = exploration.call("_cell_to_world", Vector2i(1, 10))
 	capanga.position = exploration.call("_cell_to_world", Vector2i(2, 10))
+	_clear_sfx_players()
 	exploration.call("_attempt_auto_attack", 0.95, 0.10)
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 1, "Crítico da Peixeira deve manter o impacto básico.")
+	_expect(_count_sfx(SFX_CRITICAL) == 1, "Crítico da Peixeira deve adicionar uma única camada crítica.")
 	_expect(is_equal_approx(float(exploration.get("capanga_hp")), 120.0), "Crítico de Peixeira deve causar 30 de dano.")
 
 
@@ -385,6 +471,7 @@ func _test_capanga_defeat(exploration: Node, game_state: Node) -> void:
 	exploration.set("current_weapon", WEAPON_KNIFE)
 	exploration.set("capanga_hp", 20.0)
 	var player_hp_before := int(exploration.get("player_hp"))
+	_clear_sfx_players()
 	exploration.call("_attempt_auto_attack", 0.95, 0.50)
 
 	_expect(not bool(exploration.get("capanga_active")), "O Capanga deve desaparecer ao chegar a 0 HP.")
@@ -393,6 +480,7 @@ func _test_capanga_defeat(exploration: Node, game_state: Node) -> void:
 	exploration.call("_advance_capanga_attack", 5.0)
 	_expect(int(exploration.get("player_hp")) == player_hp_before, "O Capanga morto não deve voltar a atacar.")
 	_expect(is_zero_approx(float(exploration.get("capanga_hp"))), "O Capanga morto não deve regenerar.")
+	_expect(_count_sfx(SFX_COIN) == 1, "Recompensa positiva exibida deve tocar a moeda uma vez.")
 
 
 func _reset_state(exploration: Node) -> void:
@@ -445,6 +533,31 @@ func _last_popup(exploration: Node) -> Dictionary:
 	if popups.is_empty():
 		return {}
 	return popups[popups.size() - 1]
+
+
+func _clear_sfx_players() -> void:
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SFXPlayer_"):
+			child.stop()
+			child.stream = null
+
+
+func _count_sfx(resource_path: String) -> int:
+	var count := 0
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.stream != null and child.stream.resource_path == resource_path:
+			count += 1
+	return count
+
+
+func _count_synth_sfx(sound_name: String) -> int:
+	var audio_manager := root.get_node("AudioManager")
+	var target_stream: AudioStream = (audio_manager.get("_synth_cache") as Dictionary).get(sound_name)
+	var count := 0
+	for child in audio_manager.get_children():
+		if child is AudioStreamPlayer and child.stream == target_stream:
+			count += 1
+	return count
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -395,14 +395,14 @@ func _show_boss_enemy_damage(amount: int, critical: bool = false, lapada: bool =
 		popup_size = 28
 		popup_bold = true
 		_play_boss_audio("lapada")
-	elif critical:
-		popup_text = "CRÍTICO!  -%d" % amount
-		popup_color = COLOR_CRITICAL_DAMAGE
-		popup_size = 26
-		popup_bold = true
-		_play_boss_audio("critical")
 	else:
-		_play_boss_audio("hit")
+		_play_boss_audio("peixeira_hit" if selected_attack == AttackType.KNIFE else "hit")
+		if critical:
+			popup_text = "CRÍTICO!  -%d" % amount
+			popup_color = COLOR_CRITICAL_DAMAGE
+			popup_size = 26
+			popup_bold = true
+			_play_boss_audio("critical")
 	boss_impact_color = popup_color
 	_spawn_boss_popup(popup_text, Vector2(548.0, 190.0), popup_color, popup_size, popup_bold)
 
@@ -431,11 +431,18 @@ func _play_boss_audio(sound_name: String) -> void:
 	var audio_manager := get_tree().root.get_node("AudioManager")
 	match sound_name:
 		"shoot": audio_manager.call("play_shoot")
-		"knife": audio_manager.call("play_knife")
+		"equip_rifle": audio_manager.call("play_equip_rifle")
+		"peixeira_draw": audio_manager.call("play_peixeira_draw")
+		"peixeira_hit": audio_manager.call("play_peixeira_hit")
 		"hit": audio_manager.call("play_hit")
 		"critical": audio_manager.call("play_critical")
 		"lapada": audio_manager.call("play_lapada_seca")
 		"parry": audio_manager.call("play_parry")
+		"reload_complete": audio_manager.call("play_reload_complete")
+		"enemy_death": audio_manager.call("play_enemy_death")
+		"health_potion": audio_manager.call("play_health_potion")
+		"dungeon_player_death": audio_manager.call("play_dungeon_player_death")
+		"dungeon_boss_victory": audio_manager.call("play_dungeon_boss_victory")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -612,7 +619,12 @@ func _select_attack(attack_type: int) -> void:
 	if not player_turn:
 		return
 
+	var previous_attack := selected_attack
 	selected_attack = attack_type
+	if selected_attack == AttackType.KNIFE and previous_attack != AttackType.KNIFE:
+		_play_boss_audio("peixeira_draw")
+	elif selected_attack == AttackType.RIFLE and previous_attack == AttackType.KNIFE:
+		_play_boss_audio("equip_rifle")
 	if boss_mode:
 		GameState.set_current_weapon(
 			GameState.WEAPON_KNIFE
@@ -656,6 +668,7 @@ func _attempt_reload() -> bool:
 			else "A reserva está vazia."
 		)
 		return false
+	_play_boss_audio("reload_complete")
 	boss_phase = BossPhase.PLAYER_ACTION
 	_end_player_turn("Recarga: %d bala(s) transferida(s)." % transferred)
 	return true
@@ -688,6 +701,7 @@ func _attempt_health_potion_boss() -> bool:
 		return false
 
 	var healed := int(potion_result.get("healed", 0))
+	_play_boss_audio("health_potion")
 	hero_hp = GameState.player_hp
 	boss_potion_used_this_turn = true
 	_retry_boss_ground_drops()
@@ -791,7 +805,12 @@ func _attempt_boss_attack(
 		notice = "Pente vazio — recarregue ou use a Peixeira."
 		return false
 
+	var previous_attack := selected_attack
 	selected_attack = attack_type
+	if attack_type == AttackType.KNIFE and previous_attack != AttackType.KNIFE:
+		_play_boss_audio("peixeira_draw")
+	elif attack_type == AttackType.RIFLE and previous_attack == AttackType.KNIFE:
+		_play_boss_audio("equip_rifle")
 	GameState.set_current_weapon(
 		GameState.WEAPON_KNIFE
 		if attack_type == AttackType.KNIFE
@@ -817,7 +836,6 @@ func _attempt_boss_attack(
 			result_text = "Rifle: %d de dano." % rifle_damage
 			_show_boss_enemy_damage(rifle_damage)
 	else:
-		_play_boss_audio("knife")
 		var knife_damage := GameState.get_knife_damage(KNIFE_DAMAGE)
 		capanga_hp = maxi(0, capanga_hp - knife_damage)
 		result_text = "Peixeira: %d de dano." % knife_damage
@@ -889,6 +907,7 @@ func _attempt_attack(
 
 	var result_text := ""
 	if attack_type == AttackType.RIFLE:
+		_play_boss_audio("shoot")
 		if boss_mode:
 			GameState.set_rifle_ammo(GameState.rifle_ammo - 1)
 		var rifle_result := _resolve_rifle(hit_roll, critical_roll)
@@ -900,12 +919,16 @@ func _attempt_attack(
 			if boss_mode:
 				GameState.add_lapada_charge()
 			result_text = "Crítico: %d de dano." % rifle_damage
+			_play_boss_audio("hit")
+			_play_boss_audio("critical")
 		else:
 			result_text = "Dano: %d." % rifle_damage
+			_play_boss_audio("hit")
 	else:
 		var knife_damage := GameState.get_knife_damage(KNIFE_DAMAGE)
 		capanga_hp = maxi(0, capanga_hp - knife_damage)
 		result_text = "Peixeira: %d de dano." % knife_damage
+		_play_boss_audio("peixeira_hit")
 
 	if not boss_mode:
 		selected_attack = AttackType.NONE
@@ -1129,6 +1152,7 @@ func _complete_encounter(attack_result: String) -> void:
 
 	encounter_transitioning = true
 	player_turn = false
+	_play_boss_audio("enemy_death")
 	GameState.complete_active_encounter()
 	SaveManager.save_active_slot()
 	notice = "%s Capanga derrotado — retornando à exploração." % attack_result
@@ -1144,6 +1168,7 @@ func _return_to_exploration() -> void:
 
 func _complete_boss_encounter(attack_result: String) -> void:
 	capanga_hp = 0
+	_play_boss_audio("enemy_death")
 	player_turn = false
 	boss_phase = BossPhase.CHECK_KO
 	boss_charge_warning_active = false
@@ -1153,6 +1178,8 @@ func _complete_boss_encounter(attack_result: String) -> void:
 	var reward_granted := GameState.complete_dungeon()
 	_grant_boss_loot()
 	SaveManager.save_active_slot(SaveManager.CHECKPOINT_COMPLETED)
+	if reward_granted:
+		_play_boss_audio("dungeon_boss_victory")
 	victory_visible = true
 	notice = (
 		"%s Cabra-Cabriola derrotada — recompensa de %d ouros."
@@ -1226,6 +1253,9 @@ func _advance_boss_ground_drops(delta: float) -> void:
 
 
 func _show_boss_defeat() -> void:
+	if boss_defeat_visible:
+		return
+	_play_boss_audio("dungeon_player_death")
 	hero_hp = 0
 	player_turn = false
 	boss_phase = BossPhase.CHECK_KO

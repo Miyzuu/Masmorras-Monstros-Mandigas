@@ -35,12 +35,6 @@ func _test_audio_manager() -> void:
 	_expect(is_equal_approx(float(audio_mgr.call("get_sfx_volume")), 0.65), "O volume SFX deve ser ajustável.")
 
 	# Teste dos metodos semanticos de audio
-	var shoot_player = audio_mgr.call("play_sfx", "shoot")
-	_expect(shoot_player != null, "play_sfx('shoot') deve retornar um player ativo.")
-
-	var knife_player = audio_mgr.call("play_sfx", "knife")
-	_expect(knife_player != null, "play_sfx('knife') deve retornar um player ativo.")
-
 	var step_player = audio_mgr.call("play_sfx", "step")
 	_expect(step_player != null, "play_sfx('step') deve retornar um player ativo.")
 
@@ -50,18 +44,43 @@ func _test_audio_manager() -> void:
 	var hit_player = audio_mgr.call("play_sfx", "hit")
 	_expect(hit_player != null, "play_sfx('hit') deve retornar um player ativo.")
 
-	var crit_player = audio_mgr.call("play_sfx", "critical")
-	_expect(crit_player != null, "play_sfx('critical') deve retornar um player ativo.")
+	var file_specs := [
+		["play_shoot", [0.0], "res://assets/art/audio/rifle_tiro.wav", 0.0],
+		["play_lapada_seca", [], "res://assets/art/audio/lapada_seca.wav", -2.0],
+		["play_reload_complete", [], "res://assets/art/audio/recarregar.wav", -1.0],
+		["play_enemy_death", [], "res://assets/art/audio/corpo_caindo_morte.wav", -3.0],
+		["play_health_potion", [], "res://assets/art/audio/bebendo_pocao.wav", -2.0],
+		["play_critical", [], "res://assets/art/audio/critical_hit.wav", -3.0],
+		["play_peixeira_draw", [], "res://assets/art/audio/peixeira_draw.wav", -5.0],
+		["play_peixeira_hit", [], "res://assets/art/audio/peixeira_hit.wav", -1.0],
+		["play_equip_rifle", [], "res://assets/art/audio/equipando_rifle.wav", 0.0],
+		["play_equip_armor", [], "res://assets/art/audio/equipando_armadura.wav", 0.0],
+		["play_dungeon_open", [], "res://assets/art/audio/abrindo_masmorra.wav", 0.0],
+		["play_shop_open", [], "res://assets/art/audio/abrir_loja.wav", 0.0],
+		["play_dungeon_player_death", [], "res://assets/art/audio/morte_jogador_masmorra.wav", 0.0],
+		["play_coin_popup", [], "res://assets/art/audio/moeda_popup.wav", 0.0],
+		["play_dungeon_boss_victory", [], "res://assets/art/audio/vitoria_boss_masmorra.wav", 0.0],
+	]
+	for spec in file_specs:
+		var file_player := audio_mgr.callv(str(spec[0]), spec[1]) as AudioStreamPlayer
+		_expect(file_player != null, "%s deve retornar um player ativo." % spec[0])
+		if file_player == null:
+			continue
+		_expect(file_player.stream.resource_path == spec[2], "%s deve usar o WAV integrado." % spec[0])
+		_expect(is_equal_approx(file_player.volume_db, float(spec[3])), "%s deve usar o volume definido." % spec[0])
+		if spec[0] == "play_reload_complete":
+			_expect(absf(file_player.stream.get_length() - 1.326) < 0.002, "O SFX aprovado de recarga deve durar aproximadamente 1,326 s.")
+			_expect(file_player.stream.get_length() <= 1.5, "O SFX de recarga deve permanecer dentro dos 1,5 s.")
+		elif spec[0] == "play_peixeira_draw":
+			_expect(absf(file_player.stream.get_length() - 0.632) < 0.002, "O saque revisado da Peixeira deve durar aproximadamente 0,632 s.")
+		file_player.stop()
+		file_player.stream = null
+	_expect(audio_mgr.call("play_sfx", "shoot") == null, "O disparo antigo não deve voltar ao procedural.")
+	_expect(audio_mgr.call("play_sfx", "knife") == null, "O golpe antigo da Peixeira não deve voltar ao procedural.")
+	_expect(audio_mgr.call("play_sfx", "critical") == null, "O crítico antigo não deve voltar ao procedural.")
+	_expect(audio_mgr.call("play_sfx", "sfx_inexistente") == null, "SFX ausente deve falhar sem interromper o jogo.")
 
-	var lapada_player = audio_mgr.call("play_sfx", "lapada_seca")
-	_expect(lapada_player != null, "play_sfx('lapada_seca') deve retornar um player ativo.")
-	if lapada_player != null:
-		_expect(
-			is_equal_approx(float(lapada_player.volume_db), 4.0),
-			"O efeito da Lapada Seca deve usar o volume próprio de +4 dB."
-		)
-
-	for player_value in [shoot_player, knife_player, step_player, parry_player, hit_player, crit_player, lapada_player]:
+	for player_value in [step_player, parry_player, hit_player]:
 		var player := player_value as AudioStreamPlayer
 		if player != null:
 			player.stop()

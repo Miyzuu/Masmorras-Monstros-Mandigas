@@ -1,5 +1,8 @@
 extends SceneTree
 
+const SFX_EQUIP_ARMOR := "res://assets/art/audio/equipando_armadura.wav"
+const SFX_HEALTH_POTION := "res://assets/art/audio/bebendo_pocao.wav"
+
 var failures: Array[String] = []
 
 
@@ -10,7 +13,9 @@ func _initialize() -> void:
 func _run() -> void:
 	var game_state := root.get_node("GameState")
 	_test_inventory_and_potion(game_state)
+	_test_health_potion_audio(game_state)
 	_test_equipment_and_attributes(game_state)
+	_test_explicit_equipment_audio(game_state)
 	_test_loot(game_state)
 	_test_save_compatibility(game_state)
 	_finish(game_state)
@@ -63,6 +68,68 @@ func _test_equipment_and_attributes(game_state: Node) -> void:
 	_expect(int(game_state.get("player_hp")) == 100, "Remover Vigor deve limitar a vida ao novo máximo.")
 	var equipped_again: Dictionary = game_state.call("equip_inventory_item", 0)
 	_expect(bool(equipped_again.get("success", false)), "A armadura guardada deve poder ser reequipada.")
+
+
+func _test_health_potion_audio(game_state: Node) -> void:
+	game_state.call("reset_session")
+	game_state.call("add_inventory_item", "health_potion", 1)
+	game_state.call("set_player_hp", 40)
+	var inventory_ui_script := load("res://scripts/inventory_ui.gd") as GDScript
+	_expect(inventory_ui_script != null, "A interface de inventário deve carregar para testar a poção.")
+	if inventory_ui_script == null:
+		return
+	var inventory_ui := inventory_ui_script.new() as Control
+	root.add_child(inventory_ui)
+
+	_clear_sfx_players()
+	inventory_ui.call("_use_health_potion")
+	_expect(_count_sfx(SFX_HEALTH_POTION) == 1, "Consumir poção pela interface deve tocar o WAV uma vez.")
+
+	game_state.call("add_inventory_item", "health_potion", 1)
+	game_state.call("set_player_hp", game_state.call("get_player_max_hp"))
+	_clear_sfx_players()
+	inventory_ui.call("_use_health_potion")
+	_expect(_count_sfx(SFX_HEALTH_POTION) == 0, "Poção não consumida não deve tocar o WAV.")
+	inventory_ui.free()
+
+
+func _test_explicit_equipment_audio(game_state: Node) -> void:
+	game_state.call("reset_session")
+	game_state.call("acquire_armor", "armor_head")
+	game_state.call("unequip_armor", "head")
+	var inventory_ui_script := load("res://scripts/inventory_ui.gd") as GDScript
+	_expect(inventory_ui_script != null, "A interface de inventário deve carregar para testar equipamento explícito.")
+	if inventory_ui_script == null:
+		return
+	var inventory_ui := inventory_ui_script.new() as Control
+	_clear_sfx_players()
+	root.add_child(inventory_ui)
+	_expect(_count_sfx(SFX_EQUIP_ARMOR) == 0, "Abrir ou carregar o inventário não deve tocar armadura.")
+
+	_clear_sfx_players()
+	inventory_ui.call("_activate_inventory_slot", 0)
+	_expect(_count_sfx(SFX_EQUIP_ARMOR) == 1, "Equipar armadura explicitamente deve tocar o WAV uma vez.")
+	_clear_sfx_players()
+	inventory_ui.call("_activate_inventory_slot", 0)
+	_expect(_count_sfx(SFX_EQUIP_ARMOR) == 0, "Falha ao equipar não deve tocar o WAV.")
+	inventory_ui.call("_unequip_slot", "head")
+	_expect(_count_sfx(SFX_EQUIP_ARMOR) == 0, "Remover armadura não deve tocar o som de equipamento.")
+	inventory_ui.free()
+
+
+func _clear_sfx_players() -> void:
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SFXPlayer_"):
+			child.stop()
+			child.stream = null
+
+
+func _count_sfx(resource_path: String) -> int:
+	var count := 0
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.stream != null and child.stream.resource_path == resource_path:
+			count += 1
+	return count
 
 
 func _test_loot(game_state: Node) -> void:

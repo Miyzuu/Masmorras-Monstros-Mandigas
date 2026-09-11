@@ -778,11 +778,17 @@ func _play_audio(sound_name: String) -> void:
 		var mgr := get_tree().root.get_node("AudioManager")
 		match sound_name:
 			"shoot": mgr.call("play_shoot")
-			"knife": mgr.call("play_knife")
+			"equip_rifle": mgr.call("play_equip_rifle")
+			"peixeira_draw": mgr.call("play_peixeira_draw")
+			"peixeira_hit": mgr.call("play_peixeira_hit")
 			"parry": mgr.call("play_parry")
 			"hit": mgr.call("play_hit")
 			"critical": mgr.call("play_critical")
 			"lapada_seca": mgr.call("play_lapada_seca")
+			"reload_complete": mgr.call("play_reload_complete")
+			"enemy_death": mgr.call("play_enemy_death")
+			"coin_popup": mgr.call("play_coin_popup")
+			"dungeon_player_death": mgr.call("play_dungeon_player_death")
 			"ui_click": mgr.call("play_ui_click")
 			"ui_hover": mgr.call("play_ui_hover")
 			"door": mgr.call("play_door_open")
@@ -826,10 +832,11 @@ func _toggle_weapon() -> bool:
 		return false
 	current_weapon = Weapon.KNIFE if current_weapon == Weapon.RIFLE else Weapon.RIFLE
 	weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
-	_play_audio("ui_click")
 	if current_weapon == Weapon.RIFLE:
+		_play_audio("equip_rifle")
 		_update_combat_status("Rifle equipado — ataques automáticos em até 5 tiles.")
 	else:
+		_play_audio("peixeira_draw")
 		_update_combat_status("Peixeira equipada — ataques automáticos em 1 tile.")
 	_update_hud()
 	return true
@@ -856,6 +863,7 @@ func _start_reload() -> bool:
 
 	is_reloading = true
 	reload_remaining = RIFLE_RELOAD_DURATION
+	_play_audio("reload_complete")
 	_update_combat_status("RECARREGANDO — mova; ataque/E/Q bloqueados.")
 	_update_hud()
 	return true
@@ -868,7 +876,6 @@ func _complete_reload() -> int:
 	reload_remaining = 0.0
 	var transferred_ammo: int = GameState.reload_rifle_magazine()
 	if transferred_ammo > 0:
-		_play_audio("ui_click")
 		_update_combat_status("Recarga concluída — pente %d/%d, reserva %d." % [
 			rifle_ammo,
 			RIFLE_STARTING_AMMO,
@@ -939,8 +946,6 @@ func _attempt_auto_attack(hit_roll: float = -1.0, critical_roll: float = -1.0) -
 	if current_weapon == Weapon.RIFLE:
 		GameState.consume_rifle_round()
 		_play_audio("shoot")
-	else:
-		_play_audio("knife")
 
 	if skip_next_player_attack:
 		skip_next_player_attack = false
@@ -979,12 +984,12 @@ func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true
 		return
 	capanga_hp = maxf(0.0, capanga_hp - float(amount))
 	capanga_hit_flash_remaining = HIT_FLASH_DURATION
-	if critical:
-		if play_impact_audio:
+	if play_impact_audio:
+		_play_audio("peixeira_hit" if current_weapon == Weapon.KNIFE else "hit")
+		if critical:
 			_play_audio("critical")
+	if critical:
 		_trigger_screenshake(0.5)
-	elif play_impact_audio:
-		_play_audio("hit")
 	_spawn_popup(
 		str(amount),
 		capanga_anchor.position,
@@ -1004,7 +1009,10 @@ func _damage_capanga(amount: int, critical: bool, play_impact_audio: bool = true
 
 
 func _defeat_capanga() -> void:
+	if not capanga_active:
+		return
 	capanga_active = false
+	_play_audio("enemy_death")
 	capanga_path.clear()
 	enemy_projectiles.clear()
 	heavy_warning_active = false
@@ -1031,10 +1039,10 @@ func _enemy_armor_drop() -> String:
 
 func _grant_common_enemy_loot(armor_item_id: String, drop_position: Vector2) -> void:
 	var loot := GameState.generate_common_enemy_loot(armor_item_id)
-	inventory_ui.show_notification(
-		"+%d moedas" % int(loot.get("gold", 0)),
-		GameState.ITEM_COIN
-	)
+	var gold_reward := int(loot.get("gold", 0))
+	if gold_reward > 0:
+		inventory_ui.show_notification("+%d moedas" % gold_reward, GameState.ITEM_COIN)
+		_play_audio("coin_popup")
 	var item_offset := 0
 	for item_value in loot.get("items", []):
 		var item_id := str(item_value)
@@ -1111,6 +1119,9 @@ func _damage_player(amount: int) -> bool:
 
 
 func _handle_player_defeat() -> void:
+	if defeat_prompt_visible:
+		return
+	_play_audio("dungeon_player_death")
 	movement_path.clear()
 	path_index = 0
 	has_destination = false
