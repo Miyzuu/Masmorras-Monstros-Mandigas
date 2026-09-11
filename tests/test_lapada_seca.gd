@@ -3,6 +3,7 @@ extends SceneTree
 const WEAPON_RIFLE := 0
 const WEAPON_KNIFE := 1
 const CAPANGA_ID := "capanga_01"
+const SFX_LAPADA_SECA := "res://assets/art/audio/lapada_seca.wav"
 
 var failures: Array[String] = []
 
@@ -72,6 +73,7 @@ func _test_charge_accumulation(exploration: Node, game_state: Node) -> void:
 
 func _test_instant_requirements_and_failures(exploration: Node, game_state: Node) -> void:
 	_reset_state(exploration, game_state)
+	_clear_sfx_players()
 	var capanga := exploration.get_node("CapangaAnchor") as Node2D
 
 	game_state.set("lapada_charges", 2)
@@ -98,10 +100,12 @@ func _test_instant_requirements_and_failures(exploration: Node, game_state: Node
 	_expect(not bool(exploration.call("_attempt_lapada_seca")), "O stun deve bloquear a Lapada.")
 	_expect(int(exploration.get("rifle_ammo")) == 5, "Falhas de condição não devem consumir munição.")
 	_expect(int(game_state.get("lapada_charges")) == 3, "Falhas de condição não devem consumir cargas.")
+	_expect(_count_sfx(SFX_LAPADA_SECA) == 0, "Lapada não executada não deve tocar o WAV.")
 
 
 func _test_instant_firing_and_fatal_damage(exploration: Node, game_state: Node) -> void:
 	_reset_state(exploration, game_state)
+	_clear_sfx_players()
 	game_state.set("lapada_charges", 3)
 	var destination: Vector2 = exploration.call("_cell_to_world", Vector2i(3, 10))
 	exploration.set("movement_path", PackedVector2Array([destination]))
@@ -115,6 +119,7 @@ func _test_instant_firing_and_fatal_damage(exploration: Node, game_state: Node) 
 	_expect(int(game_state.get("lapada_charges")) == 0, "A Lapada deve zerar as 3 cargas.")
 	_expect(bool(game_state.call("is_encounter_defeated", CAPANGA_ID)), "A derrota deve persistir no GameState.")
 	_expect(bool(exploration.get("has_destination")), "A Lapada instantânea não deve interromper o movimento.")
+	_expect(_count_sfx(SFX_LAPADA_SECA) == 1, "Lapada executada deve tocar o WAV uma vez.")
 
 
 func _test_persistence_across_scenes(
@@ -162,6 +167,21 @@ func _reset_state(exploration: Node, game_state: Node) -> void:
 	var popups: Array = exploration.get("combat_popups")
 	popups.clear()
 	exploration.call("_update_hud")
+
+
+func _clear_sfx_players() -> void:
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SFXPlayer_"):
+			child.stop()
+			child.stream = null
+
+
+func _count_sfx(resource_path: String) -> int:
+	var count := 0
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.stream != null and child.stream.resource_path == resource_path:
+			count += 1
+	return count
 
 
 func _expect(condition: bool, message: String) -> void:

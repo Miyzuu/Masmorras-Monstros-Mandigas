@@ -2,14 +2,38 @@ extends Node
 
 ## Autoload de Gerenciamento de Audio com barramentos Master, BGM e SFX.
 ## Inclui sintese de som procedural (AudioStreamWAV) para funcionamento imediato
-## e suporte transparente a arquivos de audio em assets/audio/.
+## e suporte transparente a arquivos de audio em assets/art/audio/.
 
 const BUS_MASTER := "Master"
 const BUS_BGM := "BGM"
 const BUS_SFX := "SFX"
 const SFX_POOL_SIZE := 10
 const SAMPLE_RATE := 22050
-const LAPADA_SECA_VOLUME_DB := 4.0
+const LAPADA_SECA_VOLUME_DB := -2.0
+const RIFLE_SHOT_VOLUME_DB := 0.0
+const RELOAD_VOLUME_DB := -1.0
+const ENEMY_DEATH_VOLUME_DB := -3.0
+const HEALTH_POTION_VOLUME_DB := -2.0
+const CRITICAL_HIT_VOLUME_DB := -3.0
+const PEIXEIRA_DRAW_VOLUME_DB := -5.0
+const PEIXEIRA_HIT_VOLUME_DB := -1.0
+const FILE_SFX_PATHS := {
+	"lapada_seca": "res://assets/art/audio/lapada_seca.wav",
+	"rifle_tiro": "res://assets/art/audio/rifle_tiro.wav",
+	"recarregar": "res://assets/art/audio/recarregar.wav",
+	"corpo_caindo_morte": "res://assets/art/audio/corpo_caindo_morte.wav",
+	"bebendo_pocao": "res://assets/art/audio/bebendo_pocao.wav",
+	"critical_hit": "res://assets/art/audio/critical_hit.wav",
+	"peixeira_draw": "res://assets/art/audio/peixeira_draw.wav",
+	"peixeira_hit": "res://assets/art/audio/peixeira_hit.wav",
+	"equipando_rifle": "res://assets/art/audio/equipando_rifle.wav",
+	"equipando_armadura": "res://assets/art/audio/equipando_armadura.wav",
+	"abrindo_masmorra": "res://assets/art/audio/abrindo_masmorra.wav",
+	"abrir_loja": "res://assets/art/audio/abrir_loja.wav",
+	"morte_jogador_masmorra": "res://assets/art/audio/morte_jogador_masmorra.wav",
+	"moeda_popup": "res://assets/art/audio/moeda_popup.wav",
+	"vitoria_boss_masmorra": "res://assets/art/audio/vitoria_boss_masmorra.wav",
+}
 
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_index := 0
@@ -53,13 +77,9 @@ func _setup_audio_players() -> void:
 
 
 func _pregenerate_procedural_sfx() -> void:
-	_synth_cache["shoot"] = _generate_shoot_sfx()
-	_synth_cache["knife"] = _generate_knife_sfx()
 	_synth_cache["step"] = _generate_step_sfx()
 	_synth_cache["parry"] = _generate_parry_sfx()
 	_synth_cache["hit"] = _generate_hit_sfx()
-	_synth_cache["critical"] = _generate_critical_sfx()
-	_synth_cache["lapada_seca"] = _generate_lapada_seca_sfx()
 	_synth_cache["ui_click"] = _generate_ui_click_sfx()
 	_synth_cache["ui_hover"] = _generate_ui_hover_sfx()
 	_synth_cache["door"] = _generate_door_sfx()
@@ -76,12 +96,7 @@ func play_sfx(sound: Variant, pitch_scale: float = 1.0, volume_db: float = 0.0) 
 		var sound_name := (sound as String).to_lower()
 		if sound_name == "lapada_seca" and is_zero_approx(volume_db):
 			resolved_volume_db = LAPADA_SECA_VOLUME_DB
-		if _synth_cache.has(sound_name):
-			stream = _synth_cache[sound_name]
-		else:
-			var asset_path := "res://assets/audio/%s.wav" % sound_name
-			if ResourceLoader.exists(asset_path):
-				stream = load(asset_path) as AudioStream
+		stream = _resolve_named_sfx(sound_name)
 
 	if stream == null:
 		return null
@@ -94,16 +109,34 @@ func play_sfx(sound: Variant, pitch_scale: float = 1.0, volume_db: float = 0.0) 
 	return player
 
 
+func _resolve_named_sfx(sound_name: String) -> AudioStream:
+	if FILE_SFX_PATHS.has(sound_name):
+		var asset_path := str(FILE_SFX_PATHS[sound_name])
+		if ResourceLoader.exists(asset_path):
+			var asset_stream := load(asset_path) as AudioStream
+			if asset_stream != null:
+				return asset_stream
+	if _synth_cache.has(sound_name):
+		return _synth_cache[sound_name] as AudioStream
+	var legacy_path := "res://assets/audio/%s.wav" % sound_name
+	if ResourceLoader.exists(legacy_path):
+		return load(legacy_path) as AudioStream
+	return null
+
+
 ## Metodos semanticos para os sons principais do jogo
 
-func play_shoot(pitch_random: float = 0.06) -> void:
+func play_shoot(pitch_random: float = 0.06) -> AudioStreamPlayer:
 	var pitch := randf_range(1.0 - pitch_random, 1.0 + pitch_random)
-	play_sfx("shoot", pitch, 0.0)
+	return play_sfx("rifle_tiro", pitch, RIFLE_SHOT_VOLUME_DB)
 
 
-func play_knife(pitch_random: float = 0.08) -> void:
-	var pitch := randf_range(1.0 - pitch_random, 1.0 + pitch_random)
-	play_sfx("knife", pitch, -1.0)
+func play_peixeira_draw() -> AudioStreamPlayer:
+	return play_sfx("peixeira_draw", 1.0, PEIXEIRA_DRAW_VOLUME_DB)
+
+
+func play_peixeira_hit() -> AudioStreamPlayer:
+	return play_sfx("peixeira_hit", 1.0, PEIXEIRA_HIT_VOLUME_DB)
 
 
 func play_step(pitch_random: float = 0.12) -> void:
@@ -120,12 +153,52 @@ func play_hit(pitch_random: float = 0.08) -> void:
 	play_sfx("hit", pitch, 0.0)
 
 
-func play_critical() -> void:
-	play_sfx("critical", 1.0, 3.0)
+func play_critical() -> AudioStreamPlayer:
+	return play_sfx("critical_hit", 1.0, CRITICAL_HIT_VOLUME_DB)
 
 
-func play_lapada_seca() -> void:
-	play_sfx("lapada_seca", 1.0, LAPADA_SECA_VOLUME_DB)
+func play_lapada_seca() -> AudioStreamPlayer:
+	return play_sfx("lapada_seca", 1.0, LAPADA_SECA_VOLUME_DB)
+
+
+func play_reload_complete() -> AudioStreamPlayer:
+	return play_sfx("recarregar", 1.0, RELOAD_VOLUME_DB)
+
+
+func play_enemy_death() -> AudioStreamPlayer:
+	return play_sfx("corpo_caindo_morte", 1.0, ENEMY_DEATH_VOLUME_DB)
+
+
+func play_health_potion() -> AudioStreamPlayer:
+	return play_sfx("bebendo_pocao", 1.0, HEALTH_POTION_VOLUME_DB)
+
+
+func play_equip_rifle() -> AudioStreamPlayer:
+	return play_sfx("equipando_rifle")
+
+
+func play_equip_armor() -> AudioStreamPlayer:
+	return play_sfx("equipando_armadura")
+
+
+func play_dungeon_open() -> AudioStreamPlayer:
+	return play_sfx("abrindo_masmorra")
+
+
+func play_shop_open() -> AudioStreamPlayer:
+	return play_sfx("abrir_loja")
+
+
+func play_dungeon_player_death() -> AudioStreamPlayer:
+	return play_sfx("morte_jogador_masmorra")
+
+
+func play_coin_popup() -> AudioStreamPlayer:
+	return play_sfx("moeda_popup")
+
+
+func play_dungeon_boss_victory() -> AudioStreamPlayer:
+	return play_sfx("vitoria_boss_masmorra")
 
 
 func play_ui_click() -> void:
@@ -202,45 +275,6 @@ func _create_pcm_stream(samples: PackedByteArray) -> AudioStreamWAV:
 	return stream
 
 
-func _generate_shoot_sfx() -> AudioStreamWAV:
-	var duration := 0.32
-	var total_samples := int(SAMPLE_RATE * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(total_samples * 2)
-
-	for i in range(total_samples):
-		var t := float(i) / float(SAMPLE_RATE)
-		var progress := t / duration
-		var env := exp(-progress * 12.0)
-		var noise := randf_range(-1.0, 1.0)
-		var low_thump := sin(2.0 * PI * 65.0 * (1.0 - progress * 0.5) * t)
-		var sample_val := (noise * 0.75 + low_thump * 0.45) * env
-		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
-		bytes.encode_s16(i * 2, sample_16)
-
-	return _create_pcm_stream(bytes)
-
-
-func _generate_knife_sfx() -> AudioStreamWAV:
-	var duration := 0.18
-	var total_samples := int(SAMPLE_RATE * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(total_samples * 2)
-
-	for i in range(total_samples):
-		var t := float(i) / float(SAMPLE_RATE)
-		var progress := t / duration
-		var env := sin(progress * PI) * exp(-progress * 6.0)
-		var freq := 800.0 + (1.0 - progress) * 1400.0
-		var sine_val := sin(2.0 * PI * freq * t)
-		var noise := randf_range(-0.5, 0.5)
-		var sample_val := (sine_val * 0.7 + noise * 0.3) * env
-		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
-		bytes.encode_s16(i * 2, sample_16)
-
-	return _create_pcm_stream(bytes)
-
-
 func _generate_step_sfx() -> AudioStreamWAV:
 	var duration := 0.08
 	var total_samples := int(SAMPLE_RATE * duration)
@@ -258,8 +292,6 @@ func _generate_step_sfx() -> AudioStreamWAV:
 		bytes.encode_s16(i * 2, sample_16)
 
 	return _create_pcm_stream(bytes)
-
-
 func _generate_parry_sfx() -> AudioStreamWAV:
 	var duration := 0.42
 	var total_samples := int(SAMPLE_RATE * duration)
@@ -293,26 +325,6 @@ func _generate_hit_sfx() -> AudioStreamWAV:
 		var punch := sin(2.0 * PI * 110.0 * (1.0 - progress * 0.8) * t)
 		var crunch := randf_range(-0.4, 0.4)
 		var sample_val := (punch * 0.7 + crunch * 0.3) * env
-		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
-		bytes.encode_s16(i * 2, sample_16)
-
-	return _create_pcm_stream(bytes)
-
-
-func _generate_critical_sfx() -> AudioStreamWAV:
-	var duration := 0.48
-	var total_samples := int(SAMPLE_RATE * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(total_samples * 2)
-
-	for i in range(total_samples):
-		var t := float(i) / float(SAMPLE_RATE)
-		var progress := t / duration
-		var env_impact := exp(-progress * 14.0)
-		var env_ring := exp(-progress * 5.0)
-		var sub := sin(2.0 * PI * 55.0 * t) * env_impact
-		var metal := (sin(2.0 * PI * 1320.0 * t) * 0.6 + sin(2.0 * PI * 2200.0 * t) * 0.4) * env_ring
-		var sample_val := sub * 0.6 + metal * 0.5
 		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
 		bytes.encode_s16(i * 2, sample_16)
 
@@ -367,32 +379,6 @@ func _generate_door_sfx() -> AudioStreamWAV:
 		var env := exp(-progress * 8.0)
 		var creak := sin(2.0 * PI * (180.0 + sin(t * 40.0) * 50.0) * t)
 		var sample_val := creak * env * 0.6
-		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
-		bytes.encode_s16(i * 2, sample_16)
-
-	return _create_pcm_stream(bytes)
-
-
-func _generate_lapada_seca_sfx() -> AudioStreamWAV:
-	var duration := 0.65
-	var total_samples := int(SAMPLE_RATE * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(total_samples * 2)
-
-	for i in range(total_samples):
-		var t := float(i) / float(SAMPLE_RATE)
-		var progress := t / duration
-		var env_impact := exp(-progress * 10.0)
-		var env_thunder := exp(-progress * 4.5)
-		var env_ring := exp(-progress * 3.0)
-		var sub := sin(2.0 * PI * 42.0 * (1.0 - progress * 0.4) * t) * env_impact
-		var noise := randf_range(-1.0, 1.0) * env_thunder
-		var chime := (
-			sin(2.0 * PI * 880.0 * t) * 0.5
-			+ sin(2.0 * PI * 1320.0 * t) * 0.3
-			+ sin(2.0 * PI * 1760.0 * t) * 0.2
-		) * env_ring
-		var sample_val := sub * 0.6 + noise * 0.5 + chime * 0.4
 		var sample_16 := int(clampf(sample_val, -1.0, 1.0) * 32767.0)
 		bytes.encode_s16(i * 2, sample_16)
 

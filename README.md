@@ -3,7 +3,8 @@
 Protótipo de **Pindorama Fantástica**, um RPG em Godot 4 com exploração e
 combate comum em tempo real, além de batalhas táticas reservadas aos chefes.
 
-**Versão atual publicada:** `V.0.3.7` (main, tag e GitHub Pages).
+**Versão atual do checkout:** `V.0.3.9` (release local; tag e publicação pendentes).
+**Versão publicada:** `V.0.3.7` (main, tag e GitHub Pages).
 
 O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
@@ -27,7 +28,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 - combate contra o Capanga diretamente no mapa, sem troca de cena;
 - Cangaceiro com 100 HP e Capanga com 150 HP;
 - barra de vida do herói no rodapé e barra inimiga acima do alvo;
-- HUD compartilhada entre exploração e masmorra, centralizada no rodapé;
+- HUD v5 modular compartilhada entre exploração e masmorra, com atlases próprios
+  e estado real de combate no rodapé;
 - HUD superior minimalista com ouro atual no canto esquerdo e demonstrativos
   `06:00`, clima `Seco` e região `Sertão`, sem sistema de tempo/clima nesta etapa;
 - avisos temporários de combate no canto superior direito e notificações de
@@ -143,7 +145,8 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
   silhuetas provisórias;
 - passos sincronizados por distância, com áudio e poeira na exploração e na masmorra;
 - disparos do Rifle com faíscas e fumaça, além de hit-flash por shader;
-- áudio procedural para tiro, Peixeira, Lapada Seca, passos, impactos, crítico, aparo, porta e interface;
+- SFX em WAV para ações de combate, equipamento, poção, recompensas e masmorra;
+  passos, impacto básico, aparo, porta e interface preservam áudio procedural;
 - HUD e caixas de diálogo com tema de xilogravura e couro;
 - menu de pausa com Continuar, Configurações, lista completa de Controles e
   saída da masmorra; **Sair para o Menu Inicial** exige confirmação e preserva
@@ -174,9 +177,9 @@ O escopo aprovado está em [`GDD_MVP.md`](GDD_MVP.md).
 
 ## Próxima decisão
 
-Após a publicação da `V.0.3.7`, a próxima fatia proposta é uma única variedade
-real de armadura para comparação, sem alterar a estrutura do inventário. Ela
-ainda requer aprovação própria.
+Após o fechamento local da `V.0.3.9`, a Loja permanece como fatia separada e
+pendente. O WAV e o método de abertura estão preparados, mas não existe UI,
+tecla, compra ou venda nesta entrega; a implementação requer autorização própria.
 
 ## Como executar
 

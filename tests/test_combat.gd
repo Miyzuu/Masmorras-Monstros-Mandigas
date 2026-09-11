@@ -2,6 +2,16 @@ extends SceneTree
 
 const ATTACK_RIFLE := 1
 const ATTACK_KNIFE := 2
+const BOSS_PHASE_PLAYER_CHOICE := 0
+const SFX_RIFLE := "res://assets/art/audio/rifle_tiro.wav"
+const SFX_RELOAD := "res://assets/art/audio/recarregar.wav"
+const SFX_CRITICAL := "res://assets/art/audio/critical_hit.wav"
+const SFX_PEIXEIRA_DRAW := "res://assets/art/audio/peixeira_draw.wav"
+const SFX_PEIXEIRA_HIT := "res://assets/art/audio/peixeira_hit.wav"
+const SFX_EQUIP_RIFLE := "res://assets/art/audio/equipando_rifle.wav"
+const SFX_DUNGEON_DEATH := "res://assets/art/audio/morte_jogador_masmorra.wav"
+const SFX_COIN := "res://assets/art/audio/moeda_popup.wav"
+const SFX_BOSS_VICTORY := "res://assets/art/audio/vitoria_boss_masmorra.wav"
 
 var failures: Array[String] = []
 
@@ -38,6 +48,8 @@ func _run() -> void:
 	_test_rifle_range(combat)
 	_test_shot_obstacles(combat)
 	_test_capanga_action(combat)
+	_test_legacy_nonboss_sfx(combat)
+	_test_boss_sfx(combat, game_state)
 	_test_defeat_reset(combat, game_state)
 	_test_victory(combat, game_state)
 
@@ -162,6 +174,144 @@ func _test_capanga_action(combat: Node) -> void:
 	combat.call("_run_capanga_action")
 	_expect(combat.get("capanga_cell") == Vector2i(2, 8), "O Capanga deve avançar no máximo 3 casas.")
 	_expect(int(combat.get("hero_hp")) == 85, "O Capanga deve atacar ao terminar adjacente.")
+
+
+func _test_legacy_nonboss_sfx(combat: Node) -> void:
+	combat.call("_reset_combat", "Teste de áudio legado do Rifle normal.")
+	combat.set("hero_cell", Vector2i(0, 9))
+	combat.set("capanga_cell", Vector2i(7, 9))
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_attack", ATTACK_RIFLE, 0.10, 0.50)), "O encontro legado deve aceitar o Rifle normal.")
+	_expect(_count_sfx(SFX_RIFLE) == 1, "Rifle normal legado deve tocar um único disparo.")
+	_expect(_count_synth_sfx("hit") == 1, "Rifle normal legado deve tocar um único impacto básico.")
+	_expect(_count_sfx(SFX_CRITICAL) == 0, "Rifle normal legado não deve tocar crítico.")
+
+	combat.call("_reset_combat", "Teste de áudio legado do Rifle crítico.")
+	combat.set("hero_cell", Vector2i(0, 9))
+	combat.set("capanga_cell", Vector2i(7, 9))
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_attack", ATTACK_RIFLE, 0.10, 0.10)), "O encontro legado deve aceitar o Rifle crítico.")
+	_expect(_count_sfx(SFX_RIFLE) == 1, "Rifle crítico legado deve tocar um único disparo.")
+	_expect(_count_synth_sfx("hit") == 1, "Rifle crítico legado deve manter um único impacto básico.")
+	_expect(_count_sfx(SFX_CRITICAL) == 1, "Rifle crítico legado deve tocar uma única camada crítica.")
+
+	combat.call("_reset_combat", "Teste de erro legado do Rifle.")
+	combat.set("hero_cell", Vector2i(0, 9))
+	combat.set("capanga_cell", Vector2i(7, 9))
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_attack", ATTACK_RIFLE, 0.95, 0.10)), "O disparo legado perdido ainda deve ser efetuado.")
+	_expect(_count_sfx(SFX_RIFLE) == 1, "Rifle legado perdido deve tocar somente o disparo.")
+	_expect(_count_synth_sfx("hit") == 0, "Rifle legado perdido não deve tocar impacto.")
+	_expect(_count_sfx(SFX_CRITICAL) == 0, "Rifle legado perdido não deve tocar crítico.")
+
+	combat.call("_reset_combat", "Teste de áudio legado da Peixeira.")
+	combat.set("hero_cell", Vector2i(1, 8))
+	combat.set("capanga_cell", Vector2i(2, 8))
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_attack", ATTACK_KNIFE)), "O contato legado da Peixeira deve ser aceito.")
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 1, "Contato legado da Peixeira deve tocar um único impacto.")
+
+	combat.call("_reset_combat", "Teste inválido legado da Peixeira.")
+	combat.set("hero_cell", Vector2i(1, 8))
+	combat.set("capanga_cell", Vector2i(3, 8))
+	_clear_sfx_players()
+	_expect(not bool(combat.call("_attempt_attack", ATTACK_KNIFE)), "Peixeira legado fora do alcance deve ser rejeitada.")
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 0, "Peixeira legado sem contato deve permanecer silenciosa.")
+
+
+func _test_boss_sfx(combat: Node, game_state: Node) -> void:
+	_prepare_boss_choice(combat)
+	_clear_sfx_players()
+	combat.call("_select_attack", ATTACK_KNIFE)
+	combat.call("_select_attack", ATTACK_KNIFE)
+	_expect(_count_sfx(SFX_PEIXEIRA_DRAW) == 1, "Selecionar Peixeira repetidamente deve tocar um único saque.")
+	_clear_sfx_players()
+	combat.call("_select_attack", ATTACK_RIFLE)
+	combat.call("_select_attack", ATTACK_RIFLE)
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 1, "Voltar da Peixeira ao Rifle deve tocar um único equipamento.")
+
+	_prepare_boss_choice(combat)
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_boss_attack", ATTACK_KNIFE)), "O golpe adjacente da Peixeira no chefe deve ser aceito.")
+	_expect(_count_sfx(SFX_PEIXEIRA_DRAW) == 1, "Atacar ao trocar para Peixeira deve tocar um único saque.")
+	_expect(_count_sfx(SFX_PEIXEIRA_HIT) == 1, "Dano confirmado da Peixeira deve tocar um único impacto.")
+
+	_prepare_boss_choice(combat)
+	combat.set("selected_attack", ATTACK_KNIFE)
+	game_state.call("set_rifle_ammo", 5)
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_boss_attack", ATTACK_RIFLE, 0.10, 0.10)), "O chefe deve aceitar um disparo crítico determinístico.")
+	_expect(_count_sfx(SFX_EQUIP_RIFLE) == 1, "Ataque direto ao trocar para Rifle deve tocar um único equipamento.")
+	_expect(_count_sfx(SFX_RIFLE) == 1, "Disparo confirmado contra o chefe deve tocar o Rifle uma vez.")
+	_expect(_count_sfx(SFX_CRITICAL) == 1, "Crítico confirmado contra o chefe deve tocar uma única camada crítica.")
+	_expect(_count_synth_sfx("hit") == 1, "Crítico contra o chefe deve manter o impacto básico.")
+
+	_prepare_boss_choice(combat)
+	game_state.call("set_rifle_ammo", 2)
+	game_state.call("set_rifle_reserve_ammo", 3)
+	_clear_sfx_players()
+	_expect(bool(combat.call("_attempt_reload")), "A recarga válida do chefe deve transferir munição.")
+	_expect(_count_sfx(SFX_RELOAD) == 1, "Recarga válida do chefe deve tocar a conclusão uma vez.")
+
+	_prepare_boss_choice(combat)
+	game_state.call("set_rifle_ammo", 5)
+	_clear_sfx_players()
+	_expect(not bool(combat.call("_attempt_reload")), "Pente cheio deve bloquear a recarga do chefe.")
+	_expect(_count_sfx(SFX_RELOAD) == 0, "Recarga bloqueada do chefe deve permanecer silenciosa.")
+
+	_prepare_boss_choice(combat)
+	_clear_sfx_players()
+	combat.call("_show_boss_defeat")
+	combat.call("_show_boss_defeat")
+	_expect(_count_sfx(SFX_DUNGEON_DEATH) == 1, "Derrota do chefe deve tocar a morte do jogador uma única vez.")
+
+	game_state.call("reset_session")
+	game_state.call("begin_dungeon", Vector2.ZERO, 100, 5, 0)
+	_prepare_boss_choice(combat)
+	_clear_sfx_players()
+	combat.call("_complete_boss_encounter", "Teste.")
+	_expect(_count_sfx(SFX_BOSS_VICTORY) == 1, "Primeira conclusão do chefe deve tocar a vitória uma vez.")
+	_expect(_count_sfx(SFX_COIN) == 0, "Recompensa do chefe não deve sobrepor o popup de moeda à vitória.")
+	combat.call("_complete_boss_encounter", "Teste repetido.")
+	_expect(_count_sfx(SFX_BOSS_VICTORY) == 1, "Conclusão repetida não deve repetir o som de vitória.")
+	combat.set("boss_mode", false)
+	game_state.call("reset_session")
+	game_state.call("begin_encounter", "capanga_01", Vector2.ZERO)
+	combat.call("_reset_combat", "Retorno aos testes do Capanga.")
+
+
+func _prepare_boss_choice(combat: Node) -> void:
+	combat.call("_reset_combat", "Teste de áudio do chefe.")
+	combat.set("boss_mode", true)
+	combat.set("boss_phase", BOSS_PHASE_PLAYER_CHOICE)
+	combat.set("player_turn", true)
+	combat.set("capanga_hp", 250)
+	combat.set("selected_attack", ATTACK_RIFLE)
+
+
+func _clear_sfx_players() -> void:
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SFXPlayer_"):
+			child.stop()
+			child.stream = null
+
+
+func _count_sfx(resource_path: String) -> int:
+	var count := 0
+	for child in root.get_node("AudioManager").get_children():
+		if child is AudioStreamPlayer and child.stream != null and child.stream.resource_path == resource_path:
+			count += 1
+	return count
+
+
+func _count_synth_sfx(sound_name: String) -> int:
+	var audio_manager := root.get_node("AudioManager")
+	var target_stream: AudioStream = (audio_manager.get("_synth_cache") as Dictionary).get(sound_name)
+	var count := 0
+	for child in audio_manager.get_children():
+		if child is AudioStreamPlayer and child.stream == target_stream:
+			count += 1
+	return count
 
 
 func _test_defeat_reset(combat: Node, game_state: Node) -> void:

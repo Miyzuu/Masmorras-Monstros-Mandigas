@@ -204,6 +204,7 @@ func _activate_inventory_slot(index: int) -> void:
 				var message := "Equipado: %s" % GameState.get_item_name(item_id)
 				show_notification(message, item_id)
 				inventory_changed.emit(message)
+				_play_armor_equip_sound()
 			else:
 				show_notification("Não foi possível equipar esta peça.", item_id)
 
@@ -231,7 +232,7 @@ func _use_health_potion() -> void:
 		var message := "Poção usada: +%d Vida" % healed
 		show_notification(message, GameState.ITEM_HEALTH_POTION)
 		inventory_changed.emit(message)
-		_play_ui_sound("click")
+		_play_health_potion_sound()
 		return
 	match str(result.get("reason", "")):
 		"full_health": show_notification("Vida já está cheia.", GameState.ITEM_HEALTH_POTION)
@@ -471,3 +472,13 @@ func _play_ui_sound(sound_name: String) -> void:
 		audio_manager.call("play_ui_hover")
 	else:
 		audio_manager.call("play_ui_click")
+
+
+func _play_health_potion_sound() -> void:
+	if is_inside_tree() and get_tree().root.has_node("AudioManager"):
+		get_tree().root.get_node("AudioManager").call("play_health_potion")
+
+
+func _play_armor_equip_sound() -> void:
+	if is_inside_tree() and get_tree().root.has_node("AudioManager"):
+		get_tree().root.get_node("AudioManager").call("play_equip_armor")
